@@ -2,11 +2,12 @@
 
 class ZRPragma
 {
+
 	private const configDefault = [
 		'debug' => false,
 		'generate.target' => null,
 		'generate.prefix' => null,
-		'cleaned' => null,
+		'cleaned' => null
 	];
 
 	private array $config;
@@ -14,6 +15,8 @@ class ZRPragma
 	private string $filePath;
 
 	private int $line_n = 0;
+
+	private int $char_n = 0;
 
 	public function __construct(string $filePath, array $config = [])
 	{
@@ -43,32 +46,264 @@ class ZRPragma
 		return $ret;
 	}
 
-	public function nextPragma($file)
+	private function parseArgs(string $args): array
 	{
+		$args .= ' ';
+		$len = strlen($args);
+		$ret = [];
+		$state = 0;
+		$i = 0;
+
+		$p = &$ret;
+
+		$buffer = '';
+
+		$pStack = [];
+		$stateStack = [];
+		$skipChar = false;
+
+		$fpush = function (array &$stack, &$val) {
+			$stack[] = &$val;
+		};
+		$fpop = function &(array &$stack) {
+			$pos = count($stack) - 1;
+			$val = &$stack[$pos];
+			unset($stack[$pos]);
+			return $val;
+		};
+
+		for (; $i < $len; $i ++) {
+			$c = $args[$i];
+
+			// echo "$c state($state) buffer($buffer)\n";
+
+			switch ($state) {
+			case 0:
+				if (ctype_space($c));
+				elseif ($c === '"') {
+					$state = 20;
+				}
+				elseif ($c == '{') {
+					$p[] = [];
+					$fpush($pStack, $p);
+					$p = &$p[count($p) - 1];
+				}
+				elseif ($c === '}') {
+					$stackDepth = count($pStack);
+
+					if ($stackDepth === 0)
+						throw new \InvalidArgumentException("Invalid ')' character");
+
+					$p = &$fpop($pStack);
+				}
+				else {
+					$buffer = $c;
+					$state = 10;
+				}
+				break;
+
+			// A word is read
+			case 10:
+				if (ctype_space($c) || $c === '}') {
+					$p[] = $buffer;
+					$buffer = '';
+					$state = 0;
+					$i --;
+				}
+				else
+					$buffer .= $c;
+				break;
+
+			// String
+			case 20:
+
+				if ($skipChar) {
+					$skipChar = false;
+					$buffer .= $c;
+				}
+				elseif ($c === "\\")
+					$skipChar = true;
+				elseif ($c === '"') {
+					$p[] = $buffer;
+					$buffer = '';
+					$state = 0;
+				}
+				else
+					$buffer .= $c;
+
+				break;
+			}
+		}
+		return $ret;
+	}
+
+	private function parseException(?string $msg): void
+	{
+		throw new \RuntimeException("$this->filePath: line($this->line_n) char($this->char_n) $msg");
+	}
+
+	private function skipJunk($file): void
+	{
+		while (true) {
+			$this->char_n ++;
+			$c = fgetc($file);
+
+			if ($c === false)
+				return;
+
+			if ($c === "\n") {
+				$this->line_n ++;
+				$this->char_n = 0;
+			}
+			elseif ($c == '/') {
+				$this->skipComment($file);
+			}
+			elseif (ctype_space($c)) {}
+			else {
+				fseek($file, - 1, SEEK_CUR);
+				return;
+			}
+		}
+	}
+
+	/*
+	 * A '/' as been read
+	 */
+	private function skipComment($file)
+	{
+		$state = 0;
+		while (true) {
+			$this->char_n ++;
+			$c = fgetc($file);
+
+			if ($c === false)
+				$this->parseException("Waited for comment; end of file reached");
+
+			if ($c === "\n") {
+				$this->line_n ++;
+				$this->char_n = 0;
+			}
+			switch ($state) {
+
+			// Comment ?
+			case 0:
+				if ('/' === $c)
+					$state = 1;
+				elseif ('*' === $c)
+					$state = 100;
+				else
+					$this->parseException("Waited for comment");
+				break;
+			case 1:
+				if ("\n" === $c)
+					return;
+				break;
+			// Multiline comment
+			case 100:
+				if ('*' === $c)
+					$state ++;
+				break;
+			case 101:
+
+				if ('/' === $c)
+					return;
+				elseif ('*' === $c);
+				else
+					$state --;
+				break;
+			}
+		}
+	}
+
+	/**
+	 * At begin next char of $file must be the start of a line
+	 */
+	public function nextDefineOrFunction($file): array
+	{
+		$this->skipJunk($file);
+		$c = fgetc($file);
+		fseek($file, - 1, SEEK_CUR);
+
+		if ($c === '#') {
+			return $this->nextDefine($file);
+		}
+		return $this->nextCFunction($file);
+	}
+
+	public function nextMacro($file, array $allowed = [])
+	{
+		$this->skipJunk($file);
+
 		while (true) {
 			$this->line_n ++;
 			$pos = \ftell($file);
 			$line_s = \fgets($file);
+			$line_len = \strlen($line_s);
 
 			if (false === $line_s)
 				return false;
 
+			$line_s = trim($line_s);
+
 			if ('#' !== ($line_s[0] ?? null))
 				continue;
 
-			$words = \preg_split("/[\s]+/", \trim(\substr($line_s, 1)));
+			$words = \preg_split("/\s+/", \trim(\substr($line_s, 1)), 2);
 
-			if (\array_shift($words) !== 'pragma' || \array_shift($words) !== 'zrlib')
+			if (! \in_array(\array_shift($words), $allowed))
 				continue;
 
-			$action = \array_shift($words);
 			return [
 				'pos' => $pos,
 				'line' => $this->line_n,
-				'action' => $action,
-				'query' => $words,
-				'len' => \strlen($line_s)
+				'query' => \array_shift($words),
+				'len' => $line_len,
 			];
+		}
+	}
+
+	public function nextDefine($file)
+	{
+		$define = $this->nextMacro($file, [
+			"define"
+		]);
+		if ($define === false)
+			return false;
+
+		$query = $define['query'];
+		unset($define['query']);
+
+		if (1 !== preg_match("/^(\w+)\(([^\)]*)\)(.*)$/", $query, $matches))
+			return false;
+
+		$args = preg_split("/[\s,]+/", $matches[2]);
+		$define += [
+			'name' => $matches[1],
+			'arguments' => $args,
+			'define' => trim($matches[3])
+		];
+		return $define;
+	}
+
+	public function nextPragma($file)
+	{
+		while (true) {
+			$ret = $this->nextMacro($file, [
+				'pragma'
+			]);
+
+			if ($ret === false)
+				return false;
+
+			$query = $ret['query'];
+			$query = \preg_split("/\s+/", $ret['query'], 3);
+
+			if ('zrlib' !== \array_shift($query))
+				continue;
+
+			$ret['action'] = \array_shift($query);
+			$ret['query'] = $this->parseArgs(\trim(\array_shift($query)));
+			return $ret;
 		}
 	}
 
@@ -163,6 +398,8 @@ class ZRPragma
 		$pragmas = [];
 
 		while (false !== ($pragma = $this->nextPragma($file))) {
+			echo "{$pragma['line']} $this->filePath \n";
+
 			try {
 				$pragma = $this->process_pragma($pragma, $file);
 			} catch (\Exception $e) {
@@ -201,7 +438,7 @@ class ZRPragma
 
 	private function makeArg(string $carg): array
 	{
-		\preg_match("/^(\w+[\s\*]*(?:\w+\s+)*)\(*[\(\s\*]*(\w+)/", $carg, $match);
+		\preg_match("/^(\w+[\s\*]*(?:\w+\s+)*)\(*[\(\s\*]*(\w*)/", $carg, $match);
 		return [
 			'type' => \rtrim($match[1]),
 			'name' => $match[2],
@@ -209,7 +446,7 @@ class ZRPragma
 		];
 	}
 
-	public function getNextCFunction($file)
+	public function nextCFunction($file)
 	{
 		$state = 0;
 		$char_n = 0;
@@ -226,13 +463,11 @@ class ZRPragma
 			}
 		};
 		$fnewArg = function () use (&$args, &$buffer) {
+
 			if ('' !== $buffer) {
 				$args[] = $a = $this->makeArg(trim($buffer));
 				$buffer = '';
 			}
-		};
-		$fexception = function () use (&$char_n) {
-			throw new \RuntimeException("$this->filePath: line($this->line_n) char($char_n) waited for function");
 		};
 		$state_stack = [];
 
@@ -247,7 +482,10 @@ class ZRPragma
 					$char_n = 0;
 				}
 			}
-			// echo "$c state($state)\n";
+			else
+				$read = true;
+
+			// echo (int) $c . ": $c state($state) $read\n";
 
 			if (false === $c)
 				throw new \RuntimeException("End of file '$this->filePath' reached");
@@ -256,12 +494,12 @@ class ZRPragma
 
 			case 0:
 				if ('/' === $c) {
-					$state = 1000;
-					\array_push($state_stack, 0);
+					$this->skipJunk($file);
 				}
 				elseif ('#' === $c) {
 					\fgets($file);
-					$fnewLine();
+					$read = false;
+					$c = "\n";
 				}
 				elseif (\ctype_space($c));
 				else {
@@ -276,8 +514,7 @@ class ZRPragma
 
 					if ($c === '/') {
 						$fnewWord();
-						$state = 1000;
-						\array_push($state_stack, 10);
+						$this->skipJunk($file);
 					}
 					elseif ('_' === $c)
 						$buffer .= $c;
@@ -291,7 +528,7 @@ class ZRPragma
 						$state = 20;
 					}
 					else
-						$fexception();
+						$this->parseException("Waited for an argument");
 				}
 				elseif (\ctype_space($c)) {
 					$fnewWord();
@@ -309,8 +546,7 @@ class ZRPragma
 					\array_push($state_stack, 20);
 				}
 				elseif ('/' === $c) {
-					$state = 1000;
-					\array_push($state_stack, 20);
+					$this->skipJunk($file);
 				}
 				elseif (',' === $c)
 					$fnewArg();
@@ -330,35 +566,6 @@ class ZRPragma
 				elseif ('(' === $c)
 					\array_push($state_stack, 21);
 				$buffer .= $c;
-				break;
-
-			// Comment ?
-			case 1000:
-				if ('/' === $c)
-					$state = 1001;
-				elseif ('*' === $c)
-					$state = 1100;
-				else
-					$fexception();
-				break;
-			case 1001:
-				if ("\n" === $c) {
-					$fnewLine();
-					$state = \array_pop($state_stack);
-				}
-				break;
-			// Multiline comment
-			case 1100:
-				if ('*' === $c)
-					$state ++;
-				break;
-			case 1101:
-
-				if ('/' === $c)
-					$state = \array_pop($state_stack);
-				elseif ('*' === $c);
-				else
-					$state --;
 				break;
 			}
 		}

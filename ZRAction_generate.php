@@ -26,9 +26,48 @@ class ZRAction_generate
 		]))
 			throw new \BadMethodCallException("zrlib: action: 'generate' $what not defined");
 
-		$cfun = $this->zrpragma->getNextCFunction($file);
-		$pragma['data'] = $cfun;
+		$query = implode(' ', (array) $query);
+		$thing = $this->zrpragma->nextDefineOrFunction($file);
+		$thingIsDefine = \array_key_exists('define', $thing);
+
+		// Function definition
+		if (0 === preg_match("/^\w+$/", $query)) {
+			$tmpStream = fopen("php:memory", "w+");
+			fwrite($tmpStream, $query);
+			rewind($tmpStream);
+			$pragmaFun = $this->zrpragma->nextCFunction($tmpStream);
+			fclose($tmpStream);
+
+			$nargsa = count($pragmaFun['arguments']);
+			$nargsb = count($thing['arguments']);
+
+			if ($nargsa !== $nargsb)
+				throw new Exception("Pragma function and definition must have the same number of arguments: $nargsb, $nargsa");
+
+			if ($thingIsDefine) {
+
+				for ($i = 0; $i < $nargsa; $i ++) {
+					$thingArg = $thing['arguments'][$i];
+					$pragmaFun['arguments'][$i]['name'] = $thingArg;
+					$pragmaFun['arguments'][$i]['s'] = $pragmaFun['arguments'][$i]['type'] . ' ' . $thingArg;
+				}
+				$pragmaFun['code'] = $thing['define'];
+				$data = $pragmaFun;
+			}
+			else {
+				throw new Exception("A define macro was attempted");
+			}
+		}
+		elseif ($thingIsDefine)
+			throw new Exception("A function was attempted");
+		else {
+			$data = $thing;
+			$data['call'] = $thing['name'];
+			$data['name'] = $query;
+		}
+		$pragma['data'] = $data;
 		$pragma['conf'] = $conf;
+
 		return $pragma;
 	}
 
@@ -37,16 +76,17 @@ class ZRAction_generate
 		$ret = "";
 
 		foreach ($pragmas as $pragma) {
-			$funcName = \array_shift($pragma['query']);
+			$return = \in_array('void', $pragma['data']['qualifiers']) ? null : 'return ';
+			$args = \implode(', ', \array_column($pragma['data']['arguments'], 'name'));
+			$code = $pragma['data']['code'] ?? "{$pragma['data']['call']}($args)";
+			$funcName = $pragma['data']['name'];
 			$qualif = \implode(' ', $this::clean_qualifiers($pragma['data']['qualifiers']));
 			$args_def = \implode(', ', \array_column($pragma['data']['arguments'], 's'));
-			$args = \implode(', ', \array_column($pragma['data']['arguments'], 'name'));
-			$return = \in_array('void', $pragma['data']['qualifiers']) ? null : 'return ';
 			$ret .= <<<"END"
 
 			$qualif {$pragma['conf']['generate.prefix']}$funcName($args_def)
 			{
-				$return{$pragma['data']['name']}($args);
+				$return$code;
 			}
 
 			END;
@@ -69,7 +109,7 @@ class ZRAction_generate
 		$ret = "";
 
 		foreach ($pragmas as $pragma) {
-			$funcName = \array_shift($pragma['query']);
+			$funcName = $pragma['data']['name'];
 			$qualif = \implode(' ', $this::clean_qualifiers($pragma['data']['qualifiers']));
 			$args_def = \implode(', ', \array_column($pragma['data']['arguments'], 's'));
 			$args = \implode(', ', \array_column($pragma['data']['arguments'], 'name'));
@@ -88,7 +128,7 @@ class ZRAction_generate
 		$skip = [];
 
 		foreach ($targets as $target) {
-// 			echo $filePath, \filemtime($filePath), ' ', $target, \filemtime($target), "\n";
+			// echo $filePath, \filemtime($filePath), ' ', $target, \filemtime($target), "\n";
 
 			if ($target === $filePath)
 				$filePathIsTarget = true;
@@ -225,10 +265,10 @@ class ZRAction_generate
 				\fclose($tmpFile);
 			}
 		}
-		
-		if($filePathIsTarget)
+
+		if ($filePathIsTarget)
 			unset($updatedFiles[0]);
-		
+
 		/* Set all updated files to the same mtime */
 		$time = \filemtime($filePath) + 1;
 

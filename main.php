@@ -1,7 +1,10 @@
 <?php
 \spl_autoload_register(function ($class) {
-	$class = \str_replace('\\', '/', $class);
-	include __DIR__ . "/$class.php";
+	$class = __DIR__ . "/$class.php";
+	$file = \str_replace('\\', '/', $class);
+
+	if (\file_exists($file))
+		include $file;
 });
 
 $CONFIG = [
