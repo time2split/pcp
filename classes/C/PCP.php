@@ -7,7 +7,7 @@ namespace C;
  * @author zuri
  * @date 02/07/2022 12:36:56 CEST
  */
-class PCP
+class PCP extends \DataFlow\BasePublisher
 {
 
     private const configDefault = [
@@ -24,8 +24,17 @@ class PCP
 
     public function __construct(string $filePath, array $config = [])
     {
+        parent::__construct();
         $this->filePath = $filePath;
         $this->config = \array_merge(self::configDefault, $config);
+
+        $this->subscribe(new \Action\PCP\EchoAction());
+    }
+
+    private function deliverMessage(\Action\IActionMessage $d)
+    {
+        foreach ($this->getSubscribers() as $s)
+            $s->onMessage($d);
     }
 
     public function getFilePath(): string
@@ -137,13 +146,9 @@ class PCP
         $pragmas = [];
         $cppNameRef = $this->config['cpp.name'];
         $skip = false;
-        $actions = [];
-        $actionList = new \Action\ActionList();
 
         while (false !== ($element = $creader->next())) {
             $cursor = $element['cursor'];
-            error_dump("$cursor $this->filePath \n");
-            error_dump($element);
 
             if ($element['type'] === 'cpp' && $element['directive'] === 'pragma') {
                 $element['arguments'] = \Help\Args::parseString($element['text']);
@@ -168,14 +173,10 @@ class PCP
                     $skip = true;
                     continue;
                 }
-
-                $actions[] = $element;
             } else {
-                foreach ($actions as $action)
-                    $actionList->addAction($action, $element);
+                $this->deliverMessage(Declaration::from($element));
             }
         }
-        $actionList->process();
     }
 
     private function process_pragma(array $pragma, $file)
