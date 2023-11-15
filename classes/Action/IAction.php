@@ -12,4 +12,6 @@ interface IAction extends \DataFlow\ISubscriber
      * @return bool true if the message is delivered.
      */
     function onMessage(IActionMessage $msg): void;
+
+    function onPhase(Phase $phase, $data = null): void;
 }
