@@ -1,8 +1,9 @@
 <?php
 namespace C;
 
-class Declaration
+class Declaration implements \Action\IActionMessage
 {
+
     private DeclarationGroup $group;
 
     private array $e;
@@ -14,15 +15,20 @@ class Declaration
         $this->e = $e;
         $this->uinfos = [];
     }
-    
+
     public static function empty(DeclarationGroup $group)
     {
         return new Declaration($element);
     }
-    
+
     public static function from(array $element)
     {
         return new Declaration($element);
+    }
+
+    public function sendTo(\Action\IAction $action): bool
+    {
+        return $action->deliver($this);
     }
 
     // ========================================================================
