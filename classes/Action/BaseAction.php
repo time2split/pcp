@@ -8,4 +8,7 @@ abstract class BaseAction implements IAction
     {
         $this->onMessage($data);
     }
+
+    public function onPhase(Phase $phase, $data = null): void
+    {}
 }

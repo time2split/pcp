@@ -37,6 +37,12 @@ class PCP extends \DataFlow\BasePublisher
             $s->onMessage($d);
     }
 
+    private function updatePhase(\Action\PhaseName $name, \Action\PhaseState $state, $data = null)
+    {
+        foreach ($this->getSubscribers() as $s)
+            $s->onPhase(\Action\Phase::create($name, $state), null);
+    }
+
     public function getFilePath(): string
     {
         return $this->filePath;
@@ -143,10 +149,12 @@ class PCP extends \DataFlow\BasePublisher
     public function process()
     {
         $creader = new \C\Reader($this->filePath);
+        $this->updatePhase(\Action\PhaseName::ReadingOneFile, \Action\PhaseState::Start, \Action\PhaseData\ReadingOneFile::fromPath($this->filePath));
         $pragmas = [];
         $cppNameRef = $this->config['cpp.name'];
         $skip = false;
 
+        $this->updatePhase(\Action\PhaseName::ReadingOneFile, \Action\PhaseState::Run, \Action\PhaseData\ReadingOneFile::fromPath($this->filePath));
         while (false !== ($element = $creader->next())) {
             $cursor = $element['cursor'];
 
@@ -158,7 +166,7 @@ class PCP extends \DataFlow\BasePublisher
                     ''
                 ];
 
-                // Do not process unknowned #pragma
+                // Do not process unknownn #pragma
                 if ($cppNameRef !== $cppName)
                     continue;
 
@@ -177,6 +185,7 @@ class PCP extends \DataFlow\BasePublisher
                 $this->deliverMessage(Declaration::from($element));
             }
         }
+        $this->updatePhase(\Action\PhaseName::ReadingOneFile, \Action\PhaseState::Stop, \Action\PhaseData\ReadingOneFile::fromPath($this->filePath));
     }
 
     private function process_pragma(array $pragma, $file)
