@@ -26,17 +26,29 @@ final class Args
 
             if ($arg === $endArg)
                 break;
-            if ($arg[0] === '+' || $arg[0] === '-') {
+            if (str_starts_with($arg, '+-')) {
+                $val = [
+                    true,
+                    false
+                ];
+                $name = \substr($arg, 2);
+            } elseif (str_starts_with($arg, '-+')) {
+                $val = [
+                    false,
+                    true
+                ];
+                $name = \substr($arg, 2);
+            } elseif ($arg[0] === '+' || $arg[0] === '-') {
                 $sign = $arg[0];
                 $arg = \substr($arg, 1);
-                list ($name, $val) = self::parseKeyValueArg($argv, $arg);
+                list ($name, $val) = self::parseArgKeyValue($argv, $arg);
 
                 if (\is_int($name)) {
                     $name = $val;
                     $val = ($sign === '+');
                 }
             } else {
-                list ($name, $val) = self::parseKeyValueArg($argv, $arg);
+                list ($name, $val) = self::parseArgKeyValue($argv, $arg);
             }
 
             if (\is_int($name))
@@ -47,24 +59,32 @@ final class Args
         return $ret;
     }
 
-    private static function parseKeyValueArg(array &$argv, string $currentArg): array
+    private static function parseArgKeyValue(array &$argv, string $currentArg): array
     {
         if (false !== \strpos($currentArg, '=')) {
             list ($name, $val) = \explode('=', $currentArg, 2);
             return [
                 $name,
-                $val
+                self::parseArgValue($val)
             ];
         } elseif ($currentArg[\strlen($currentArg) - 1] === ':') {
             return [
                 \substr($currentArg, 0, - 1),
-                \array_shift($argv)
+                self::parseArgValue(\array_shift($argv))
             ];
         } else
             return [
                 0,
-                $currentArg
+                self::parseArgValue($currentArg)
             ];
+    }
+
+    private static function parseArgValue(string $val)
+    {
+        if (\preg_match('#^\s*\[(.*)\]\s*$#', $val, $matches))
+            return \array_map('trim', \preg_split('#\W+#', $matches[1]));
+
+        return $val;
     }
 
     public static function argPrefixed(array $args, string $prefix)

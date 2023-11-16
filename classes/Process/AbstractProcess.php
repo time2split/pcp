@@ -16,5 +16,8 @@ abstract class AbstractProcess
         $this->workingDir = $workingDir;
     }
 
-    abstract public function process(array $conf);
+    protected function process(\Data\TreeConfig $config)
+    {
+        $this->config = $config;
+    }
 }
