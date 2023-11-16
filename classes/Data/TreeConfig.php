@@ -6,14 +6,12 @@ namespace Data;
  * each section of the path is delimited by an internal char delimiter.
  * Each node of the configuration can be set to a value.
  *
+ * A TreeConfig may have a parent which is immutable in which elements can be searched if not present the child.
+ *
  * @author zuri
  */
-final class TreeConfig implements \ArrayAccess
+final class TreeConfig implements \ArrayAccess, \Iterator
 {
-
-    private static $default;
-
-    private static $null = null;
 
     private array $data = [];
 
@@ -21,40 +19,40 @@ final class TreeConfig implements \ArrayAccess
 
     private ?TreeConfig $parent;
 
-    public function __construct(TreeConfig $parent = null, string $delimiter = '.')
+    // ========================================================================
+    private function __construct(?TreeConfig $parent, string $delimiter)
     {
-        if (self::$default === null)
-            self::$default = new \StdClass();
-
         $this->parent = $parent;
         $this->delimiter = $delimiter;
     }
 
-    /**
-     * Transform a configuration array to a TreeConfig.
-     * The transformation occurs recursively with sub-array.
-     * If a sub array is a list, then the list is considered as a simple value and the recursion stop.
-     *
-     * @param array $config
-     *            The configuration data
-     * @return TreeConfig
-     */
-    public static function fromArray(array $config, TreeConfig $parent = null, string $delimiter = '.'): TreeConfig
+    public static function empty(string $delimiter = '.'): self
     {
-        $ret = new TreeConfig($parent, $delimiter);
-
-        \Help\Arrays::walk_branches($config, function ($path, $val) use ($ret) {
-            $ret[\implode($ret->delimiter, $path)] = $val;
-        }, function ($path, $val) use ($ret) {
-            if (\is_array_list($val)) {
-                $ret[\implode($ret->delimiter, $path)] = $val;
-                return false;
-            }
-            return true;
-        });
-        return $ret;
+        return new self(null, $delimiter);
     }
 
+    public static function fromParent(TreeConfig $parent): self
+    {
+        return new self($parent, $parent->delimiter);
+    }
+
+    // ========================================================================
+    public function clearLevel()
+    {
+        $this->data = [];
+    }
+
+    public function getParent(): ?self
+    {
+        return $this->parent;
+    }
+
+    public function child(): self
+    {
+        return self::fromParent($this);
+    }
+
+    // ========================================================================
     private function explodePath(string $key): array
     {
         return \explode($this->delimiter, $key);
@@ -62,14 +60,15 @@ final class TreeConfig implements \ArrayAccess
 
     private function &getData($offset)
     {
-        $val = &\Help\Arrays::follow($this->data, $this->explodePath($offset), self::$default);
+        $val = &\Help\Arrays::follow($this->data, $this->explodePath($offset), \Help\NullValue::v);
 
-        if ($val === self::$default && null !== $this->parent)
-            $val = &$this->getData($offset);
+        if ($val === \Help\NullValue::v) {
 
-        if ($val === self::$default)
-            return self::$null;
-
+            if (isset($this->parent))
+                $val = &$this->parent->getData($offset);
+            else
+                return \Help\NullValue::v;
+        }
         return $val;
     }
 
@@ -78,27 +77,27 @@ final class TreeConfig implements \ArrayAccess
         $val = $this->getData($offset);
         $ret = new TreeConfig(null, $this->delimiter);
 
-        // if ($val === self::$default)
-        // return $ret;
+        if ($val !== \Help\NullValue::v)
+            $ret->data = $val;
 
-        $ret->data = $val;
         return $ret;
     }
 
+    // ========================================================================
     public function offsetExists($offset): bool
     {
-        return self::$default !== \Help\Arrays::follow($this->data, $this->explodePath($offset)) || //
+        return \Help\NullValue::v !== \Help\Arrays::follow($this->data, $this->explodePath($offset)) || //
         (null !== $this->parent && $this->parent->offsetExists($offset));
     }
 
-    public function &offsetGet($offset)
+    public function offsetGet($offset)
     {
         $val = $this->getData($offset);
 
-        if ($val === self::$default)
-            return self::$null;
+        if ($val === \Help\NullValue::v)
+            return null;
         if (\is_array($val))
-            $val = &$val[''] ?? self::$null;
+            $val = $val[''] ?? null;
 
         return $val;
     }
@@ -119,9 +118,9 @@ final class TreeConfig implements \ArrayAccess
     {
         $path = $this->explodePath($offset);
         $last = \array_pop($path);
-        $val = &\Help\Arrays::follow($this->data, $path, self::$default);
+        $val = &\Help\Arrays::follow($this->data, $path, \Help\NullValue::v);
 
-        if ($val === self::$default)
+        if ($val === \Help\NullValue::v)
             return;
 
         unset($val[$last]);
@@ -144,6 +143,38 @@ final class TreeConfig implements \ArrayAccess
         return $ret;
     }
 
+    // ========================================================================
+    private array $itKeys;
+
+    private $itk;
+
+    public function current()
+    {
+        return $this[$this->itk];
+    }
+
+    public function key()
+    {
+        return $this->itk;
+    }
+
+    public function next(): void
+    {
+        $this->itk = \array_pop($this->itKeys);
+    }
+
+    public function rewind(): void
+    {
+        $this->itKeys = \array_reverse($this->keys());
+        $this->itk = \array_pop($this->itKeys);
+    }
+
+    public function valid(): bool
+    {
+        return isset($this->itk);
+    }
+
+    // ========================================================================
     public function merge(TreeConfig $config): void
     {
         foreach ($config->keys() as $k)
@@ -175,5 +206,29 @@ final class TreeConfig implements \ArrayAccess
         foreach ($config as $k => $v)
             if (! isset($this[$k]))
                 $this[$k] = $v;
+    }
+
+    /**
+     * Merge a configuration array into a TreeConfig.
+     * The transformation occurs recursively with sub-array.
+     * If a sub array is a list, then the list is considered as a simple value and the recursion stop.
+     *
+     * @param array $config
+     *            The configuration data
+     * @return TreeConfig
+     */
+    public function arrayMergeRecursive(array $config): void
+    {
+        $ret = $this;
+
+        \Help\Arrays::walk_branches($config, function ($path, $val) use ($ret) {
+            $ret[\implode($ret->delimiter, $path)] = $val;
+        }, function ($path, $val) use ($ret) {
+            if (\is_array_list($val)) {
+                $ret[\implode($ret->delimiter, $path)] = $val;
+                return false;
+            }
+            return true;
+        });
     }
 }

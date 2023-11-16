@@ -4,6 +4,11 @@ require_once __DIR__ . '/classes/autoload.php';
 $CONFIG = [
     'pragmas_fileConfig' => __DIR__ . '/config.php',
     'debug' => false,
+    'debug' => false,
+    'generate.target' => null,
+    'generate.prefix' => null,
+    'cleaned' => null,
+    'cpp.name' => 'zrlib',
     'paths' => [
         'zrlib',
         'src'
@@ -23,7 +28,7 @@ function saveConfig(string $filePath, $config): void
     \file_put_contents($filePath, "<?php return " . \var_export($config, true) . ';');
 }
 
-function getFiles_c(array $CONFIG): array
+function getFiles_c($CONFIG): array
 {
     $files = [];
 
@@ -35,7 +40,7 @@ function getFiles_c(array $CONFIG): array
     return \array_values($files);
 }
 
-function getFiles_php(array $CONFIG): array
+function getFiles_php($CONFIG): array
 {
     $files = [];
 
@@ -47,7 +52,7 @@ function getFiles_php(array $CONFIG): array
     return \array_values($files);
 }
 
-function clean_php(array $files, array $CONFIG)
+function clean_php(array $files, $CONFIG)
 {
     foreach ($files as $file) {
         // Delete the '.php' suffix
@@ -62,7 +67,7 @@ function clean_php(array $files, array $CONFIG)
     }
 }
 
-function clean_c(array $files, array $CONFIG)
+function clean_c(array $files, $CONFIG)
 {
     $confPath = $CONFIG['pragmas_fileConfig'];
     $pragmaConfig = loadConfig($confPath);
@@ -94,17 +99,8 @@ if (! isset($actions[$action]))
 
 $process = new $actions[$action]();
 
-$c = new \Data\TreeConfig();
+$theConfig = \Data\TreeConfig::empty();
+$theConfig->arrayMergeRecursive($CONFIG);
 
-$c['action.target'] = 'invalid';
-$c['action.default'] = 'generate';
-$c['action.target'] = '.';
-$c['action'] = 'test';
-
-$theConfig = \Data\TreeConfig::fromArray($CONFIG);
-$theConfig->merge($c);
-
-// error_dump(\Help\FilePath::parentPaths('/home/zuri/work/prog/C/tests'));
-
-$process->process($CONFIG);
+$process->process($theConfig);
 

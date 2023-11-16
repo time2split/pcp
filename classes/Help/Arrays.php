@@ -220,9 +220,9 @@ final class Arrays
         return true;
     }
 
-    public static function partition(array $array, callable $filter): array
+    public static function partition(array $array, callable $filter, int $mode = 0): array
     {
-        $a = \array_filter($array, $filter);
+        $a = \array_filter($array, $filter, $mode);
         $b = \array_diff_key($array, $a);
         return [
             $a,
