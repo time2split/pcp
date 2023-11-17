@@ -3,11 +3,7 @@ namespace Help;
 
 final class FIO
 {
-    public static function skipSpaces(callable $fgetc, callable $fungetc): int
-    {
-        return self::skipChars($fgetc, $fungetc, '\ctype_space');
-    }
-    
+
     public static function skipChars(callable $fgetc, callable $fungetc, callable $predicate): int
     {
         $nb = 0;
@@ -24,7 +20,7 @@ final class FIO
     public static function getChars(callable $fgetc, callable $fungetc, callable $predicate): ?string
     {
         $ret = '';
-        
+
         while ($predicate($c = $fgetc()))
             $ret .= $c;
 
@@ -36,16 +32,39 @@ final class FIO
 
     public static function skipSimpleDelimitedText(callable $fgetc, string $endDelimiter): void
     {
+        getSimpleDelimitedText($fgetc, $endDelimiter);
+    }
+
+    public static function getCharsUntil(callable $fgetc, $endDelimiter): ?string
+    {
+        if (\is_callable($endDelimiter));
+        elseif (\is_string($endDelimiter)) {
+            $c = \strlen($endDelimiter);
+
+            if (0 === $c)
+                $endDelimiter = fn () => true;
+            elseif (1 === $c)
+                $endDelimiter = fn ($c) => $c === $endDelimiter;
+            else
+                $endDelimiter = fn ($c) => false !== \strpos($endDelimiter, $c);
+        }
+        $ret = '';
         $skip = false;
 
         while (true) {
-            $c = $fgetc($fp);
+            $c = $fgetc();
+
+            if ($c === false)
+                return strlen($ret) > 0 ? $ret : null;
 
             if ($c === '\\')
                 $skip = true;
-            elseif ($c === $endDelimiter && ! $skip)
-                return;
-            elseif ($skip)
+            elseif ($endDelimiter($c) && ! $skip)
+                return $ret;
+            else
+                $ret .= $c;
+
+            if ($skip)
                 $skip = false;
         }
     }
@@ -62,48 +81,10 @@ final class FIO
     public static function isDelimitation(string $c, string $delimiters): ?string
     {
         for ($i = 0, $n = \strlen($delimiters); $i < $n; $i += 2) {
-            
+
             if ($delimiters[$i] === $c)
                 return $delimiters[$i + 1];
         }
         return null;
     }
-
-//     public static function skipDelimitedText(callable $fgetc, string $delimiters)
-//     {
-//         $buff = "";
-//         $skip = false;
-//         $endDelimiters = [];
-//         $endDelimiter = null;
-
-//         while (true) {
-//             $c = $fgetc();
-//             $buff .= $c;
-
-//             if ($c === false)
-//                 return false;
-//             if ($c === '\\')
-//                 $skip = true;
-//             elseif ($c == '/') {
-//                 if ($this->skipComment($fp))
-//                     $buff = \substr($buff, 0, - 1);
-//             } elseif ($c === $endDelimiter && ! $skip) {
-//                 $endDelimiter = \array_pop($endDelimiters);
-
-//                 if (empty($endDelimiter))
-//                     return $buff;
-//             } else {
-
-//                 if ($skip)
-//                     $skip = false;
-
-//                 $end = self::isDelimitation($c, $delimiters);
-
-//                 if (null !== $end) {
-//                     \array_push($endDelimiters, $endDelimiter);
-//                     $endDelimiter = $end;
-//                 }
-//             }
-//         }
-//     }
 }

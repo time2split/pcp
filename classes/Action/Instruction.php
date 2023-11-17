@@ -22,7 +22,7 @@ final class Instruction implements \Action\IActionMessage
 
     public static function fromPragmaString(string $text, string $cppName): ?self
     {
-        $args = \Help\Args::parseString($text);
+        $args = \Action\InstructionArgs::parse($text);
         $cpp = \array_shift($args);
 
         if (0 === \strcasecmp($cpp, $cppName))

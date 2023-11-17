@@ -3,6 +3,7 @@ namespace Help;
 
 final class IO
 {
+
     public static function olderThan(string $a, string $b)
     {
         return \filemtime($a) > \filemtime($b);
@@ -82,6 +83,14 @@ final class IO
         \ob_start();
         $f();
         return \ob_get_clean();
+    }
+
+    public static function stringToStream(string $text)
+    {
+        $stream = \fopen('php://memory', 'r+');
+        fwrite($stream, $text);
+        rewind($stream);
+        return $stream;
     }
 
     // ========================================================================
