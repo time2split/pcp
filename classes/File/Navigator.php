@@ -39,6 +39,10 @@ final class Navigator
     public function getc()
     {
         $c = \fgetc($this->fp);
+
+        if (false === $c)
+            return false;
+
         $this->nlc ++;
         $this->nc ++;
 
@@ -84,5 +88,36 @@ final class Navigator
         // Get the pos in the line
         list ($lpos, $lsize) = $this->cache[$this->nl];
         $this->nlc = $this->nc - $lpos;
+    }
+
+    // ========================================================================
+    public function getChars(callable $predicate): ?string
+    {
+        return \Help\FIO::getChars([
+            $this,
+            'getc'
+        ], [
+            $this,
+            'ungetc'
+        ], $predicate);
+    }
+
+    public function getCharsUntil($endDelimitation): ?string
+    {
+        return \Help\FIO::getCharsUntil([
+            $this,
+            'getc'
+        ], $endDelimitation);
+    }
+
+    public function skipChars(callable $predicate): ?string
+    {
+        return \Help\FIO::skipChars([
+            $this,
+            'getc'
+        ], [
+            $this,
+            'ungetc'
+        ], $predicate);
     }
 }

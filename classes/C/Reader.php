@@ -56,14 +56,6 @@ class Reader
         throw new \RuntimeException("$this->filePath: line($this->line_n) char($this->char_n) $msg");
     }
 
-    private function method(string $name): callable
-    {
-        return [
-            $this,
-            $name
-        ];
-    }
-
     private const C_DELIMITERS = '""\'\'(){}[]';
 
     /*
@@ -117,7 +109,7 @@ class Reader
 
     private function skipSpaces(): void
     {
-        \Help\FIO::skipSpaces($this->method('fgetc'), $this->method('fungetc'));
+        $this->fnav->skipChars('\ctype_space');
     }
 
     private function skipUselessText(): void
@@ -142,7 +134,7 @@ class Reader
 
     private function skipSimpleDelimitedText(string $endDelimiter): void
     {
-        \Help\FIO::skipSimpleDelimitedText($this->method('fgetc'), $endDelimiter);
+        $this->nav->getCharsUntil($endDelimiter);
     }
 
     private function getDelimitedText(string $delimiters = self::C_DELIMITERS): string
@@ -190,7 +182,7 @@ class Reader
             ctype_alnum($c) || $c === '_';
         }
         $this->skipUselessText();
-        return \Help\FIO::getChars($this->method('fgetc'), $this->method('fungetc'), $pred);
+        return $this->fnav->getChars($pred);
     }
 
     private function nextChar()
