@@ -36,7 +36,6 @@ final class InstructionArgs
 
                     if ($c === false)
                         break 2;
-
                     if ($c === '+') {
                         $value = true;
                         $state = 5;
@@ -67,10 +66,14 @@ final class InstructionArgs
                     if ($c === ':' || $c === '=') {
                         $state = 20;
                     } else {
-                        $this->fnav->ungetc();
                         $args[] = self::interpret($key);
+
+                        if ($c === false)
+                            break 2;
+
                         $key = null;
                         $state = 0;
+                        $this->fnav->ungetc();
                     }
                     break;
 
@@ -91,7 +94,6 @@ final class InstructionArgs
 
                     if ($c === false)
                         break 2;
-
                     if ($c === ',') {
                         $args[$key] = (array) $args[$key];
                         $state = 22;

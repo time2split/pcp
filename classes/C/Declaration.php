@@ -4,8 +4,6 @@ namespace C;
 class Declaration implements \Action\IActionMessage
 {
 
-    private DeclarationGroup $group;
-
     private array $e;
 
     private array $uinfos;
@@ -14,11 +12,6 @@ class Declaration implements \Action\IActionMessage
     {
         $this->e = $e;
         $this->uinfos = [];
-    }
-
-    public static function empty(DeclarationGroup $group)
-    {
-        return new Declaration($element);
     }
 
     public static function from(array $element)
@@ -31,12 +24,17 @@ class Declaration implements \Action\IActionMessage
         return $action->deliver($this);
     }
 
-    // ========================================================================
+    public function getGroup(): DeclarationGroup
+    {
+        return $this->e['group'];
+    }
 
-    // public function isEmpty(): bool
-    // {
-    // return empty($element['items']) && empty($element['parameters']);
-    // }
+    public function getType(): DeclarationType
+    {
+        return $this->e['type'];
+    }
+
+    // ========================================================================
     public function getElement(): array
     {
         return $this->e;

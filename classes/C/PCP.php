@@ -12,6 +12,8 @@ class PCP extends \DataFlow\BasePublisher
 
     private \Data\TreeConfig $config;
 
+    private \Data\TreeConfig $fileConfig;
+
     public function __construct()
     {
         parent::__construct();
@@ -31,15 +33,29 @@ class PCP extends \DataFlow\BasePublisher
 
     public function process(\Data\TreeConfig $config, iterable $files): void
     {
-        $config = $config->child();
-        $this->config = $config;
-        $this->subscribe(new \Action\PCP\EchoAction($config));
-        $this->subscribe(new \Action\PCP\Conf($config));
+        $this->fileConfig = $config->child();
+        $this->config = $this->fileConfig->child();
+
+        $this->fileConfig['dateTime'] = $date = new \DateTime();
+        $this->fileConfig['dateTime.format'] = $date->format(\DateTime::ATOM);
+
+        // $this->subscribe(new \Action\PCP\EchoAction($config));
+        $this->subscribe(new \Action\PCP\Conf($this->config));
+        $this->subscribe(new \Action\PCP\Generate($this->config));
+
+        // Init and check phase
+        {
+            $wd = $this->config['cpp.wd'];
+
+            if (! is_dir($wd))
+                \mkdir($wd, 0777, true);
+        }
 
         $this->updatePhase( //
         \Action\PhaseName::ProcessingFiles, //
         \Action\PhaseState::Start //
         );
+
         $this->updatePhase( //
         \Action\PhaseName::ProcessingFiles, //
         \Action\PhaseState::Run //
@@ -49,7 +65,6 @@ class PCP extends \DataFlow\BasePublisher
             $this->config->clearLevel();
             $this->processOneFile($finfo);
         }
-
         $this->updatePhase( //
         \Action\PhaseName::ProcessingFiles, //
         \Action\PhaseState::Stop //
@@ -64,9 +79,10 @@ class PCP extends \DataFlow\BasePublisher
         \Action\PhaseData\ReadingOneFile::fromPath($finfo) //
         );
 
-        $creader = new \C\Reader($finfo);
+        $this->fileConfig['fileInfo'] = $finfo;
+        $creader = \C\Reader::fromFile($finfo);
         $pragmas = [];
-        $cppNameRef = $this->config['cpp.name'];
+        $cppNameRef = (array) $this->config['cpp.name'];
         $skip = false;
 
         $this->updatePhase( //
@@ -78,7 +94,7 @@ class PCP extends \DataFlow\BasePublisher
             $cursor = $element['cursor'];
 
             if ($element['group'] === DeclarationGroup::cpp && $element['directive'] === 'pragma') {
-                $instruction = \Action\Instruction::fromPragmaString($element['text'], $cppNameRef ?? 'pcp');
+                $instruction = \Action\Instruction::fromReaderElement($element, $cppNameRef);
 
                 // Do not process unknownn #pragma
                 if (null === $instruction)
@@ -92,15 +108,17 @@ class PCP extends \DataFlow\BasePublisher
                         $skip = false;
 
                     continue;
-                } elseif ($cmd === 'begin') {
-                    $skip = true;
-                    continue;
+                } else {
+                    if ($cmd === 'begin') {
+                        $skip = true;
+                        continue;
+                    }
+                    $this->deliverMessage($instruction);
                 }
-                $this->deliverMessage($instruction);
-            } else {
+            } elseif (! $skip)
                 $this->deliverMessage(Declaration::from($element));
-            }
         }
+
         $this->updatePhase( //
         \Action\PhaseName::ReadingOneFile, //
         \Action\PhaseState::Stop //

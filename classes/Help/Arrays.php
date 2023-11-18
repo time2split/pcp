@@ -78,6 +78,29 @@ final class Arrays
         }
     }
 
+    /**
+     * Replace each int key by its value.
+     *
+     * @param array $array
+     *            The array subject
+     * @param unknown $value
+     *            The value to associate to each new key=>value item.
+     * @return array
+     */
+    public static function listValueAsKey(array $array, $value = null): array
+    {
+        $ret = [];
+
+        foreach ($array as $k => $v) {
+
+            if (\is_int($k))
+                $ret[$v] = $value;
+            else
+                $ret[$k] = $v;
+        }
+        return $ret;
+    }
+
     // ========================================================================
     public static function pathToRecursiveList(array $path, $val)
     {
@@ -92,23 +115,32 @@ final class Arrays
         return $ret;
     }
 
-    public static function updateRecursive($args, array &$array, ?callable $onUnexists = null, ?callable $mapKey = null): void
+    public static function updateRecursive($args, array &$array, //
+    ?callable $onUnexists = null, //
+    ?callable $mapKey = null, //
+    ?callable $set = null): //
+    void
     {
-        if (! is_array($args))
+        if (! \is_array($args))
             $array = $args;
-        elseif (null === $mapKey)
-            $mapKey = \mapArgKey_default();
+
+        if (null === $mapKey)
+            $mapKey = fn ($k) => $k;
+        if (null === $onUnexists)
+            $onUnexists = function ($array, $key, $v) {
+                throw new \Exception("The key '$key' does not exists in the array: " . implode(',', \array_keys($array)));
+            };
+        if (null === $set)
+            $set = function (&$pp, $v) {
+                $pp = $v;
+            };
 
         foreach ($args as $k => $v) {
             $k = $mapKey($k);
 
-            if (! \array_key_exists($k, $array)) {
+            if (! \array_key_exists($k, $array))
+                $onUnexists($array, $k, $v);
 
-                if ($onUnexists === null)
-                    throw new \Exception("The key '$key' does not exists in the array: " . implode(',', \array_kets($array)));
-                else
-                    $onUnexists($array, $k, $v);
-            }
             $pp = &$array[$k];
 
             if (\is_array($v)) {
@@ -116,9 +148,9 @@ final class Arrays
                 if (! \is_array($pp))
                     $pp = [];
 
-                self::updateRecursive($v, $pp, $onUnexists, $mapKey);
+                self::updateRecursive($v, $pp, $onUnexists, $mapKey, $set);
             } else
-                $pp = $v;
+                $set($pp, $v);
         }
     }
 

@@ -2,15 +2,15 @@
 require_once __DIR__ . '/classes/autoload.php';
 
 $CONFIG = [
+    'cpp.wd' => getcwd() . '/cpp.wd',
     'pragmas_fileConfig' => __DIR__ . '/config.php',
     'debug' => false,
-    'debug' => false,
-    'generate.target' => null,
-    'generate.prefix' => null,
-    'cleaned' => null,
-    'cpp.name' => 'zrlib',
-    'paths' => [
+    // 'cleaned' => null,
+    'cpp.name' => [
         'zrlib',
+        'pcp'
+    ],
+    'paths' => [
         'src'
     ]
 ];
