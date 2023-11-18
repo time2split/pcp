@@ -6,13 +6,16 @@ class Reader
 
     private const debug = false;
 
-    private string $filePath;
-
     private ?\File\Navigator $fnav;
 
-    public function __construct(string $filePath)
+    private function __construct($stream, bool $closeStream = true)
     {
-        $this->filePath = $filePath;
+        $mdata = \stream_get_meta_data($stream);
+
+        if (! \str_starts_with($mdata['mode'], 'r'))
+            throw new \Exception(__class__ . " The stream must be in r mode, has {$mdata['mode']}");
+
+        $this->fnav = \File\Navigator::fromStream($stream, $closeStream);
     }
 
     public function __destruct()
@@ -20,9 +23,37 @@ class Reader
         $this->fclose();
     }
 
-    public function getFilePath(): string
+    public static function from($source): self
     {
-        return $this->filePath;
+        if (\is_resource($source))
+            return self::fromStream($source);
+
+        return self::fromFile($source);
+    }
+
+    public static function fromStream($stream, bool $closeStream = true): self
+    {
+        return new self($stream, $closeStream);
+    }
+
+    public static function fromFile($filePath): self
+    {
+        return new self(\fopen((string) $filePath, 'r'));
+    }
+
+    private function fclose(): void
+    {
+        $this->fnav->close();
+    }
+
+    public function getStream()
+    {
+        return $this->fnav->getStream();
+    }
+
+    public static function getNextCpp($source)
+    {
+        return self::fromStream($source, false)->nextCpp();
     }
 
     // ========================================================================
@@ -34,20 +65,6 @@ class Reader
     public function fungetc(int $nb = 1)
     {
         return $this->fnav->ungetc($nb);
-    }
-
-    private function fopen(): void
-    {
-        if (! isset($this->fnav))
-            $this->fnav = \File\Navigator::fromStream(\fopen($this->filePath, 'r'));
-    }
-
-    private function fclose(): void
-    {
-        if (isset($this->fnav)) {
-            $this->fnav->close();
-            $this->fnav = null;
-        }
     }
 
     // ========================================================================
@@ -273,16 +290,12 @@ class Reader
         \fseek(SEEK_SET, \array_pop($this->fileStates));
     }
 
-    private function pushState(ReaderState $s, $data = null, bool $fileState = false): void
+    private function pushState(ReaderState $s, $data = null): void
     {
         $this->states[] = [
             $s,
-            $data,
-            $fileState
+            $data
         ];
-
-        if ($fileState)
-            $this->pushFileState();
     }
 
     private function popState(): array
@@ -293,10 +306,7 @@ class Reader
                 null
             ];
 
-        list ($state, $data, $fileState) = \array_pop($this->states);
-
-        if ($fileState)
-            $this->popFileState();
+        list ($state, $data) = \array_pop($this->states);
 
         return [
             $state,
@@ -406,11 +416,60 @@ class Reader
     }
 
     // ========================================================================
+    public function nextCpp(): array
+    {
+        $state = ReaderState::start;
+
+        while (true) {
+
+            switch ($state) {
+
+                case ReaderState::start:
+                    $c = $this->nextChar();
+
+                    if ($c === false)
+                        return [];
+
+                    if ($c === '#') {
+                        $element = [
+                            'group' => DeclarationGroup::cpp,
+                            'cursor' => $this->fnav->getCursorPosition()->decrement()
+                        ];
+                        $state = ReaderState::cpp_directive;
+                    } else
+                        return [];
+                    break;
+
+                // ======================================================
+
+                case ReaderState::cpp_directive:
+                    $element['directive'] = $this->nextWord();
+                    $this->skipSpaces();
+
+                    $skipNext = false;
+                    $buff = '';
+
+                    while (true) {
+                        $c = $this->fgetc();
+                        $buff .= $c;
+
+                        if (($c === "\n" && ! $skipNext) || $c === false) {
+                            $element['text'] = \rtrim($buff);
+                            $element['cursor2'] = $this->fnav->getCursorPosition();
+                            return $element;
+                        } elseif ($c === '\\')
+                            $skipNext = true;
+                        elseif ($skipNext)
+                            $skipNext = false;
+                    }
+                    break;
+            }
+        }
+    }
+
     public function next()
     {
-        $this->fopen();
         $this->clearStates();
-
         $declarator_level = 0;
         $retElements = [];
 
@@ -446,12 +505,8 @@ class Reader
                         return false;
 
                     if ($c === '#') {
-                        $element = [
-                            'group' => DeclarationGroup::cpp,
-                            'cursor' => $this->fnav->getCursorPosition()
-                        ];
-                        $this->pushState(ReaderState::returnElement, $data);
-                        $this->pushState(ReaderState::cpp_directive, $data);
+                        $this->fungetc();
+                        return $this->nextcpp();
                     } else {
                         $this->fungetc();
                         $element = $this->newElement();
@@ -468,30 +523,6 @@ class Reader
                         break;
                     }
                     return $retElements[0];
-
-                // ======================================================
-
-                case ReaderState::cpp_directive:
-                    $element['directive'] = $this->nextWord();
-                    $this->skipSpaces();
-
-                    $skipNext = false;
-                    $buff = '';
-
-                    while (true) {
-                        $c = $this->fgetc();
-                        $buff .= $c;
-
-                        if (($c === "\n" && ! $skipNext) || $c === false) {
-                            $element['text'] = \rtrim($buff);
-                            $retElements[] = $element;
-                            break;
-                        } elseif ($c === '\\')
-                            $skipNext = true;
-                        elseif ($skipNext)
-                            $skipNext = false;
-                    }
-                    break;
 
                 // ======================================================
 

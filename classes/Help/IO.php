@@ -85,7 +85,7 @@ final class IO
         return \ob_get_clean();
     }
 
-    public static function stringToStream(string $text)
+    public static function stringToStream(string $text = "")
     {
         $stream = \fopen('php://memory', 'r+');
         fwrite($stream, $text);

@@ -19,6 +19,11 @@ final class CursorPosition
         return $ret;
     }
 
+    public function decrement(): CursorPosition
+    {
+        return self::create($this->line, $this->linePos - 1, $this->pos - 1);
+    }
+
     public function getLine(): int
     {
         return $this->line;

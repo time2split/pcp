@@ -8,7 +8,9 @@ final class Instruction implements \Action\IActionMessage
 
     private string $cmd;
 
-    private function __construct(array $args)
+    private array $fileCursors;
+
+    private function __construct(array $args, array $cursors)
     {
         $k = \array_key_first($args);
 
@@ -18,17 +20,28 @@ final class Instruction implements \Action\IActionMessage
             $this->cmd = '';
 
         $this->args = $args;
+        $this->fileCursors = $cursors;
     }
 
-    public static function fromPragmaString(string $text, string $cppName): ?self
+    public static function fromReaderElement(array $element, array $cppNames): ?self
     {
+        $cursors = [
+            $element['cursor'],
+            $element['cursor2']
+        ];
+        $text = $element['text'];
         $args = \Action\InstructionArgs::parse($text);
         $cpp = \array_shift($args);
 
-        if (0 === \strcasecmp($cpp, $cppName))
-            return new self($args);
+        if (\in_array(\strtolower($cpp), $cppNames))
+            return new self($args, $cursors);
 
         return null;
+    }
+
+    public function getFileCursors(): array
+    {
+        return $this->fileCursors;
     }
 
     public function getCommand(): string

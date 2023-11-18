@@ -6,6 +6,8 @@ final class Navigator
 
     private $fp;
 
+    private int $offset;
+
     private int $nl = 0;
 
     private int $nlc = 0;
@@ -14,20 +16,29 @@ final class Navigator
 
     private array $cache = [];
 
-    private function __construct($fp)
+    private bool $closeStream = true;
+
+    private function __construct($fp, bool $closeStream)
     {
         $this->fp = $fp;
-        rewind($fp);
+        $this->offset = \ftell($fp);
+        $this->closeStream = $closeStream;
     }
 
-    public static function fromStream($stream)
+    public function getStream()
     {
-        return new self($stream);
+        return $this->fp;
+    }
+
+    public static function fromStream($stream, bool $closeStream = true)
+    {
+        return new self($stream, $closeStream);
     }
 
     public function close(): void
     {
-        \fclose($this->fp);
+        if ($this->closeStream)
+            \fclose($this->fp);
     }
 
     // ========================================================================
@@ -74,12 +85,12 @@ final class Navigator
         else {
             $this->nlc -= $nb;
         }
-        \fseek($this->fp, $this->nc, SEEK_SET);
+        \fseek($this->fp, $this->offset + $this->nc, SEEK_SET);
     }
 
     private function ungetcUpdate(int $nb)
     {
-        \fseek($this->fp, $this->nc, SEEK_SET);
+        \fseek($this->fp, $this->offset + $this->nc, SEEK_SET);
         $contents = \fgets($this->fp, $nb + 1);
         $nblines = \substr_count($contents, "\n");
 
