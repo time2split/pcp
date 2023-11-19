@@ -4,17 +4,17 @@ namespace C;
 class Declaration implements \Action\IActionMessage
 {
 
-    private array $e;
+    private array $elements;
 
     private array $uinfos;
 
     private function __construct(array $e)
     {
-        $this->e = $e;
+        $this->elements = $e;
         $this->uinfos = [];
     }
 
-    public static function from(array $element)
+    public static function fromReaderElements(array $element)
     {
         return new Declaration($element);
     }
@@ -26,18 +26,18 @@ class Declaration implements \Action\IActionMessage
 
     public function getGroup(): DeclarationGroup
     {
-        return $this->e['group'];
+        return $this->elements['group'];
     }
 
     public function getType(): DeclarationType
     {
-        return $this->e['type'];
+        return $this->elements['type'];
     }
 
     // ========================================================================
-    public function getElement(): array
+    public function getElements(): array
     {
-        return $this->e;
+        return $this->elements;
     }
 
     public function getUnknownInfos(): array
@@ -45,7 +45,7 @@ class Declaration implements \Action\IActionMessage
         if (! empty($this->uinfos))
             return $this->uinfos;
 
-        return $this->uinfos = self::makeUnknownInfos($this->e);
+        return $this->uinfos = self::makeUnknownInfos($this->elements);
     }
 
     // ========================================================================

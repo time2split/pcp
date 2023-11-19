@@ -91,34 +91,37 @@ class PCP extends \DataFlow\BasePublisher
         );
 
         while (false !== ($element = $creader->next())) {
-            $cursor = $element['cursor'];
 
-            if ($element['group'] === DeclarationGroup::cpp && $element['directive'] === 'pragma') {
-                $instruction = \Action\Instruction::fromReaderElement($element, $cppNameRef);
+            if ($element['group'] === DeclarationGroup::cpp) {
+                $macro = \C\Macro::fromReaderElements($element);
 
-                // Do not process unknownn #pragma
-                if (null === $instruction)
+                if (null === $macro)
                     continue;
 
-                $cmd = $instruction->getCommand();
-                // Avoid begin/end blocks
-                if ($skip) {
+                if ($macro->getDirective() === "pragma") {
 
-                    if ($cmd === 'end')
-                        $skip = false;
+                    // Do not process unknownn #pragma
+                    if (! \in_array($macro->getFirstArgument(), $cppNameRef))
+                        continue;
 
-                    continue;
-                } else {
-                    if ($cmd === 'begin') {
+                    $cmd = $macro->getCommand();
+
+                    // Avoid begin/end blocks
+                    if ($skip) {
+
+                        if ($cmd === 'end')
+                            $skip = false;
+
+                        continue;
+                    } elseif ($cmd === 'begin') {
                         $skip = true;
                         continue;
                     }
-                    $this->deliverMessage($instruction);
                 }
+                $this->deliverMessage($macro);
             } elseif (! $skip)
-                $this->deliverMessage(Declaration::from($element));
+                $this->deliverMessage(Declaration::fromReaderElements($element));
         }
-
         $this->updatePhase( //
         \Action\PhaseName::ReadingOneFile, //
         \Action\PhaseState::Stop //
