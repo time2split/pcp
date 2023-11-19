@@ -12,8 +12,8 @@ class Reader
     {
         $mdata = \stream_get_meta_data($stream);
 
-        if (! \str_starts_with($mdata['mode'], 'r'))
-            throw new \Exception(__class__ . " The stream must be in r mode, has {$mdata['mode']}");
+        if (! $mdata['seekable'])
+            throw new \Exception(__class__ . " The stream must be readable mode, the mode is {$mdata['mode']}");
 
         $this->fnav = \File\Navigator::fromStream($stream, $closeStream);
     }
@@ -416,6 +416,84 @@ class Reader
     }
 
     // ========================================================================
+    private function parseDefine(string $text): array
+    {
+        $stream = \Help\IO::stringToStream($text);
+        return self::fromStream($stream)->_parseDefine();
+    }
+
+    private function _parseDefine(): ?array
+    {
+        $state = ReaderState::start;
+        $element = [];
+
+        while (true) {
+
+            switch ($state) {
+
+                case ReaderState::start:
+                    $name = $this->nextWord();
+
+                    if ($name === false)
+                        return $element;
+
+                    $c = $this->nextChar();
+
+                    if ($c !== '(')
+                        $state = 10;
+                    $args = [];
+
+                    while (true) {
+                        $w = $this->nextWord();
+
+                        if (null === $w)
+                            return null;
+
+                        $args[] = $w;
+                        $c = $this->nextChar();
+                        if ($c === ',')
+                            continue;
+                        if ($c === ')')
+                            break;
+                    }
+                    return [
+                        'type' => empty($args) ? 'object' : 'function',
+                        'elements' => [
+                            'name' => $name,
+                            'args' => $args,
+                            'tokens' => \stream_get_contents($this->fnav->getStream())
+                        ]
+                    ];
+                    break;
+
+                // ======================================================
+
+                // Argument List
+                case 10:
+                    $element['directive'] = $this->nextWord();
+                    $this->skipSpaces();
+
+                    $skipNext = false;
+                    $buff = '';
+
+                    while (true) {
+                        $c = $this->fgetc();
+                        $buff .= $c;
+
+                        if (($c === "\n" && ! $skipNext) || $c === false) {
+                            $element['text'] = \rtrim($buff);
+                            $element['cursor2'] = $this->fnav->getCursorPosition();
+                            return $element;
+                        } elseif ($c === '\\')
+                            $skipNext = true;
+                        elseif ($skipNext)
+                            $skipNext = false;
+                    }
+                    break;
+            }
+        }
+    }
+
     public function nextCpp(): array
     {
         $state = ReaderState::start;
@@ -443,7 +521,9 @@ class Reader
                 // ======================================================
 
                 case ReaderState::cpp_directive:
-                    $element['directive'] = $this->nextWord();
+                    $element += [
+                        'directive' => $d = $this->nextWord()
+                    ];
                     $this->skipSpaces();
 
                     $skipNext = false;
@@ -456,6 +536,10 @@ class Reader
                         if (($c === "\n" && ! $skipNext) || $c === false) {
                             $element['text'] = \rtrim($buff);
                             $element['cursor2'] = $this->fnav->getCursorPosition();
+
+                            if ($d === 'define')
+                                $element = \array_merge($element, $this->parseDefine($element['text']));
+
                             return $element;
                         } elseif ($c === '\\')
                             $skipNext = true;
@@ -563,7 +647,9 @@ class Reader
                     while (true) {
                         $c = $this->nextChar();
 
-                        if ($c === ';' || $c === '{' || $c === false) {
+                        if ($c === false)
+                            return false;
+                        if ($c === ';' || $c === '{') {
                             $this->fungetc();
                             $this->clearStates();
                             break;
