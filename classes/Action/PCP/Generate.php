@@ -304,7 +304,7 @@ class Generate extends \Action\BaseAction
     {
         $macroTokens = $i['function'];
         $macroTokens .= ';';
-        $macroFun = \C\Reader::fromStream(\Help\IO::stringToStream($macroTokens))->next();
+        $macroFun = \C\Reader::fromStream(\Help\IO::stringToStream($macroTokens))->next()->getElements();
         $macroElements = $macro->getElements();
         $macroFun['identifier']['name'] = $macroElements['name'];
 
@@ -428,7 +428,6 @@ class Generate extends \Action\BaseAction
                 $cpp = \C\Reader::getNextCpp($rstream);
 
                 if (! empty($cpp)) {
-                    $cpp = \C\Macro::fromReaderElements($cpp, $cppNames);
 
                     if ($cpp->getCommand() === 'begin') {
                         $writer->close();

@@ -90,37 +90,31 @@ class PCP extends \DataFlow\BasePublisher
         \Action\PhaseState::Run //
         );
 
-        while (false !== ($element = $creader->next())) {
+        while (null !== ($element = $creader->next())) {
 
-            if ($element['group'] === DeclarationGroup::cpp) {
-                $macro = \C\Macro::fromReaderElements($element);
+            if ($element instanceof Macro) {
 
-                if (null === $macro)
-                    continue;
-
-                if ($macro->getDirective() === "pragma") {
+                if ($element->getDirective() === "pragma") {
 
                     // Do not process unknownn #pragma
-                    if (! \in_array($macro->getFirstArgument(), $cppNameRef))
+                    if (! \in_array($element->getFirstArgument(), $cppNameRef))
                         continue;
 
-                    $cmd = $macro->getCommand();
+                    $cmd = $element->getCommand();
 
                     // Avoid begin/end blocks
                     if ($skip) {
 
                         if ($cmd === 'end')
                             $skip = false;
-
-                        continue;
                     } elseif ($cmd === 'begin') {
                         $skip = true;
                         continue;
                     }
                 }
-                $this->deliverMessage($macro);
-            } elseif (! $skip)
-                $this->deliverMessage(Declaration::fromReaderElements($element));
+            }
+            if (! $skip)
+                $this->deliverMessage($element);
         }
         $this->updatePhase( //
         \Action\PhaseName::ReadingOneFile, //
