@@ -494,7 +494,7 @@ class Reader
         }
     }
 
-    public function nextCpp(): array
+    public function nextCpp(): ?Macro
     {
         $state = ReaderState::start;
 
@@ -506,7 +506,7 @@ class Reader
                     $c = $this->nextChar();
 
                     if ($c === false)
-                        return [];
+                        return null;
 
                     if ($c === '#') {
                         $element = [
@@ -515,7 +515,7 @@ class Reader
                         ];
                         $state = ReaderState::cpp_directive;
                     } else
-                        return [];
+                        return null;
                     break;
 
                 // ======================================================
@@ -540,7 +540,7 @@ class Reader
                             if ($d === 'define')
                                 $element = \array_merge($element, $this->parseDefine($element['text']));
 
-                            return $element;
+                            return Macro::fromReaderElements($element);
                         } elseif ($c === '\\')
                             $skipNext = true;
                         elseif ($skipNext)
@@ -551,7 +551,7 @@ class Reader
         }
     }
 
-    public function next()
+    public function next(): ?ReaderElement
     {
         $this->clearStates();
         $declarator_level = 0;
@@ -586,7 +586,7 @@ class Reader
                     }
 
                     if ($c === false)
-                        return false;
+                        return null;
 
                     if ($c === '#') {
                         $this->fungetc();
@@ -606,7 +606,7 @@ class Reader
                         $this->clearStates();
                         break;
                     }
-                    return $retElements[0];
+                    return Declaration::fromReaderElements($retElements[0]);
 
                 // ======================================================
 
@@ -648,7 +648,7 @@ class Reader
                         $c = $this->nextChar();
 
                         if ($c === false)
-                            return false;
+                            return null;
                         if ($c === ';' || $c === '{') {
                             $this->fungetc();
                             $this->clearStates();

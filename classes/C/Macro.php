@@ -1,7 +1,7 @@
 <?php
 namespace C;
 
-class Macro implements \Action\IActionMessage
+class Macro extends ReaderElement
 {
 
     private ?string $first;
@@ -9,8 +9,6 @@ class Macro implements \Action\IActionMessage
     private ?string $cmd;
 
     private string $directive;
-
-    private array $elements;
 
     private array $args;
 
@@ -20,17 +18,17 @@ class Macro implements \Action\IActionMessage
 
     private function __construct(string $directive, array $args, array $elements, string $text, array $cursors)
     {
+        parent::__construct($elements);
         $this->directive = $directive;
         $this->text = $text;
         $this->args = \Help\Arrays::listValueAsKey($args, true);
         $this->fileCursors = $cursors;
-        $this->elements = $elements;
         $args = \array_keys(\array_slice($this->args, 0, 2));
         $this->first = $args[0] ?? null;
         $this->cmd = $args[1] ?? null;
     }
 
-    public static function fromReaderElements(array $element): ?self
+    public static function fromReaderElements(array $element): self
     {
         $cursors = [
             $element['cursor'],
@@ -44,7 +42,7 @@ class Macro implements \Action\IActionMessage
         return new self($directive, $args, $elements, $text, $cursors);
     }
 
-    public static function fromText(string $text): ?self
+    public static function fromText(string $text): self
     {
         $args = \Action\InstructionArgs::parse($text);
         return new self($args, $cursors);
@@ -53,11 +51,6 @@ class Macro implements \Action\IActionMessage
     public function isFunction(): bool
     {
         return empty($this->args);
-    }
-
-    public function getElements(): array
-    {
-        return $this->elements;
     }
 
     public function getCommand(): ?string

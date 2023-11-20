@@ -1,16 +1,14 @@
 <?php
 namespace C;
 
-class Declaration implements \Action\IActionMessage
+class Declaration extends ReaderElement
 {
-
-    private array $elements;
 
     private array $uinfos;
 
-    private function __construct(array $e)
+    private function __construct(array $elements)
     {
-        $this->elements = $e;
+        parent::__construct($elements);
         $this->uinfos = [];
     }
 
@@ -35,11 +33,6 @@ class Declaration implements \Action\IActionMessage
     }
 
     // ========================================================================
-    public function getElements(): array
-    {
-        return $this->elements;
-    }
-
     public function getUnknownInfos(): array
     {
         if (! empty($this->uinfos))
