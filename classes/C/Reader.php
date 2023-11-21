@@ -20,15 +20,15 @@ class Reader
 
     public function __destruct()
     {
-        $this->fclose();
+        $this->close();
     }
 
-    public static function from($source): self
+    public static function from($source, bool $closeStream = true): self
     {
         if (\is_resource($source))
-            return self::fromStream($source);
+            return self::fromStream($source, $closeStream);
 
-        return self::fromFile($source);
+        return self::fromFile($source, $closeStream);
     }
 
     public static function fromStream($stream, bool $closeStream = true): self
@@ -36,12 +36,12 @@ class Reader
         return new self($stream, $closeStream);
     }
 
-    public static function fromFile($filePath): self
+    public static function fromFile($filePath, bool $closeStream = true): self
     {
-        return new self(\fopen((string) $filePath, 'r'));
+        return new self(\fopen((string) $filePath, 'r'), $closeStream);
     }
 
-    private function fclose(): void
+    public function close(): void
     {
         $this->fnav->close();
     }
@@ -49,11 +49,6 @@ class Reader
     public function getStream()
     {
         return $this->fnav->getStream();
-    }
-
-    public static function getNextCpp($source)
-    {
-        return self::fromStream($source, false)->nextCpp();
     }
 
     // ========================================================================
@@ -494,7 +489,22 @@ class Reader
         }
     }
 
-    public function nextCpp(): ?Macro
+    public function nextMacro(): ?Macro
+    {
+        while (true) {
+            $c = $this->nextChar();
+
+            if ($c === false)
+                return null;
+            if ($c === '#') {
+                $this->fungetc();
+                return $this->getMacro();
+            }
+            $this->fnav->skipChars(fn ($c) => $c !== "\n");
+        }
+    }
+
+    public function getMacro(): ?Macro
     {
         $state = ReaderState::start;
 
@@ -590,7 +600,7 @@ class Reader
 
                     if ($c === '#') {
                         $this->fungetc();
-                        return $this->nextcpp();
+                        return $this->getMacro();
                     } else {
                         $this->fungetc();
                         $element = $this->newElement();

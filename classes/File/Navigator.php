@@ -16,13 +16,18 @@ final class Navigator
 
     private array $cache = [];
 
-    private bool $closeStream = true;
+    private bool $closeStream;
 
     private function __construct($fp, bool $closeStream)
     {
         $this->fp = $fp;
         $this->offset = \ftell($fp);
         $this->closeStream = $closeStream;
+    }
+
+    public function __destruct()
+    {
+        $this->close();
     }
 
     public function getStream()
@@ -37,8 +42,10 @@ final class Navigator
 
     public function close(): void
     {
-        if ($this->closeStream)
+        if ($this->closeStream) {
             \fclose($this->fp);
+            $this->closeStream = false;
+        }
     }
 
     // ========================================================================

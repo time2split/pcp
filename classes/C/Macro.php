@@ -45,7 +45,7 @@ class Macro extends ReaderElement
     public static function fromText(string $text): self
     {
         $args = \Action\InstructionArgs::parse($text);
-        return new self($args, $cursors);
+        return new self('pragma', $args, [], $text, []);
     }
 
     public function isFunction(): bool
