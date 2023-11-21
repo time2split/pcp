@@ -16,37 +16,43 @@ final class Insertion
 
     private int $copied = 0;
 
-    private function __construct($fp, string $tmpFile)
+    private bool $closeStream;
+
+    private function __construct($fp, string $tmpFile, bool $closeStream)
     {
         $this->tmpFile = $tmpFile;
         $this->fp = $fp;
         $this->tmp = new \SplFileInfo($tmpFile);
         $this->tmpfp = \fopen($tmpFile, "w+");
+        $this->closeStream = $closeStream;
     }
 
-    public static function fromFilePath(string $file, string $tmpFile)
+    public static function fromFilePath(string $file, string $tmpFile, bool $closeStream = true)
     {
-        return self::fromStream(\fopen($file, 'r'), $tmpFile);
+        return self::fromStream(\fopen($file, 'r'), $tmpFile, $closeStream);
     }
 
-    public static function fromStream($stream, string $tmpFile)
+    public static function fromStream($stream, string $tmpFile, bool $closeStream = true)
     {
         $md = \stream_get_meta_data($stream);
 
         if ($md['mode'][0] !== 'r')
             throw new \Exception(__class__ . " the mode must be r, has '{$md['mode']} ({$md['uri']})");
 
-        return new self($stream, $tmpFile);
+        return new self($stream, $tmpFile, $closeStream);
     }
 
     public function getReadStream()
     {
+        if (\ftell($this->fp) != $this->pos)
+            \fseek($this->fp, $this->pos, SEEK_SET);
+
         return $this->fp;
     }
 
     public function close(): int
     {
-        if ($this->fp) {
+        if ($this->fp && $this->closeStream) {
             $this->flush();
 
             $this->seekReadStream();
@@ -83,6 +89,11 @@ final class Insertion
     {
         if (\ftell($this->fp) != $this->copied)
             \fseek($this->fp, $this->copied, SEEK_SET);
+    }
+
+    public function seekAdd(int $pos): void
+    {
+        $this->seek($this->pos + $pos);
     }
 
     public function seek(int $pos): void

@@ -1,14 +1,20 @@
 <?php
 namespace Action\PCP;
 
+enum SourceType: string
+{
+
+    case Prototype = 'from.prototype';
+
+    case Function = 'from.function';
+
+    case Macro = 'from.macro';
+}
+
 class Generate extends \Action\BaseAction
 {
 
     private const wd = 'generate';
-
-    private const dirArea = 'area';
-
-    private const fileTargets = 'targets.php';
 
     private const DefaultConfig = [
         'target' => '.',
@@ -17,11 +23,11 @@ class Generate extends \Action\BaseAction
         'always.function' => false
     ];
 
-    private \Data\TreeConfig $storage;
+    private array $storage;
+
+    private array $area;
 
     private \Data\TreeConfig $myConf;
-
-    private array $targetInfos = [];
 
     private int $groupId = 0;
 
@@ -30,7 +36,7 @@ class Generate extends \Action\BaseAction
     public function __construct(\Data\TreeConfig $config)
     {
         parent::__construct($config);
-        $this->storage = \Data\TreeConfig::empty();
+        $this->storage = [];
     }
 
     public function onMessage(\Action\IActionMessage $msg): void
@@ -44,7 +50,7 @@ class Generate extends \Action\BaseAction
 
                 if (null !== $instruction) {
                     $iargs = $instruction->getArguments();
-                    $this->storage["macro&"][] = [
+                    $this->storage[] = [
                         $iargs + $this->storeSelectConf(),
                         $msg
                     ];
@@ -79,8 +85,6 @@ class Generate extends \Action\BaseAction
 
                     if (! \is_dir(self::wd))
                         mkdir(self::wd);
-                    if (! \is_dir($d = self::wd . '/' . self::dirArea))
-                        mkdir($d);
 
                     $this->outWorkingDir();
                 } elseif (\Action\PhaseState::Stop == $phase->state) {
@@ -133,14 +137,7 @@ class Generate extends \Action\BaseAction
         if (! isset($next))
             throw new \Exception("generate: Unable to set the next instruction");
 
-        $args = $next->getArguments();
-
-        if (isset($args['function']))
-            $args['storage.group'] = 'function';
-        else
-            $args['storage.group'] = 'prototype';
-
-        return $next->setArguments($args);
+        return $next;
     }
 
     private function doInstruction(\C\Macro $inst): void
@@ -148,22 +145,19 @@ class Generate extends \Action\BaseAction
         $args = $inst->getArguments();
 
         if (isset($args['area'])) {
-            $this->storage["area&"][] = [
-                'sourceGroups' => $args['area'],
+            $this->area[] = [
+                'tags' => $args['tag'] ?? null,
                 'pos' => $inst->getFileCursors()[1]->getPos(),
                 'date' => $this->config['dateTime']
             ];
-        } else {
+        } elseif (isset($args['function']) || isset($args['prototype'])) {
 
-            if (isset($args['function']) || isset($args['prototype'])) {
+            if (isset($this->nextInstruction))
+                throw new \Exception("Cannot execute the instruction '$inst' because another one is already waiting '$this->nextInstruction'");
 
-                if (isset($this->nextInstruction))
-                    throw new \Exception("Cannot execute the instruction '$inst' because another one is already waiting '$this->nextInstruction'");
-
-                $this->nextInstruction = $inst;
-            } else
-                $this->myConf->arrayMerge($args);
-        }
+            $this->nextInstruction = $inst;
+        } else
+            $this->myConf->arrayMerge($args);
     }
 
     // ========================================================================
@@ -248,8 +242,7 @@ class Generate extends \Action\BaseAction
     private function storeGroup(\C\Declaration $decl, \C\Macro $instruction): void
     {
         $iargs = $instruction->getArguments();
-        $group = $iargs['storage.group'];
-        $this->storage["$group&"][] = [
+        $this->storage[] = [
             $iargs + $this->storeSelectConf(),
             $decl
         ];
@@ -258,46 +251,32 @@ class Generate extends \Action\BaseAction
     private function flushWD(): void
     {
         $this->goWorkingDir(self::wd);
-        $this->flushTargetInfos();
         $this->outWorkingDir();
     }
 
     private function flushFileInfos(): void
     {
         $this->goWorkingDir(self::wd);
-        $this->flushStorageElements();
-        $this->storage->clearLevel();
+        $this->flushStorage();
+        $this->flushArea();
         $this->outWorkingDir();
     }
 
     private function flushArea(): void
     {
-        $areas = \array_filter((array) $this->storage['area']);
+        $areas = \array_filter((array) $this->area);
 
         if (empty($areas))
             return;
 
         $finfo = $this->config['fileInfo'];
-        $fileDir = self::dirArea . "/{$finfo->getPathInfo()}/";
+        $fileDir = "{$finfo->getPathInfo()}/";
 
         if (! is_dir($fileDir))
             mkdir($fileDir, 0777, true);
 
-        \Help\IO::printPHPFile("$fileDir/{$finfo->getFileName()}", $areas);
-    }
-
-    private function flushTargetInfos(): void
-    {
-        \Help\IO::printPHPFile(self::fileTargets, $this->targetInfos);
-    }
-
-    private function flushStorageElements(): void
-    {
-        foreach (self::storageElements as $k)
-            $this->flushStorage($k);
-
-        $this->flushTargetInfos();
-        $this->flushArea();
+        \Help\IO::printPHPFile("$fileDir/{$finfo->getFileName()}.area.php", $areas);
+        $this->area = [];
     }
 
     private function generateMacro(array $i, \C\Macro $macro)
@@ -343,60 +322,120 @@ class Generate extends \Action\BaseAction
         return "\n" . $this->generatePrototype_($i, $decl) . ($decl->getElements()['cstatement'] ?? '');
     }
 
-    private function flushStorage($storageKey): void
+    private function getSourceType(\C\ReaderElement $element): SourceType
     {
-        $funSave = match ($storageKey) {
-            'prototype' => $this->generatePrototype(...),
-            'function' => $this->generateFunction(...),
-            'macro' => $this->generateMacro(...)
+        if ($element instanceof \C\Macro)
+            return SourceType::Macro;
+        if ($element->getGroup() === \C\DeclarationGroup::definition)
+            return SourceType::Function;
+
+        return SourceType::Prototype;
+    }
+
+    private function getGenerateStrategy(SourceType $sourceType)
+    {
+        return match ($sourceType) {
+            SourceType::Prototype => $this->generatePrototype(...),
+            sourceType::Function => $this->generateFunction(...),
+            sourceType::Macro => $this->generateMacro(...)
         };
+    }
+
+    private function flushStorage(): void
+    {
         $finfo = $this->config['fileInfo'];
-        $ids = [];
         $groupByIds = [];
-        $s = (array) $this->storage[$storageKey];
+        $infosToSave = [];
+        $targetInfos = [];
 
         // Group by target
-        foreach ($s as $p) {
-            list ($instruction, $declSource) = $p;
-            $targets = $this->getTargets((array) $instruction['target']);
+        foreach ($this->storage as $storageItem) {
+            [
+                $instructionArray,
+                $sourceElement
+            ] = $storageItem;
+
+            $targets = $this->getTargets((array) $instructionArray['target']);
             $tkey = $this->getTargetKey($targets);
+            $sourceType = $this->getSourceType($sourceElement);
+            $tags = \array_merge((array) $sourceType->value, (array) ($instructionArray['tag'] ?? null));
+            \sort($tags);
 
-            if (! isset($ids[$tkey])) {
-                $gid = $ids[$tkey] ??= $this->groupId ++;
+            $gid = $ids[$tkey] ??= $this->groupId ++;
 
-                foreach ($targets as $t)
-                    $this->targetInfos[$t][$storageKey]["$finfo"][] = $gid;
-            }
-            $groupByIds[$tkey][] = $p;
+            foreach ($targets as $t)
+                $targetInfos[$t][$gid] = null;
+
+            $groupByIds[$tkey][] = $storageItem + [
+                2 => $tags,
+                $sourceType
+            ];
         }
-        $infosToSave = [];
+        $targetInfos = \array_map(\array_keys(...), $targetInfos);
 
-        foreach ($groupByIds as $k => $v) {
-            foreach ($v as $infos) {
-                list ($instruction, $declSource) = $infos;
-                $infosToSave[$ids[$k]][] = $funSave($instruction, $declSource);
+        foreach ($groupByIds as $targets => $storageItems) {
+
+            foreach ($storageItems as [
+                $instructionArray,
+                $sourceElement,
+                $tags,
+                $sourceType
+            ]) {
+                $infosToSave[$ids[$targets]][] = [
+                    'tags' => $tags,
+                    'text' => $this->getGenerateStrategy($sourceType)($instructionArray, $sourceElement)
+                ];
             }
         }
-        $fileDir = "$storageKey/{$finfo->getPathInfo()}/";
+        $fileDir = "{$finfo->getPathInfo()}/";
 
         if (! is_dir($fileDir))
             mkdir($fileDir, 0777, true);
 
-        \Help\IO::printPHPFile("$fileDir/{$finfo->getFileName()}", $infosToSave);
+        \Help\IO::printPHPFile("$fileDir/{$finfo->getFileName()}.php", $infosToSave);
+        \Help\IO::printPHPFile("$fileDir/{$finfo->getFileName()}.target.php", $targetInfos);
+        $this->storage = [];
     }
 
     // ========================================================================
-    private function getAreaSourceGroups(array $area): array
+    private function macroIsPCP(\C\Macro $macro): bool
     {
-        $sourceGroups = $area['sourceGroups'];
+        return \in_array($macro->getFirstArgument(), $this->config['cpp.name']);
+    }
 
-        if (true === $sourceGroups)
-            $sourceGroups = [
-                'prototype',
-                'function',
-                'macro'
-            ];
-        return $sourceGroups;
+    private function skipGenerated($stream): int
+    {
+        $pos = \ftell($stream);
+        $reader = \C\Reader::fromStream($stream, false);
+        $macro = $reader->nextMacro();
+
+        if (null === $macro || ! $this->macroIsPCP($macro) || $macro->getCommand() !== 'begin')
+            goto noBegin;
+
+        while (true) {
+            $macro = $reader->nextMacro();
+
+            if (null === $macro || ($this->macroIsPCP($macro) && $macro->getCommand() === 'end'))
+                break;
+        }
+        return \ftell($stream) - $pos;
+        noBegin:
+        $reader->close();
+        return 0;
+    }
+
+    private static function includeSource(string $file): array
+    {
+        $ret = include "$file.php";
+
+        foreach ($ret as $k => &$sub)
+            foreach ($sub as $kk => &$item)
+                $item['tags'] = \array_flip([
+                    ...$item['tags'],
+                    'remaining'
+                ]);
+
+        return $ret;
     }
 
     private function generate(): void
@@ -406,52 +445,68 @@ class Generate extends \Action\BaseAction
 
         $cppNames = (array) $this->config['cpp.name'];
         $cppName = \Help\Arrays::first($cppNames);
-        $targets = include self::fileTargets;
+        $sourceCache = [];
 
-        foreach ($targets as $fileTarget => $sourcesGroups) {
-            $writer = \File\Insertion::fromFilePath("$filesDir/$fileTarget", 'tmp');
-            $targetAreas = @include self::dirArea . "/$fileTarget";
+        $dirIterator = new \RecursiveDirectoryIterator('.', \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::KEY_AS_PATHNAME);
+        $dirIterator = new \RecursiveIteratorIterator($dirIterator);
+        $dirIterator = new \RegexIterator($dirIterator, "/^.+\.target\.php$/");
 
-            if (! isset($targetAreas))
-                continue;
-            if (($c = \count($targetAreas)) > 1)
-                throw new \Exception("Cannot handle more than 1 generate area for now; $fileTarget has $c");
+        foreach ($dirIterator as $baseTargetFile) {
+            $fileSource = \substr((string) $baseTargetFile, 0, - \strlen('.target.php'));
+            $targets = include $baseTargetFile;
 
-            foreach ($targetAreas as $area) {
-                $genGroups = $this->getAreaSourceGroups($area);
-                $pos = $area['pos'];
-                $writer->seek($pos);
+            $sourceInfos = $sourceCache[$fileSource] ??= self::includeSource($fileSource);
 
-                // Test if the generation is already present
-                $rstream = $writer->getReadStream();
-                \fseek($rstream, $pos, SEEK_SET);
-                $cpp = \C\Reader::getNextCpp($rstream);
+            foreach ($targets as $targetFile => $targetGIDs) {
+                $writer = \File\Insertion::fromFilePath("$filesDir/$targetFile", 'tmp');
+                $targetAreas = @include "$targetFile.area.php";
 
-                if (! empty($cpp)) {
+                if (false === $targetAreas)
+                    continue;
 
-                    if ($cpp->getCommand() === 'begin') {
-                        $writer->close();
-                        continue;
-                    }
-                }
-                $writer->write("#pragma $cppName begin\n");
+                foreach ($targetAreas as $area) {
+                    $pos = $area['pos'];
+                    $writer->seek($pos);
+                    $areaTags = \array_flip((array) $area['tags']);
 
-                foreach ($sourcesGroups as $sourceGroup => $sourcesFiles) {
+                    if (empty($areaTags))
+                        $cond = fn () => true;
+                    else
+                        $cond = function ($tags) use ($areaTags) {
+                            $a = \array_intersect_key($areaTags, $tags);
+                            return \count($a) === \count($areaTags);
+                        };
 
-                    foreach ($sourcesFiles as $sourceFile => $genIds) {
-                        $sourceData = include "$sourceGroup/$sourceFile";
+                    // Test if the generation is already present
+                    $rstream = $writer->getReadStream();
+                    $skipped = $this->skipGenerated($rstream);
 
-                        foreach ($genIds as $genId) {
+                    if ($skipped > 0) {
+                        $writer->seekAdd($skipped);
+                        $write = function () {};
+                    } else
+                        $write = function ($text) use ($writer) {
+                            $writer->write($text);
+                        };
 
-                            $gen = implode("\n", $sourceData[$genId]);
-                            $writer->write($gen);
-                            $writer->write("\n");
+                    $write("#pragma $cppName begin\n");
+
+                    foreach ($targetGIDs as $gid) {
+
+                        foreach ($sourceInfos[$gid] as &$sourceInfo) {
+
+                            if (! $cond($sourceInfo['tags']))
+                                continue;
+
+                            unset($sourceInfo['tags']['remaining']);
+                            $write($sourceInfo['text']);
+                            $write("\n");
                         }
                     }
+                    $write("#pragma $cppName end\n");
                 }
-                $writer->write("#pragma $cppName end\n");
+                $writer->close();
             }
-            $writer->close();
         }
         $this->outWorkingDir();
     }

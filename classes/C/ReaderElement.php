@@ -23,4 +23,9 @@ abstract class ReaderElement implements \Action\IActionMessage
     {
         return $this->tags;
     }
+
+    public function addTag(string $tag): void
+    {
+        $this->tags[] = $tag;
+    }
 }
