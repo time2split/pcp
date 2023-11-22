@@ -33,6 +33,8 @@ class Generate extends \Action\BaseAction
 
     private ?\C\Macro $nextInstruction;
 
+    private \Action\PhaseData\ReadingOneFile $fileInfo;
+
     public function __construct(\Data\TreeConfig $config)
     {
         parent::__construct($config);
@@ -96,6 +98,9 @@ class Generate extends \Action\BaseAction
             case \Action\PhaseName::ReadingOneFile:
 
                 if (\Action\PhaseState::Start == $phase->state) {
+                    $this->oneFileData = $data;
+
+                    // Reset the config for the file
                     $this->myConf = $this->config->child();
                     $this->myConf->arrayMergeRecursive(self::DefaultConfig);
                 } elseif (\Action\PhaseState::Stop == $phase->state) {
@@ -209,9 +214,9 @@ class Generate extends \Action\BaseAction
         foreach ($targets as $t) {
 
             if ($t === '.')
-                $t = (string) $this->config['fileInfo'];
+                $t = (string) $this->oneFileData->fileInfo;
             elseif (false === \strpos('/', $t) || \str_starts_with('./', $t))
-                $t = "{$this->config['fileInfo']->getPathInfo()}/$t";
+                $t = "{$this->oneFileData->fileInfo->getPathInfo()}/$t";
 
             $ret[] = $t;
         }
@@ -269,7 +274,7 @@ class Generate extends \Action\BaseAction
         if (empty($areas))
             return;
 
-        $finfo = $this->config['fileInfo'];
+        $finfo = $this->oneFileData->fileInfo;
         $fileDir = "{$finfo->getPathInfo()}/";
 
         if (! is_dir($fileDir))
@@ -343,7 +348,7 @@ class Generate extends \Action\BaseAction
 
     private function flushStorage(): void
     {
-        $finfo = $this->config['fileInfo'];
+        $finfo = $this->oneFileData->fileInfo;
         $groupByIds = [];
         $infosToSave = [];
         $targetInfos = [];
