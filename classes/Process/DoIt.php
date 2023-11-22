@@ -16,15 +16,8 @@ class DoIt extends AbstractProcess
 
     private function process_c()
     {
-        $it = new \AppendIterator();
-        foreach ($this->config['paths'] as $path) {
-            $dirIterator = new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::KEY_AS_PATHNAME);
-            $dirIterator = new \RecursiveIteratorIterator($dirIterator);
-            $dirIterator = new \RegexIterator($dirIterator, "/^.+\.[hc]$/");
-            $it->append($dirIterator);
-        }
         $pcp = new \C\PCP();
-        $pcp->process($this->config, $it);
+        $pcp->process($this->config);
     }
 
     public function process(\Data\TreeConfig $config)

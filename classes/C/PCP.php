@@ -28,10 +28,10 @@ class PCP extends \DataFlow\BasePublisher
     private function updatePhase(\Action\PhaseName $name, \Action\PhaseState $state, $data = null)
     {
         foreach ($this->getSubscribers() as $s)
-            $s->onPhase(\Action\Phase::create($name, $state), null);
+            $s->onPhase(\Action\Phase::create($name, $state), $data);
     }
 
-    public function process(\Data\TreeConfig $config, iterable $files): void
+    public function process(\Data\TreeConfig $config): void
     {
         $this->fileConfig = $config->child();
         $this->config = $this->fileConfig->child();
@@ -61,25 +61,54 @@ class PCP extends \DataFlow\BasePublisher
         \Action\PhaseState::Run //
         );
 
-        foreach ($files as $finfo) {
-            $this->config->clearLevel();
-            $this->processOneFile($finfo);
-        }
+        foreach ($config['paths'] as $dir)
+            $this->processDir($dir);
+
         $this->updatePhase( //
         \Action\PhaseName::ProcessingFiles, //
         \Action\PhaseState::Stop //
         );
     }
 
+    public function processDir($wdir): void
+    {
+        $phaseData = \Action\PhaseData\ReadingDirectory::fromPath($wdir);
+        $this->updatePhase( //
+        \Action\PhaseName::OpeningDirectory, //
+        \Action\PhaseState::Start, //
+        $phaseData);
+
+        $it = new \FileSystemIterator($wdir);
+        $dirs = [];
+
+        foreach ($it as $finfo) {
+
+            if ($it->isDir())
+                $dirs[] = $finfo;
+            elseif (\in_array(\substr($finfo, - 2), [
+                '.h',
+                '.c'
+            ]))
+                $this->processOneFile($finfo);
+        }
+
+        foreach ($dirs as $d)
+            $this->processDir($d);
+
+        $this->updatePhase( //
+        \Action\PhaseName::OpeningDirectory, //
+        \Action\PhaseState::Stop, //
+        $phaseData);
+    }
+
     private function processOneFile(\SplFileInfo $finfo): void
     {
+        $phaseData = \Action\PhaseData\ReadingOneFile::fromPath($finfo);
         $this->updatePhase( //
         \Action\PhaseName::ReadingOneFile, //
         \Action\PhaseState::Start, //
-        \Action\PhaseData\ReadingOneFile::fromPath($finfo) //
-        );
+        $phaseData);
 
-        $this->fileConfig['fileInfo'] = $finfo;
         $creader = \C\Reader::fromFile($finfo);
         $pragmas = [];
         $cppNameRef = (array) $this->config['cpp.name'];
@@ -118,7 +147,7 @@ class PCP extends \DataFlow\BasePublisher
         }
         $this->updatePhase( //
         \Action\PhaseName::ReadingOneFile, //
-        \Action\PhaseState::Stop //
-        );
+        \Action\PhaseState::Stop, //
+        $phaseData);
     }
 }
