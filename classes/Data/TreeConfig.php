@@ -6,55 +6,96 @@ namespace Data;
  * each section of the path is delimited by an internal char delimiter.
  * Each node of the configuration can be set to a value.
  *
- * A TreeConfig may have a parent which is immutable in which elements can be searched if not present the child.
  *
  * @author zuri
  */
-final class TreeConfig implements \ArrayAccess, \Iterator
+final class TreeConfig implements IConfig, \Iterator
 {
 
-    private array $data = [];
+    private const default = \Help\NullValue::v;
+
+    private mixed $nullValue;
+
+    private array $data;
 
     private string $delimiter;
 
-    private ?TreeConfig $parent;
-
     // ========================================================================
-    private function __construct(?TreeConfig $parent, string $delimiter)
+    private function __construct(string $delimiter, $default = self::default)
     {
-        $this->parent = $parent;
         $this->delimiter = $delimiter;
+        $this->data = [];
+        $this->nullValue = $default;
     }
 
     public static function empty(string $delimiter = '.'): self
     {
-        return new self(null, $delimiter);
+        return new self($delimiter);
     }
 
-    public static function fromParent(TreeConfig $parent): self
+    public function child(): static
     {
-        return new self($parent, $parent->delimiter);
+        return new self($this->delimiter, $this->nullValue);
     }
 
     // ========================================================================
-    public function clearLevel()
+    public function setNullValue($default)
+    {
+        $this->nullValue = $default;
+    }
+
+    public function getNullValue(): mixed
+    {
+        return $this->nullValue;
+    }
+
+    public function get($offset): mixed
+    {
+        $val = $this->getData($offset, $this->nullValue);
+
+        if (\is_array($val))
+            $val = $val[''] ?? $this->nullValue;
+
+        return $val;
+    }
+
+    public function &getReference($offset): mixed
+    {
+        return $this->createIfNotPresent($offset, $this->nullValue);
+    }
+
+    public function subConfig(mixed $offset): static
+    {
+        $val = $this->getData($offset, $this->nullValue);
+        $ret = $this->child();
+
+        if ($val !== $this->nullValue)
+            $ret->data = $val;
+
+        return $ret;
+    }
+
+    public function unset($offset): bool
+    {
+        $path = $this->explodePath($offset);
+        $last = \array_pop($path);
+        $val = &\Help\Arrays::follow($this->data, $path, $this->nullValue);
+
+        if ($val === $this->nullValue)
+            return false;
+
+        unset($val[$last]);
+        return true;
+    }
+
+    public function clear(): void
     {
         $this->data = [];
     }
 
-    public function getParent(): ?self
-    {
-        return $this->parent;
-    }
-
-    public function child(): self
-    {
-        return self::fromParent($this);
-    }
-
     public function toArray(): array
     {
-        return \array_merge((array)$this->parent?->toArray(),$this->toNaturalArray($this->data));
+        return $this->toNaturalArray($this->data);
     }
 
     // ========================================================================
@@ -63,40 +104,38 @@ final class TreeConfig implements \ArrayAccess, \Iterator
         return \explode($this->delimiter, $key);
     }
 
-    private function &getData($offset)
+    private function &getData($offset): mixed
     {
-        $val = &\Help\Arrays::follow($this->data, $this->explodePath($offset), \Help\NullValue::v);
+        $val = &\Help\Arrays::follow($this->data, $this->explodePath($offset), $this->nullValue);
 
-        if ($val === \Help\NullValue::v) {
+        if ($val === $this->nullValue) {
 
             if (isset($this->parent))
                 $val = &$this->parent->getData($offset);
             else
-                $val = \Help\NullValue::v;
+                $val = $this->nullValue;
         }
         return $val;
     }
 
-    private function getUpdateList($offset, $value)
+    private function getUpdateList($offset, $value): array
     {
         $path = $this->explodePath("$offset$this->delimiter");
         return \Help\Arrays::pathToRecursiveList($path, $value);
     }
 
-    private static function updateOnUnexists(&$data, $k, $v)
+    private static function updateOnUnexists(&$data, $k, $v): void
     {
         $data[$k] = $v;
     }
 
-    private function &createIfNotPresent($offset)
+    private function &createIfNotPresent($offset): mixed
     {
         $ref = [];
         $update = $this->getUpdateList($offset, null);
 
         \Help\Arrays::updateRecursive($update, $this->data, //
-        function ($a, $k, $v) {
-            self::updateOnUnexists($a, $k, $v);
-        }, //
+        self::updateOnUnexists(...), //
         null, //
         function (&$aref) use (&$ref) {
             $ref[] = &$aref;
@@ -104,37 +143,21 @@ final class TreeConfig implements \ArrayAccess, \Iterator
         return $ref[0];
     }
 
-    public function subTreeConfig($offset): TreeConfig
-    {
-        $val = $this->getData($offset);
-        $ret = new TreeConfig(null, $this->delimiter);
-
-        if ($val !== \Help\NullValue::v)
-            $ret->data = $val;
-
-        return $ret;
-    }
-
-    // ========================================================================
-    public function offsetExists($offset): bool
-    {
-        return null !== \Help\Arrays::follow($this->data, $this->explodePath($offset)) || //
-        (null !== $this->parent && $this->parent->offsetExists($offset));
-    }
-
     private function toNaturalArray($data): array
     {
+        if (empty($data))
+            return [];
+
         $ret = [];
 
         foreach ($data as $k => $v) {
 
-            if (\is_array($v) && isset($v[''])) {
-                $ret[$k] = $v[''] ?? null;
-                unset($v['']);
-            } else
-                $ret[$k] = null;
+            if (\is_array($v)) {
 
-            if (\is_array($v) && ! empty($v)) {
+                if (isset($v[''])) {
+                    $ret[$k] = $v[''];
+                    unset($v['']); // Does not count for the next foreach
+                }
 
                 foreach (self::toNaturalArray($v) as $kk => $vv)
                     $ret["$k$this->delimiter$kk"] = $vv;
@@ -143,21 +166,22 @@ final class TreeConfig implements \ArrayAccess, \Iterator
         return $ret;
     }
 
-    public function &offsetGet($offset)
+    // ========================================================================
+    public function offsetExists($offset): bool
+    {
+        return $this->nullValue !== \Help\Arrays::follow($this->data, $this->explodePath($offset), $this->nullValue);
+    }
+
+    public function &offsetGet($offset): mixed
     {
         // Ask for the reference at this level
         if (\str_ends_with($offset, "&"))
-            $val = &$this->createIfNotPresent(\substr($offset, 0, - 1));
+            $val = &$this->getReference(\substr($offset, 0, - 1));
         elseif (\str_ends_with($offset, "[]")) {
             $val = $this->getData(\substr($offset, 0, - 2));
             $val = $this->toNaturalArray($val);
         } else {
-            $val = $this->getData($offset);
-
-            if ($val === \Help\NullValue::v)
-                $val = null;
-            if (\is_array($val))
-                $val = $val[''] ?? null;
+            $val = $this->get($offset);
         }
         return $val;
     }
@@ -165,23 +189,12 @@ final class TreeConfig implements \ArrayAccess, \Iterator
     public function offsetSet($offset, $value): void
     {
         $update = $this->getUpdateList($offset, $value);
-        $ref = [];
-
-        \Help\Arrays::updateRecursive($update, $this->data, function ($a, $k, $v) {
-            self::updateOnUnexists($a, $k, $v);
-        });
+        \Help\Arrays::updateRecursive($update, $this->data, self::updateOnUnexists(...));
     }
 
     public function offsetUnset($offset): void
     {
-        $path = $this->explodePath($offset);
-        $last = \array_pop($path);
-        $val = &\Help\Arrays::follow($this->data, $path, \Help\NullValue::v);
-
-        if ($val === \Help\NullValue::v)
-            return;
-
-        unset($val[$last]);
+        $this->unset($offset);
     }
 
     public function keys(): array
@@ -206,12 +219,12 @@ final class TreeConfig implements \ArrayAccess, \Iterator
 
     private $itk;
 
-    public function current()
+    public function current(): mixed
     {
         return $this[$this->itk];
     }
 
-    public function key()
+    public function key(): mixed
     {
         return $this->itk;
     }
@@ -240,27 +253,29 @@ final class TreeConfig implements \ArrayAccess, \Iterator
     }
 
     /**
-     * Merge the first level of an array, that is replace all value in the TreeConfig by those of the array.
-     *
-     * @param array $config
-     */
-    public function arrayMerge(array $config): void
-    {
-        foreach ($config as $k => $v)
-            $this[$k] = $v;
-    }
-
-    /**
      * Merge the first level of an array, that is replace only the non existant path in the TreeConfig by those in the array.
      *
      * @param array $config
      */
-    public function arrayUnion(array $config): void
+    public function union(iterable $config): void
     {
         foreach ($config as $k => $v)
 
             if (! isset($this[$k]))
                 $this[$k] = $v;
+    }
+
+    // ========================================================================
+
+    /**
+     * Merge the first level of an array, that is replace all value in the TreeConfig by those of the array.
+     *
+     * @param array $config
+     */
+    public function mergeArray(array $config): void
+    {
+        foreach ($config as $k => $v)
+            $this[$k] = $v;
     }
 
     /**
@@ -272,7 +287,7 @@ final class TreeConfig implements \ArrayAccess, \Iterator
      *            The configuration data
      * @return TreeConfig
      */
-    public function arrayMergeRecursive(array $config): void
+    public function mergeArrayRecursive(array $config): void
     {
         $ret = $this;
 

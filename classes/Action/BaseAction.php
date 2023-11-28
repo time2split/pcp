@@ -4,9 +4,9 @@ namespace Action;
 abstract class BaseAction extends \DataFlow\BaseSubscriber implements IAction
 {
 
-    protected \Data\TreeConfig $config;
+    protected \Data\IConfig $config;
 
-    public function __construct(\Data\TreeConfig $config)
+    public function __construct(\Data\IConfig $config)
     {
         $this->config = $config;
     }

@@ -99,8 +99,8 @@ if (! isset($actions[$action]))
 
 $process = new $actions[$action]();
 
-$theConfig = \Data\TreeConfig::empty();
-$theConfig->arrayMergeRecursive($CONFIG);
+$theConfig = \Data\TreeConfigHierarchy::create();
+$theConfig->mergeArrayRecursive($CONFIG);
 
 $process->process($theConfig);
 

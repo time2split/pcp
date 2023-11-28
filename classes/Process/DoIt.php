@@ -20,7 +20,7 @@ class DoIt extends AbstractProcess
         $pcp->process($this->config);
     }
 
-    public function process(\Data\TreeConfig $config)
+    public function process(\Data\IConfig $config)
     {
         parent::process($config);
         $this->process_c();
