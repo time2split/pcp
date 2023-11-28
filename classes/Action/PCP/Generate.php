@@ -27,17 +27,16 @@ class Generate extends \Action\BaseAction
 
     private array $area;
 
-    private \Data\TreeConfig $myConf;
-
     private int $groupId = 0;
 
     private ?\C\Macro $nextInstruction;
 
     private \Action\PhaseData\ReadingOneFile $fileInfo;
 
-    public function __construct(\Data\TreeConfig $config)
+    public function __construct(\Data\IConfig $config)
     {
         parent::__construct($config);
+        $this->config = $this->config->child();
         $this->storage = [];
     }
 
@@ -69,7 +68,7 @@ class Generate extends \Action\BaseAction
                     $msg->getGroup() === \C\DeclarationGroup::definition || //
                     $msg->getGroup() === \C\DeclarationGroup::declaration && $msg->getType() === \C\DeclarationType::tfunction) {
                         $this->storeGroup($msg, $instruction);
-                        unset($this->myConf['function']);
+                        unset($this->config['function']);
                     }
                     break;
             }
@@ -101,8 +100,8 @@ class Generate extends \Action\BaseAction
                     $this->oneFileData = $data;
 
                     // Reset the config for the file
-                    $this->myConf = $this->config->child();
-                    $this->myConf->arrayMergeRecursive(self::DefaultConfig);
+                    $this->config->clear();
+                    $this->config->mergeArrayRecursive(self::DefaultConfig);
                 } elseif (\Action\PhaseState::Stop == $phase->state) {
                     $this->flushFileInfos();
                 }
@@ -162,7 +161,7 @@ class Generate extends \Action\BaseAction
 
             $this->nextInstruction = $inst;
         } else
-            $this->myConf->arrayMerge($args);
+            $this->config->mergeArray($args);
     }
 
     // ========================================================================
@@ -238,7 +237,7 @@ class Generate extends \Action\BaseAction
 
     private function storeSelectConf(): array
     {
-        return \Help\Arrays::subSelect($this->myConf->toArray(), [
+        return \Help\Arrays::subSelect($this->config->toArray(), [
             'target',
             'prefix'
         ]);

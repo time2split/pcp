@@ -10,9 +10,7 @@ namespace C;
 class PCP extends \DataFlow\BasePublisher
 {
 
-    private \Data\TreeConfig $config;
-
-    private \Data\TreeConfig $fileConfig;
+    private \Data\IConfig $config;
 
     public function __construct()
     {
@@ -31,13 +29,11 @@ class PCP extends \DataFlow\BasePublisher
             $s->onPhase(\Action\Phase::create($name, $state), $data);
     }
 
-    public function process(\Data\TreeConfig $config): void
+    public function process(\Data\IConfig $config): void
     {
-        $this->fileConfig = $config->child();
-        $this->config = $this->fileConfig->child();
-
-        $this->fileConfig['dateTime'] = $date = new \DateTime();
-        $this->fileConfig['dateTime.format'] = $date->format(\DateTime::ATOM);
+        $this->config = $config->child();
+        $this->config['dateTime'] = $date = new \DateTime();
+        $this->config['dateTime.format'] = $date->format(\DateTime::ATOM);
 
         // $this->subscribe(new \Action\PCP\EchoAction($config));
         $this->subscribe(new \Action\PCP\Conf($this->config));

@@ -4,7 +4,7 @@ namespace Process;
 abstract class AbstractProcess
 {
 
-    protected \Data\TreeConfig $config;
+    protected \Data\IConfig $config;
 
     protected string $workingDir;
 
@@ -16,7 +16,7 @@ abstract class AbstractProcess
         $this->workingDir = $workingDir;
     }
 
-    protected function process(\Data\TreeConfig $config)
+    protected function process(\Data\IConfig $config)
     {
         $this->config = $config;
     }
