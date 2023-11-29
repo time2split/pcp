@@ -9,11 +9,6 @@ class DoIt extends AbstractProcess
         parent::__construct($workingDir);
     }
 
-
-
-
-
-
     private function process_c()
     {
         $pcp = new \C\PCP();

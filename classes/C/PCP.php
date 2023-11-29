@@ -66,6 +66,8 @@ class PCP extends \DataFlow\BasePublisher
         );
     }
 
+    private $newFiles = [];
+
     public function processDir($wdir): void
     {
         $phaseData = \Action\PhaseData\ReadingDirectory::fromPath($wdir);
@@ -77,15 +79,19 @@ class PCP extends \DataFlow\BasePublisher
         $it = new \FileSystemIterator($wdir);
         $dirs = [];
 
+        loop:
         foreach ($it as $finfo) {
 
-            if ($it->isDir())
+            if ($finfo->isDir())
                 $dirs[] = $finfo;
-            elseif (\in_array(\substr($finfo, - 2), [
-                '.h',
-                '.c'
-            ]))
+            else
                 $this->processOneFile($finfo);
+        }
+        // Iterate through new files
+        if (! empty($this->newFiles)) {
+            $it = $this->newFiles;
+            $this->newFiles = [];
+            goto loop;
         }
 
         foreach ($dirs as $d)
@@ -99,6 +105,26 @@ class PCP extends \DataFlow\BasePublisher
 
     private function processOneFile(\SplFileInfo $finfo): void
     {
+        if (\str_ends_with($finfo, '.php')) {
+            $newFile = \substr($finfo, 0, - 4);
+            $notFile = ! \is_file($newFile);
+
+            if ($notFile || \Help\IO::olderThan($newFile, $finfo))
+                \file_put_contents($newFile, \Help\IO::get_include_contents($finfo));
+
+            // A new file to consider is create
+            if ($notFile)
+                $this->newFiles[] = new \SplFileInfo($newFile);
+
+            return;
+        }
+
+        if (! \in_array(\substr($finfo, - 2), [
+            '.h',
+            '.c'
+        ]))
+            return;
+
         $phaseData = \Action\PhaseData\ReadingOneFile::fromPath($finfo);
         $this->updatePhase( //
         \Action\PhaseName::ReadingOneFile, //
