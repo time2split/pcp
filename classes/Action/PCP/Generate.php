@@ -165,42 +165,30 @@ class Generate extends \Action\BaseAction
     }
 
     // ========================================================================
-    private function prototypeToString(array $declaration): string
+    private function prototypeToString(\C\Declaration $declaration): string
     {
         $ret = '';
-        $e = $declaration;
         $lastIsAlpha = false;
+        $paramSep = '';
 
-        foreach ($e['items'] as $s) {
-            $len = \strlen($s);
+        foreach ($declaration['items'] as $s) {
 
-            if ($len == 0)
-                continue;
-
-            if ($lastIsAlpha && ! \ctype_punct($s)) {
-                $ret .= " $s";
+            if ($s instanceof \C\Declaration) {
+                $ret .= $paramSep . $this->prototypeToString($s);
+                $paramSep = ', ';
             } else {
-                $lastIsAlpha = $len > 0 ? \ctype_alpha($s[$len - 1]) : false;
-                $ret .= $s;
-            }
-        }
+                $len = \strlen($s);
 
-        if ($declaration['type'] == \C\DeclarationType::tfunction) {
-            $params = $e['parameters'] ?? null;
+                if ($len == 0)
+                    continue;
 
-            $ret .= "(";
-
-            if (! empty($params)) {
-                $active = false;
-
-                $ret .= $this->prototypeToString(\array_shift($params));
-
-                foreach ($params as $p) {
-                    $ret .= ', ';
-                    $ret .= $this->prototypeToString(\array_shift($params));
+                if ($lastIsAlpha && ! \ctype_punct($s)) {
+                    $ret .= " $s";
+                } else {
+                    $lastIsAlpha = $len > 0 ? \ctype_alpha($s[$len - 1]) : false;
+                    $ret .= $s;
                 }
             }
-            $ret .= ")";
         }
         return $ret;
     }
@@ -287,12 +275,14 @@ class Generate extends \Action\BaseAction
     {
         $macroTokens = $i['function'];
         $macroTokens .= ';';
-        $macroFun = \C\Reader::fromStream(\Help\IO::stringToStream($macroTokens))->next()->getElements();
+        $macroFun = \C\Reader::fromStream(\Help\IO::stringToStream($macroTokens))->next();
         $macroElements = $macro->getElements();
         $macroFun['identifier']['name'] = $macroElements['name'];
 
+        $macroFunParameters = $macroFun->getParameters();
+
         foreach ($macroElements['args'] as $k => $name)
-            $macroFun['parameters'][$k]['identifier']['name'] = $name;
+            $macroFunParameters[$k]['identifier']['name'] = $name;
 
         $code = $macroElements['tokens'] . ';';
 
@@ -304,14 +294,13 @@ class Generate extends \Action\BaseAction
         return "\n$ret";
     }
 
-    private function generatePrototype(array $i, \C\Declaration $decl)
+    private function generatePrototype(array $i, \C\Declaration $decl): string
     {
         return $this->generatePrototype_($i, $decl) . ';';
     }
 
-    private function generatePrototype_(array $i, \C\Declaration $decl)
+    private function generatePrototype_(array $i, \C\Declaration $decl): string
     {
-        $decl = $decl->getElements();
         $generateType = $i['function'] ?? $i['prototype'];
 
         if (\is_string($generateType)) {
@@ -321,7 +310,7 @@ class Generate extends \Action\BaseAction
         return $this->prototypeToString($decl);
     }
 
-    private function generateFunction(array $i, \C\Declaration $decl)
+    private function generateFunction(array $i, \C\Declaration $decl): string
     {
         return "\n" . $this->generatePrototype_($i, $decl) . ($decl->getElements()['cstatement'] ?? '');
     }
@@ -336,7 +325,7 @@ class Generate extends \Action\BaseAction
         return SourceType::Prototype;
     }
 
-    private function getGenerateStrategy(SourceType $sourceType)
+    private function getGenerateStrategy(SourceType $sourceType): callable
     {
         return match ($sourceType) {
             SourceType::Prototype => $this->generatePrototype(...),
