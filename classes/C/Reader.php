@@ -81,7 +81,6 @@ class Reader
 
             if ($c === false)
                 goto failure;
-            // $this->parseException("Waited for comment; end of file reached");
 
             switch ($state) {
 
@@ -93,7 +92,6 @@ class Reader
                         $state = 100;
                     else
                         goto failure;
-                    // $this->parseException("Waited for comment");
                     break;
                 case 1:
                     if ("\n" === $c)
@@ -894,7 +892,13 @@ class Reader
                                 $this->pushState(ReaderState::wait_end_declaration);
                                 break;
                             }
-                            $element['parameters'] = $params;
+                            $nbItems = \count($element['items']) + 1;
+                            $element['parameters'] = \range($nbItems, $nbItems + \count($params) - 1);
+
+                            $element['items'][] = '(';
+                            foreach ($params as $p)
+                                $element['items'][] = Declaration::fromReaderElements($p);
+                            $element['items'][] = ')';
                         }
                     } else
                         $this->fungetc();
