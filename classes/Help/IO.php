@@ -6,7 +6,7 @@ final class IO
 
     public static function olderThan(string $a, string $b)
     {
-        return \filemtime($a) > \filemtime($b);
+        return \filemtime($a) < \filemtime($b);
     }
 
     public static function rrmdir(string $dir, bool $rmRoot = true): void
@@ -137,7 +137,7 @@ final class IO
         return $status['exitcode'];
     }
 
-    public static function get_include_contents(string $filename, array $variables, string $uniqueVar = '')
+    public static function get_include_contents(string $filename, array $variables = [], string $uniqueVar = '')
     {
         if (is_file($filename)) {
 
