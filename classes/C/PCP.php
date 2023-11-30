@@ -35,9 +35,8 @@ class PCP extends \DataFlow\BasePublisher
         $this->config['dateTime'] = $date = new \DateTime();
         $this->config['dateTime.format'] = $date->format(\DateTime::ATOM);
 
-        // $this->subscribe(new \Action\PCP\EchoAction($config));
-        $this->subscribe(new \Action\PCP\Conf($this->config));
-        $this->subscribe(new \Action\PCP\Generate($this->config));
+        $actions = \Action\ActionFactory::get($this->config)->getActions();
+        \array_walk($actions, $this->subscribe(...));
 
         // Init and check phase
         {
