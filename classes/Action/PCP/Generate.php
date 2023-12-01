@@ -31,7 +31,7 @@ class Generate extends \Action\BaseAction
 
     private ?\C\Macro $nextInstruction;
 
-    private \Action\PhaseData\ReadingOneFile $fileInfo;
+    private \Action\PhaseData\ReadingOneFile $oneFileData;
 
     public function __construct(\Data\IConfig $config)
     {

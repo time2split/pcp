@@ -166,6 +166,7 @@ class PCP extends \DataFlow\BasePublisher
             if (! $skip)
                 $this->deliverMessage($element);
         }
+        $creader->close();
         $this->updatePhase( //
         \Action\PhaseName::ReadingOneFile, //
         \Action\PhaseState::Stop, //

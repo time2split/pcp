@@ -4,9 +4,9 @@ namespace Action;
 final class Phase
 {
 
-    public PhaseName $name;
+    public readonly PhaseName $name;
 
-    public PhaseState $state;
+    public readonly PhaseState $state;
 
     private function __construct(PhaseName $name, PhaseState $state)
     {

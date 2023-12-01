@@ -26,7 +26,9 @@ final class ActionFactory
                 new \Action\PCP\Conf($this->config),
                 new \Action\PCP\Generate($this->config)
             ],
-            'clean' => [],
+            'clean' => [
+                new \Action\PCP\GenerateClean($this->config)
+            ],
             default => []
         };
     }

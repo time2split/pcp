@@ -4,9 +4,11 @@ namespace File;
 final class Insertion
 {
 
-    private $tmpFile;
+    private string $tmpFile;
 
     private $fp;
+
+    private array $fp_metaData;
 
     private $tmpfp;
 
@@ -22,7 +24,7 @@ final class Insertion
     {
         $this->tmpFile = $tmpFile;
         $this->fp = $fp;
-        $this->tmp = new \SplFileInfo($tmpFile);
+        $this->fp_metaData = \stream_get_meta_data($this->fp);
         $this->tmpfp = \fopen($tmpFile, "w+");
         $this->closeStream = $closeStream;
     }
@@ -53,15 +55,15 @@ final class Insertion
     public function close(): int
     {
         if ($this->fp && $this->closeStream) {
-            $this->flush();
-
             $this->seekReadStream();
             $nb = \fwrite($this->tmpfp, \stream_get_contents($this->fp));
             $this->written += $nb;
+
             \fclose($this->fp);
             \fclose($this->tmpfp);
-
             $this->fp = null;
+
+            $this->flush();
             return $nb;
         }
         return 0;
@@ -72,10 +74,7 @@ final class Insertion
         if ($this->written == 0)
             return true;
 
-        $file = \stream_get_meta_data($this->fp)['uri'];
-
-        if (! $file instanceof \SplFileInfo)
-            $file = new \SplFileInfo((string) $file);
+        $file = new \SplFileInfo($this->fp_metaData['uri']);
 
         // Preserve the original file times
         if (\is_file($file)) {
@@ -91,6 +90,18 @@ final class Insertion
             \fseek($this->fp, $this->copied, SEEK_SET);
     }
 
+    private function preWrite(): int
+    {
+        $nb = 0;
+        if ($this->pos !== $this->copied) {
+            $this->seekReadStream();
+            $len = $this->pos - $this->copied;
+            $nb = \fwrite($this->tmpfp, \fread($this->fp, $len));
+            $this->copied += $nb;
+        }
+        return $nb;
+    }
+
     public function seekAdd(int $pos): void
     {
         $this->seek($this->pos + $pos);
@@ -102,21 +113,28 @@ final class Insertion
             throw new \Exception(__class__ . " Cannot move to a lower position than $this->pos: ask for $pos");
 
         $this->pos = $pos;
-        return;
     }
 
-    public function write(string $text): int
+    public function seekForget(int $pos): void
+    {
+        if (! $this->fp)
+            return;
+
+        $this->preWrite();
+        $this->seek($pos);
+
+        // Just to raise the write condition at the end
+        $this->written += $this->pos - $this->copied;
+
+        $this->copied = $this->pos;
+    }
+
+    public function write(string $text = ''): int
     {
         if (! $this->fp)
             return 0;
 
-        $nb = 0;
-
-        if ($this->pos !== $this->copied) {
-            $this->seekReadStream();
-            $nb = \fwrite($this->tmpfp, \fread($this->fp, $this->pos));
-            $this->copied += $nb;
-        }
+        $nb = $this->preWrite();
         $nbw = \fwrite($this->tmpfp, $text);
         $this->written += $nb;
         return $nb + $nbw;
