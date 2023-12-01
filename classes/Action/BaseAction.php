@@ -29,6 +29,9 @@ abstract class BaseAction extends \DataFlow\BaseSubscriber implements IAction
         \Help\IO::wdPop();
     }
 
+    public function onMessage(IActionMessage $msg): void
+    {}
+
     public function onPhase(Phase $phase, $data = null): void
     {}
 }
