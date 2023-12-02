@@ -38,6 +38,7 @@ class Generate extends \Action\BaseAction
         parent::__construct($config);
         $this->config = $this->config->child();
         $this->storage = [];
+        $this->area = [];
     }
 
     public function onMessage(\Action\IActionMessage $msg): void
@@ -63,6 +64,9 @@ class Generate extends \Action\BaseAction
 
                 case \C\DeclarationType::tfunction:
                     $instruction = $this->nextInstruction($msg);
+
+                    if (! isset($instruction))
+                        break;
 
                     if ( //
                     $msg->getGroup() === \C\DeclarationGroup::definition || //
@@ -120,8 +124,10 @@ class Generate extends \Action\BaseAction
         return null;
     }
 
-    private function nextInstruction(\C\Declaration $decl): \C\Macro
+    private function nextInstruction(\C\Declaration $decl): ?\C\Macro
     {
+        $next = null;
+
         if (! isset($this->nextInstruction)) {
 
             // Function definition
@@ -137,10 +143,6 @@ class Generate extends \Action\BaseAction
             $next = $this->nextInstruction;
             $this->nextInstruction = null;
         }
-
-        if (! isset($next))
-            throw new \Exception("generate: Unable to set the next instruction");
-
         return $next;
     }
 
