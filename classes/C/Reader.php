@@ -759,10 +759,25 @@ class Reader
 
                         if ($isfun) {
                             $element['group'] = $after['group'];
-                            self::elementSet($element, 'parameters', $after['parameters']);
-                            self::elementSet($element, 'cstatement', $after['cstatement']);
-                        } else
+
+                            // Add the parameters to the current element
+                            {
+                                $element['items'][] = '(';
+                                $poffset = \count($element['items']);
+
+                                foreach ($after['parameters'] as $ppos)
+                                    $element['items'][] = $after['items'][$ppos];
+
+                                $element['items'][] = ')';
+                                $element['parameters'] = \range($poffset, $poffset + \count($after['parameters']) - 1);
+                            }
+
+                            if (isset($after['cstatement'])) {
+                                self::elementSet($element, 'cstatement', $after['cstatement']);
+                            }
+                        } else {
                             self::elementAddItems($element, $after['items']);
+                        }
                     } elseif ($c === '{') {
                         $element['group'] = DeclarationGroup::definition;
                         $element['type'] = DeclarationType::tfunction;
@@ -880,6 +895,7 @@ class Reader
                     if ($c === ',') {
                         $this->pushState(ReaderState::parameter, $data);
                     } elseif ($c === ')') {
+                        $this->makeElementIdentifier($element);
                         $params = $element['_parameters'];
                         unset($element['_parameters']);
 
