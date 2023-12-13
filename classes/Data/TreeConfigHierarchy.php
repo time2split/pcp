@@ -31,6 +31,11 @@ final class TreeConfigHierarchy implements IConfig
             throw new \Error(__class__ . " Has multiple delimiters: " . print_r($delims, true));
     }
 
+    public function getKeyDelimiter(): string
+    {
+        return $this->last()->getKeyDelimiter();
+    }
+
     public static function create(): self
     {
         return new self(TreeConfig::empty());
@@ -153,6 +158,6 @@ final class TreeConfigHierarchy implements IConfig
 
     public function offsetUnset($offset): void
     {
-        $this->last()->unset($offset);
+        $this->last()->offsetUnset($offset);
     }
 }

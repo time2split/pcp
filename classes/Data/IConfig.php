@@ -12,6 +12,8 @@ namespace Data;
 interface IConfig extends \ArrayAccess
 {
 
+    public function getKeyDelimiter(): string;
+
     /**
      * The NullValue indicates a non existent element in the configuration.
      * In a configuration it may be usefull to have null without its sematic of non-existent value.

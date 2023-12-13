@@ -18,9 +18,14 @@ class Generate extends \Action\BaseAction
 
     private const DefaultConfig = [
         'target' => '.',
-        'prefix' => '',
         'always.prototype' => false,
-        'always.function' => false
+        'always.function' => false,
+        'generate' => [
+            'name.base' => null,
+            'name.prefix' => null,
+            'name.suffix' => null,
+            'name.format' => '${generate.name.prefix}${generate.name.base}${generate.name.suffix}'
+        ]
     ];
 
     private array $storage;
@@ -273,13 +278,21 @@ class Generate extends \Action\BaseAction
         $this->area = [];
     }
 
+    private function generateName(string $baseName): string
+    {
+        $conf = $this->config;
+        $conf['generate.name.base'] = $baseName;
+        return $conf['generate.name.format'];
+    }
+
     private function generateMacro(array $i, \C\Macro $macro)
     {
         $macroTokens = $i['function'];
         $macroTokens .= ';';
+
         $macroFun = \C\Reader::fromStream(\Help\IO::stringToStream($macroTokens))->next();
         $macroElements = $macro->getElements();
-        $macroFun['identifier']['name'] = $macroElements['name'];
+        $macroFun['identifier']['name'] = $this->generateName($macroElements['name']);
 
         $macroFunParameters = $macroFun->getParameters();
 
@@ -305,10 +318,13 @@ class Generate extends \Action\BaseAction
     {
         $generateType = $i['function'] ?? $i['prototype'];
 
-        if (\is_string($generateType)) {
-            $pos = $decl['identifier']['pos'];
-            $decl['items'][$pos] = $generateType;
-        }
+        $identifierPos = $decl['identifier']['pos'];
+        $decl['items'][$identifierPos] = $this->generateName($decl['items'][$identifierPos]);
+
+        // if (isset($generateType)) {
+        // $pos = $decl['identifier']['pos'];
+        // $decl['items'][$pos] = $generateType;
+        // }
         return $this->prototypeToString($decl);
     }
 
@@ -368,6 +384,10 @@ class Generate extends \Action\BaseAction
         }
         $targetInfos = \array_map(\array_keys(...), $targetInfos);
 
+        // Config child block {
+        $lastConfig = $this->config;
+        $this->config = $this->config->child();
+
         foreach ($groupByIds as $targets => $storageItems) {
 
             foreach ($storageItems as [
@@ -376,12 +396,22 @@ class Generate extends \Action\BaseAction
                 $tags,
                 $sourceType
             ]) {
+                $subConfig = \Data\TreeConfig::from($instructionArray);
+                $subConfig = $subConfig['[]'];
+
+                if (! empty($subConfig)) {
+                    $this->config->clear();
+                    $this->config->mergeArrayRecursive($subConfig);
+                }
                 $infosToSave[$ids[$targets]][] = [
                     'tags' => $tags,
                     'text' => $this->getGenerateStrategy($sourceType)($instructionArray, $sourceElement)
                 ];
             }
         }
+        $this->config = $lastConfig;
+        // } Config child block
+
         $fileDir = "{$finfo->getPathInfo()}/";
 
         if (! is_dir($fileDir))
