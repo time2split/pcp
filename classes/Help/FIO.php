@@ -4,6 +4,35 @@ namespace Help;
 final class FIO
 {
 
+    public static function streamSkipChars($stream, callable $predicate): int
+    {
+        return self::skipChars( //
+        fn () => \fgetc($stream), //
+        fn () => \fseek($stream, - 1, SEEK_CUR), //
+        $predicate);
+    }
+
+    public static function streamGetChars($stream, callable $predicate): ?string
+    {
+        return self::getChars( //
+        fn () => \fgetc($stream), //
+        fn () => \fseek($stream, - 1, SEEK_CUR), //
+        $predicate);
+    }
+
+    public static function streamGetCharsUntil($stream, callable|string $endDelimiter): string
+    {
+        return self::getCharsUntil( //
+        fn () => \fgetc($stream), //
+        $predicate);
+    }
+
+    public static function streamUngetc($stream): bool
+    {
+        return \fseek($stream, - 1, SEEK_CUR);
+    }
+
+    // ========================================================================
     public static function skipChars(callable $fgetc, callable $fungetc, callable $predicate): int
     {
         $nb = 0;
@@ -21,7 +50,7 @@ final class FIO
     {
         $ret = '';
 
-        while ($predicate($c = $fgetc()))
+        while (false !== ($c = $fgetc()) && $predicate($c))
             $ret .= $c;
 
         if ($c !== false)
@@ -35,10 +64,10 @@ final class FIO
         getSimpleDelimitedText($fgetc, $endDelimiter);
     }
 
-    public static function getCharsUntil(callable $fgetc, $endDelimiter): ?string
+    public static function getCharsUntil(callable $fgetc, callable|string $endDelimiter): ?string
     {
         if (\is_callable($endDelimiter));
-        elseif (\is_string($endDelimiter)) {
+        else {
             $c = \strlen($endDelimiter);
 
             if (0 === $c)
