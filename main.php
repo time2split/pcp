@@ -26,6 +26,9 @@ if (! \in_array($action, $actions))
 
 $CONFIG['action'] = $action;
 $theConfig = \Data\TreeConfigHierarchy::create();
+$theConfig = \Data\InterpolatedConfig::from($theConfig, [
+    'env' => getenv(...)
+]);
 $theConfig->mergeArrayRecursive($CONFIG);
 
 (new \Process\DoIt())->process($theConfig);
