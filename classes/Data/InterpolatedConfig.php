@@ -1,25 +1,29 @@
 <?php
 namespace Data;
 
-final class InterpolatedConfig implements IConfig
+final class InterpolatedConfig extends AbstractTreeConfig
 {
 
     private IConfig $decorate;
 
     private InterpolationBuilder $builder;
 
-    private function __construct(IConfig $decorate, InterpolationBuilder $builder)
+    private function __construct(IConfig $decorate, array $groups)
     {
+        parent::__construct($decorate->getKeyDelimiter());
         $this->decorate = $decorate;
-        $this->builder = $builder;
+        $this->builder = $this->createBuilder($groups);
+    }
+
+    private function createBuilder(array $groups): InterpolationBuilder
+    {
+        $groups[''] = $this;
+        return InterpolationBuilder::create($groups);
     }
 
     public static function from(IConfig $config, array $groups = []): self
     {
-        return new self($config, InterpolationBuilder::create([
-            '' => $config,
-            ...$groups
-        ]));
+        return new self($config, $groups);
     }
 
     public function getNullValue(): mixed
@@ -39,12 +43,12 @@ final class InterpolatedConfig implements IConfig
 
     public function subConfig($offset): static
     {
-        return $this->decorate->subConfig($offset);
+        return new self($this->decorate->subConfig($offset), $this->builder->getGroups());
     }
 
     public function child(): static
     {
-        return new self($this->decorate->child(), $this->builder);
+        return new self($this->decorate->child(), $this->builder->getGroups());
     }
 
     public function keys(): array
@@ -62,16 +66,6 @@ final class InterpolatedConfig implements IConfig
         $this->decorate->clear();
     }
 
-    public function mergeArray(array $config): void
-    {
-        $this->decorate->mergeArray($config);
-    }
-
-    public function mergeArrayRecursive(array $config): void
-    {
-        $this->decorate->mergeArrayRecursive($config);
-    }
-
     // ========================================================================
     public function offsetExists($offset): bool
     {
@@ -82,6 +76,11 @@ final class InterpolatedConfig implements IConfig
     {
         $v = $this->decorate->offsetGet($offset);
 
+        if (! \is_string($v))
+            return $v;
+
+        $v = $this->builder->for($v);
+
         if ($v instanceof Interpolation) {
             $v = (string) $v;
             return $v;
@@ -91,9 +90,6 @@ final class InterpolatedConfig implements IConfig
 
     public function offsetSet($offset, $value): void
     {
-        if (\is_string($value))
-            $value = $this->builder->for($value);
-
         $this->decorate->offsetSet($offset, $value);
     }
 

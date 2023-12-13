@@ -23,6 +23,11 @@ final class InterpolationBuilder
         return new self($groups);
     }
 
+    public function getGroups(): array
+    {
+        return $this->groups;
+    }
+
     public function for(mixed $interpolation): mixed
     {
         if (\is_resource($interpolation) && \get_resource_id($interpolation) === 'stream')
@@ -51,7 +56,7 @@ final class InterpolationBuilder
 
         $c = \count($ret);
         if ($c === 0)
-            return "";
+            return $interpolation;
         if ($c === 1)
             return $ret[0];
 
@@ -181,7 +186,7 @@ final class InterpolationBuilder
 
                             function get(): mixed
                             {
-                                return $this->data[$this->key] ?? $this->default;
+                                return $this->data[$this->key] ?? null;
                             }
                         };
                     } elseif (\is_callable($data)) {

@@ -9,7 +9,7 @@ namespace Data;
  *
  * @author zuri
  */
-final class TreeConfig implements IConfig, \Iterator
+final class TreeConfig extends AbstractTreeConfig implements \Iterator
 {
 
     private const default = \Help\NullValue::v;
@@ -18,12 +18,10 @@ final class TreeConfig implements IConfig, \Iterator
 
     private array $data;
 
-    private string $delimiter;
-
     // ========================================================================
     private function __construct(string $delimiter, $default = self::default)
     {
-        $this->delimiter = $delimiter;
+        parent::__construct($delimiter);
         $this->data = [];
         $this->nullValue = $default;
     }
@@ -31,6 +29,13 @@ final class TreeConfig implements IConfig, \Iterator
     public static function empty(string $delimiter = '.'): self
     {
         return new self($delimiter);
+    }
+
+    public static function from(array $config, string $delimiter = '.'): self
+    {
+        $ret = new self($delimiter);
+        $ret->mergeArrayRecursive($config);
+        return $ret;
     }
 
     public function child(): static
@@ -75,7 +80,7 @@ final class TreeConfig implements IConfig, \Iterator
         return $ret;
     }
 
-    public function unset($offset): bool
+    private function unset($offset): bool
     {
         $path = $this->explodePath($offset);
         $last = \array_pop($path);
@@ -197,6 +202,7 @@ final class TreeConfig implements IConfig, \Iterator
         $this->unset($offset);
     }
 
+    // ========================================================================
     public function keys(): array
     {
         $ret = [];
@@ -246,11 +252,6 @@ final class TreeConfig implements IConfig, \Iterator
     }
 
     // ========================================================================
-    public function merge(TreeConfig $config): void
-    {
-        foreach ($config->keys() as $k)
-            $this[$k] = $config[$k];
-    }
 
     /**
      * Merge the first level of an array, that is replace only the non existant path in the TreeConfig by those in the array.
@@ -266,39 +267,4 @@ final class TreeConfig implements IConfig, \Iterator
     }
 
     // ========================================================================
-
-    /**
-     * Merge the first level of an array, that is replace all value in the TreeConfig by those of the array.
-     *
-     * @param array $config
-     */
-    public function mergeArray(array $config): void
-    {
-        foreach ($config as $k => $v)
-            $this[$k] = $v;
-    }
-
-    /**
-     * Merge a configuration array into a TreeConfig.
-     * The transformation occurs recursively with sub-array.
-     * If a sub array is a list, then the list is considered as a simple value and the recursion stop.
-     *
-     * @param array $config
-     *            The configuration data
-     * @return TreeConfig
-     */
-    public function mergeArrayRecursive(array $config): void
-    {
-        $ret = $this;
-
-        \Help\Arrays::walk_branches($config, function ($path, $val) use ($ret) {
-            $ret[\implode($ret->delimiter, $path)] = $val;
-        }, function ($path, $val) use ($ret) {
-            if (\is_array_list($val)) {
-                $ret[\implode($ret->delimiter, $path)] = $val;
-                return false;
-            }
-            return true;
-        });
-    }
 }

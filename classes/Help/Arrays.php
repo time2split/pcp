@@ -419,4 +419,19 @@ final class Arrays
         });
         return $ret;
     }
+
+    // ========================================================================
+    public static function linearArrayRecursive(array|\ArrayAccess $subject, array $merge, callable $linearizePath): array|\ArrayAccess
+    {
+        self::walk_branches($merge, function ($path, $val) use ($subject, $linearizePath) {
+            $subject[$linearizePath($path)] = $val;
+        }, function ($path, $val) use ($subject, $linearizePath) {
+            if (\is_array_list($val)) {
+                $subject[$linearizePath($path)] = $val;
+                return false;
+            }
+            return true;
+        });
+        return $subject;
+    }
 }
