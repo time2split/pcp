@@ -220,15 +220,14 @@ class Generate extends \Action\BaseAction
         $macroTokens .= ';';
 
         $macroFun = \C\Reader::fromStream(\Help\IO::stringToStream($macroTokens))->next();
-        $macroElements = $macro->getElements();
-        $macroFun['identifier']['name'] = $this->generateName($macroElements['name']);
+        $macroFun['identifier']['name'] = $this->generateName($macro['name']);
 
         $macroFunParameters = $macroFun->getParameters();
 
-        foreach ($macroElements['args'] as $k => $name)
+        foreach ($macro['args'] as $k => $name)
             $macroFunParameters[$k]['identifier']['name'] = $name;
 
-        $code = $macroElements['tokens'] . ';';
+        $code = $macro['tokens'] . ';';
 
         if (false === \array_search('void', $macroFun['items']))
             $code = "return $code";
@@ -240,7 +239,7 @@ class Generate extends \Action\BaseAction
 
     private function generateFunction(array $i, Declaration $decl): string
     {
-        return "\n" . $this->generatePrototype_($i, $decl) . ($decl->getElements()['cstatement'] ?? '');
+        return "\n" . $this->generatePrototype_($i, $decl) . ($decl['cstatement'] ?? '');
     }
 
     private function getGenerateStrategy(SourceType $sourceType): callable

@@ -30,12 +30,12 @@ final class Declaration extends ReaderElement
 
     public function getGroup(): DeclarationGroup
     {
-        return $this->elements['group'];
+        return $this['group'];
     }
 
     public function getType(): DeclarationType
     {
-        return $this->elements['type'];
+        return $this['type'];
     }
 
     // ========================================================================

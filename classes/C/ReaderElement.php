@@ -1,57 +1,23 @@
 <?php
 namespace C;
 
-abstract class ReaderElement implements Element, \Action\IActionMessage, \ArrayAccess
+abstract class ReaderElement extends \ArrayObject implements Element, \Action\IActionMessage
 {
-
-    protected array $elements;
 
     protected function __construct(array $elements)
     {
-        $this->elements = $elements;
-    }
-
-    public function getElements(): array
-    {
-        return $this->elements;
+        parent::__construct($elements);
     }
 
     public function getParameters(): ?array
     {
-        if (! isset($this->elements['parameters']))
+        if (! isset($this['parameters']))
             return null;
 
         $params = [];
-        foreach ($this->elements['parameters'] as $p)
-            $params[] = $this->elements['items'][$p];
+        foreach ($this['parameters'] as $p)
+            $params[] = $this['items'][$p];
 
         return $params;
-    }
-
-    // ========================================================================
-    public function &offsetGet($offset): mixed
-    {
-        return $this->elements[$offset];
-    }
-
-    public function offsetSet($offset, $val): void
-    {
-        $this->elements[$offset] = $val;
-    }
-
-    public function offsetExists($offset): mixed
-    {
-        return isset($this->elements[$offset]);
-    }
-
-    public function offsetUnset($offset): void
-    {
-        unset($this->elements[$offset]);
-    }
-
-    // ========================================================================
-    public function iterator(): \Iterator
-    {
-        return new \ArrayIterator($this->elements);
     }
 }
