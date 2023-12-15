@@ -76,14 +76,17 @@ final class InterpolatedConfig extends AbstractTreeConfig
     {
         $v = $this->decorate->offsetGet($offset);
 
-        if (! \is_string($v))
-            return $v;
+        while (true) {
 
-        $v = $this->builder->for($v);
+            if (! \is_string($v))
+                return $v;
 
-        if ($v instanceof Interpolation) {
-            $v = (string) $v;
-            return $v;
+            $v = $this->builder->for($v);
+
+            if ($v instanceof Interpolation)
+                $v = $v->get();
+            else
+                break;
         }
         return $v;
     }
