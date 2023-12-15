@@ -45,7 +45,7 @@ final class GenerateClean extends \Action\BaseAction
         while (null !== ($element = $creader->next())) {
 
             if ( //
-            ! ($element instanceof \C\Macro) || //
+            ! ($element instanceof \C\Element\Macro) || //
             ! ($element->getDirective() === "pragma") || //
             ! \in_array($element->getFirstArgument(), $cppNameRef))
                 continue;

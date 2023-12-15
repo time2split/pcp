@@ -1,8 +1,14 @@
 <?php
-namespace C;
+namespace C\Element;
 
-class Declaration extends ReaderElement
+use C\ReaderElement;
+use C\Matching;
+use C\DeclarationGroup;
+use C\DeclarationType;
+
+final class Declaration extends ReaderElement
 {
+    use ElementTypeTrait;
 
     private array $uinfos;
 

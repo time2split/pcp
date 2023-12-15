@@ -1,32 +1,19 @@
 <?php
 namespace C;
 
-abstract class ReaderElement implements \Action\IActionMessage, \ArrayAccess
+abstract class ReaderElement implements Element, \Action\IActionMessage, \ArrayAccess
 {
 
     protected array $elements;
 
-    protected array $tags;
-
-    protected function __construct(array $elements, array $tags = [])
+    protected function __construct(array $elements)
     {
         $this->elements = $elements;
-        $this->tags = $tags;
     }
 
     public function getElements(): array
     {
         return $this->elements;
-    }
-
-    public function getTags(): array
-    {
-        return $this->tags;
-    }
-
-    public function addTag(string $tag): void
-    {
-        $this->tags[] = $tag;
     }
 
     public function getParameters(): ?array

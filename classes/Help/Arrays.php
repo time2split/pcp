@@ -190,6 +190,11 @@ final class Arrays
         return \array_merge(...\array_map($callback, $array));
     }
 
+    public static function map_unique(callable $callback, array $array, int $flags = SORT_REGULAR): array
+    {
+        return \array_unique(\array_map($callback, $array), $flags);
+    }
+
     public static function map_key(?callable $callback, array $array): array
     {
         return \array_combine(\array_map($callback, \array_keys($array)), $array);

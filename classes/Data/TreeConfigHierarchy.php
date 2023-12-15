@@ -22,13 +22,15 @@ final class TreeConfigHierarchy implements IConfig
         $this->rlist = \array_reverse($list);
         $delims = [];
 
-        foreach ($list as $c)
-            $delims[] = $c->getNullValue();
-
-        $udelims = \array_unique($delims);
+        $udelims = \Help\Arrays::map_unique(fn ($i) => $i->getKeyDelimiter(), $list);
 
         if (\count($udelims) > 1)
             throw new \Error(__class__ . " Has multiple delimiters: " . print_r($delims, true));
+
+        $unull = \Help\Arrays::map_unique(fn ($i) => $i->getNullValue(), $list);
+
+        if (\count($unull) > 1)
+            throw new \Error(__class__ . " Has multiple null value: " . print_r($unull, true));
     }
 
     public function getKeyDelimiter(): string
@@ -36,12 +38,19 @@ final class TreeConfigHierarchy implements IConfig
         return $this->last()->getKeyDelimiter();
     }
 
-    public static function create(): self
+    public static function create(IConfig ...$list): self
     {
-        return new self(TreeConfig::empty());
+        $list[] = TreeConfig::empty();
+        return new self(...$list);
     }
 
-    private function last(): TreeConfig
+    public function __clone(): void
+    {
+        $last = $this->rlist[0];
+        $this->rlist[0] = clone $last;
+    }
+
+    private function last(): IConfig
     {
         return \Help\Arrays::first($this->rlist);
     }
@@ -49,27 +58,30 @@ final class TreeConfigHierarchy implements IConfig
     // ========================================================================
     public function getNullValue(): mixed
     {
-        return $this->last()->getNullValue;
+        return $this->last()->getNullValue();
     }
 
     public function subConfig(mixed $offset): static
     {
+        $sub = [];
         foreach ($this->rlist as $c)
-            if (isset($c[$offset]))
-                return $c->subConfig();
+            $sub[] = $c->subConfig($offset);
 
-        return $this->last()->subConfig($offset);
+        return new self(...$sub);
+    }
+
+    public function select($offset): static
+    {
+        $sub = [];
+        foreach ($this->rlist as $c)
+            $sub[] = $c->select($offset);
+
+        return new self(...$sub);
     }
 
     public function child(): static
     {
-        $last = \Help\Arrays::first($this->rlist);
-        $ret = new self();
-        $ret->rlist = [
-            $last->child(),
-            ...$this->rlist
-        ];
-        return $ret;
+        return self::create(...$this->rlist);
     }
 
     public function &getReference($offset): mixed
@@ -79,7 +91,7 @@ final class TreeConfigHierarchy implements IConfig
 
     public function get($offset): mixed
     {
-        foreach ($this->rlast as $c) {
+        foreach ($this->rlist as $c) {
             $v = $c[$offset];
 
             if ($v !== $c->getNullValue())
@@ -119,14 +131,14 @@ final class TreeConfigHierarchy implements IConfig
     }
 
     // ========================================================================
-    public function mergeArray(array $config): void
+    public function flatMerge(array $config): void
     {
-        $this->last()->mergeArray($config);
+        $this->last()->flatMerge($config);
     }
 
-    public function mergeArrayRecursive(array $config): void
+    public function merge(array|IConfig $config): void
     {
-        $this->last()->mergeArrayRecursive($config);
+        $this->last()->merge($config);
     }
 
     // ========================================================================

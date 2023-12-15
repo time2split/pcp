@@ -1,6 +1,8 @@
 <?php
 namespace C;
 
+use C\Element\Macro;
+
 /**
  * PHP: C preprocessor
  *
@@ -155,8 +157,10 @@ class PCP extends \DataFlow\BasePublisher
                     // Avoid begin/end blocks
                     if ($skip) {
 
-                        if ($cmd === 'end')
+                        if ($cmd === 'end') {
                             $skip = false;
+                            continue;
+                        }
                     } elseif ($cmd === 'begin') {
                         $skip = true;
                         continue;

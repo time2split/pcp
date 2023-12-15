@@ -26,6 +26,7 @@ final class InterpolatedConfig extends AbstractTreeConfig
         return new self($config, $groups);
     }
 
+    // ========================================================================
     public function getNullValue(): mixed
     {
         return $this->decorate->getNullValue();
@@ -41,9 +42,15 @@ final class InterpolatedConfig extends AbstractTreeConfig
         return $this->decorate->get($offset);
     }
 
+    // ========================================================================
     public function subConfig($offset): static
     {
         return new self($this->decorate->subConfig($offset), $this->builder->getGroups());
+    }
+
+    public function select($offset): static
+    {
+        return new self($this->decorate->select($offset), $this->builder->getGroups());
     }
 
     public function child(): static
@@ -51,6 +58,7 @@ final class InterpolatedConfig extends AbstractTreeConfig
         return new self($this->decorate->child(), $this->builder->getGroups());
     }
 
+    // ========================================================================
     public function keys(): array
     {
         return $this->decorate->keys();

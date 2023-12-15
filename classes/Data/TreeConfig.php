@@ -19,28 +19,38 @@ final class TreeConfig extends AbstractTreeConfig implements \Iterator
     private array $data;
 
     // ========================================================================
-    private function __construct(string $delimiter, $default = self::default)
+    private function __construct(string $delimiter, $null = self::default)
     {
         parent::__construct($delimiter);
         $this->data = [];
-        $this->nullValue = $default;
+        $this->nullValue = $null;
     }
 
-    public static function empty(string $delimiter = '.'): self
+    public static function empty(string $delimiter = '.', $null = self::default): self
     {
-        return new self($delimiter);
+        return new self($delimiter, $null);
     }
 
-    public static function from(array $config, string $delimiter = '.'): self
+    public static function from(array $config, string $delimiter = '.', $null = self::default): self
     {
-        $ret = new self($delimiter);
-        $ret->mergeArrayRecursive($config);
+        $ret = self::empty($delimiter, $null);
+        $ret->merge($config);
         return $ret;
     }
 
-    public function child(): static
+    public static function emptyOf(IConfig $config): self
     {
-        return new self($this->delimiter, $this->nullValue);
+        return self::empty($config->getKeyDelimiter(), $config->getNullValue());
+    }
+
+    public static function copyOf(IConfig $config): self
+    {
+        return self::from($config->toArray(), $config->getKeyDelimiter());
+    }
+
+    public function child(): TreeConfigHierarchy
+    {
+        return TreeConfigHierarchy::create($this);
     }
 
     // ========================================================================
@@ -69,13 +79,24 @@ final class TreeConfig extends AbstractTreeConfig implements \Iterator
         return $this->createIfNotPresent($offset, $this->nullValue);
     }
 
-    public function subConfig(mixed $offset): static
+    public function subConfig($offset): static
     {
+        $ret = clone $this;
         $val = $this->getData($offset, $this->nullValue);
-        $ret = $this->child();
 
         if ($val !== $this->nullValue)
             $ret->data = $val;
+
+        return $ret;
+    }
+
+    public function select($offset): static
+    {
+        $ret = clone $this;
+        $val = $this->getData($offset, $this->nullValue);
+
+        if ($val !== $this->nullValue)
+            $ret[$offset] = $val;
 
         return $ret;
     }

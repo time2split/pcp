@@ -1,6 +1,9 @@
 <?php
 namespace C;
 
+use C\Element\Macro;
+use C\Element\Declaration;
+
 class Reader
 {
 
