@@ -1,6 +1,8 @@
 <?php
 namespace Action;
 
+use Data\IConfig;
+
 abstract class BaseAction extends \DataFlow\BaseSubscriber implements IAction
 {
 
@@ -8,7 +10,7 @@ abstract class BaseAction extends \DataFlow\BaseSubscriber implements IAction
 
     public function __construct(\Data\IConfig $config)
     {
-        $this->config = $config;
+        $this->config = $this->decorateConfig($config);
     }
 
     public final function onNext($data): void
@@ -22,6 +24,13 @@ abstract class BaseAction extends \DataFlow\BaseSubscriber implements IAction
             $subDir = "/$subDir";
 
         \Help\IO::wdPush($this->config['cpp.wd'] . $subDir);
+    }
+
+    public final function decorateConfig(IConfig $config): IConfig
+    {
+        return \Data\InterpolatedConfig::from($config, [
+            'env' => getenv(...)
+        ]);
     }
 
     public final function outWorkingDir(): void

@@ -25,10 +25,6 @@ if (! \in_array($action, $actions))
     throw new \Exception("Unknown action '$action'");
 
 $CONFIG['action'] = $action;
-$theConfig = \Data\TreeConfigHierarchy::create();
-$theConfig = \Data\InterpolatedConfig::from($theConfig, [
-    'env' => getenv(...)
-]);
-$theConfig->mergeArrayRecursive($CONFIG);
+$theConfig = \Data\TreeConfig::from($CONFIG);
 
 (new \Process\DoIt())->process($theConfig);

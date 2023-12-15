@@ -1,15 +1,8 @@
 <?php
 namespace Action\PCP;
 
-enum SourceType: string
-{
-
-    case Prototype = 'from.prototype';
-
-    case Function = 'from.function';
-
-    case Macro = 'from.macro';
-}
+use C\Element\Macro;
+use C\Element\Declaration;
 
 class Generate extends \Action\BaseAction
 {
@@ -17,24 +10,28 @@ class Generate extends \Action\BaseAction
     private const wd = 'generate';
 
     private const DefaultConfig = [
-        'target' => '.',
-        'always.prototype' => false,
-        'always.function' => false,
         'generate' => [
+            'always.prototype' => false,
+            'always.function' => false,
+
+            'tags' => null,
+            'targets' => '.',
+            'targets.prototype' => '${targets}',
+
             'name.base' => null,
             'name.prefix' => null,
             'name.suffix' => null,
-            'name.format' => '${generate.name.prefix}${generate.name.base}${generate.name.suffix}'
+            'name.format' => '${name.prefix}${name.base}${name.suffix}'
         ]
     ];
 
-    private array $storage;
+    private Generate\Instruction\Factory $ifactory;
+
+    private Generate\Instruction\Storage $istorage;
 
     private array $area;
 
-    private int $groupId = 0;
-
-    private ?\C\Macro $nextInstruction;
+    private ?Macro $nextInstruction;
 
     private \Action\PhaseData\ReadingOneFile $oneFileData;
 
@@ -42,28 +39,21 @@ class Generate extends \Action\BaseAction
     {
         parent::__construct($config);
         $this->config = $this->config->child();
-        $this->storage = [];
+        $this->ifactory = new Generate\Instruction\Factory();
+        $this->istorage = new Generate\Instruction\Storage($config);
         $this->area = [];
     }
 
     public function onMessage(\Action\IActionMessage $msg): void
     {
-        if ($msg instanceof \C\Macro) {
+        if ($msg instanceof Macro) {
 
             if ($msg->getDirective() === 'pragma' && $msg->getCommand() === 'generate')
                 $this->doInstruction($msg);
             elseif ($msg->getDirective() === 'define') {
-                $instruction = $this->nextMacroInstruction($msg);
-
-                if (null !== $instruction) {
-                    $iargs = $instruction->getArguments();
-                    $this->storage[] = [
-                        $iargs + $this->storeSelectConf(),
-                        $msg
-                    ];
-                }
+                throw new \Exception('Not implemented: ' . __file__);
             }
-        } elseif ($msg instanceof \C\Declaration) {
+        } elseif ($msg instanceof Declaration) {
 
             switch ($msg->getType()) {
 
@@ -76,8 +66,15 @@ class Generate extends \Action\BaseAction
                     if ( //
                     $msg->getGroup() === \C\DeclarationGroup::definition || //
                     $msg->getGroup() === \C\DeclarationGroup::declaration && $msg->getType() === \C\DeclarationType::tfunction) {
-                        $this->storeGroup($msg, $instruction);
-                        unset($this->config['function']);
+                        $first = $instruction->getArguments();
+                        $secnd = $this->config->subConfig('generate');
+
+                        $i = \Data\TreeConfig::emptyOf($this->config);
+                        $i->merge($first);
+                        $i->merge($secnd);
+                        $i = $this->decorateConfig($i);
+
+                        $this->istorage->add($this->ifactory->create($msg, $i));
                     }
                     break;
             }
@@ -110,7 +107,7 @@ class Generate extends \Action\BaseAction
 
                     // Reset the config for the file
                     $this->config->clear();
-                    $this->config->mergeArrayRecursive(self::DefaultConfig);
+                    $this->config->merge(self::DefaultConfig);
                 } elseif (\Action\PhaseState::Stop == $phase->state) {
                     $this->flushFileInfos();
                 }
@@ -119,7 +116,7 @@ class Generate extends \Action\BaseAction
     }
 
     // ========================================================================
-    private function nextMacroInstruction(\C\Macro $macro): ?\C\Macro
+    private function nextMacroInstruction(Macro $macro): ?Macro
     {
         if (isset($this->nextInstruction)) {
             $next = $this->nextInstruction;
@@ -129,7 +126,7 @@ class Generate extends \Action\BaseAction
         return null;
     }
 
-    private function nextInstruction(\C\Declaration $decl): ?\C\Macro
+    private function nextInstruction(Declaration $decl): ?Macro
     {
         $next = null;
 
@@ -140,9 +137,9 @@ class Generate extends \Action\BaseAction
 
                 if (($p = isset($this->myConfig['always.prototype'])) && isset($this->myConfig['always.function']));
                 elseif ($p)
-                    $next = \C\Macro::fromText('generate prototype');
+                    $next = Macro::fromText('generate prototype');
                 else
-                    $next = \C\Macro::fromText('generate function');
+                    $next = Macro::fromText('generate function');
             }
         } else {
             $next = $this->nextInstruction;
@@ -151,13 +148,13 @@ class Generate extends \Action\BaseAction
         return $next;
     }
 
-    private function doInstruction(\C\Macro $inst): void
+    private function doInstruction(Macro $inst): void
     {
         $args = $inst->getArguments();
 
         if (isset($args['area'])) {
             $this->area[] = [
-                'tags' => $args['tag'] ?? null,
+                'tags' => $args['tags'] ?? null,
                 'pos' => $inst->getFileCursors()[1]->getPos(),
                 'date' => $this->config['dateTime']
             ];
@@ -167,84 +164,16 @@ class Generate extends \Action\BaseAction
                 throw new \Exception("Cannot execute the instruction '$inst' because another one is already waiting '$this->nextInstruction'");
 
             $this->nextInstruction = $inst;
-        } else
-            $this->config->mergeArray($args);
-    }
-
-    // ========================================================================
-    private function prototypeToString(\C\Declaration $declaration): string
-    {
-        $ret = '';
-        $lastIsAlpha = false;
-        $paramSep = '';
-
-        foreach ($declaration['items'] as $s) {
-
-            if ($s instanceof \C\Declaration) {
-                $ret .= $paramSep . $this->prototypeToString($s);
-                $paramSep = ', ';
-            } else {
-                $len = \strlen($s);
-
-                if ($len == 0)
-                    continue;
-
-                if ($lastIsAlpha && ! \ctype_punct($s)) {
-                    $ret .= " $s";
-                } else {
-                    $lastIsAlpha = $len > 0 ? \ctype_alpha($s[$len - 1]) : false;
-                    $ret .= $s;
-                }
-            }
+        } else {
+            $args = \Help\Arrays::map_key(fn ($k) => "generate.$k", $args);
+            $this->config->merge($args);
         }
-        return $ret;
     }
 
     // ========================================================================
-    private function getTargets(array $targets): array
+    private function flushStorage(): void
     {
-        $ret = [];
-
-        foreach ($targets as $t) {
-
-            if ($t === '.')
-                $t = (string) $this->oneFileData->fileInfo;
-            elseif (false === \strpos('/', $t) || \str_starts_with('./', $t))
-                $t = "{$this->oneFileData->fileInfo->getPathInfo()}/$t";
-
-            $ret[] = $t;
-        }
-        return $ret;
-    }
-
-    private static function getTargetKey(array $targets): string
-    {
-        \sort($targets);
-        return \implode('//', $targets);
-    }
-
-    // ========================================================================
-    private const storageElements = [
-        'function',
-        'prototype',
-        'macro'
-    ];
-
-    private function storeSelectConf(): array
-    {
-        return \Help\Arrays::subSelect($this->config->toArray(), [
-            'target',
-            'prefix'
-        ]);
-    }
-
-    private function storeGroup(\C\Declaration $decl, \C\Macro $instruction): void
-    {
-        $iargs = $instruction->getArguments();
-        $this->storage[] = [
-            $iargs + $this->storeSelectConf(),
-            $decl
-        ];
+        $this->istorage->flushOnFile($this->oneFileData);
     }
 
     private function flushWD(): void
@@ -285,7 +214,7 @@ class Generate extends \Action\BaseAction
         return $conf['generate.name.format'];
     }
 
-    private function generateMacro(array $i, \C\Macro $macro)
+    private function generateMacro(array $i, Macro $macro)
     {
         $macroTokens = $i['function'];
         $macroTokens .= ';';
@@ -309,38 +238,9 @@ class Generate extends \Action\BaseAction
         return "\n$ret";
     }
 
-    private function generatePrototype(array $i, \C\Declaration $decl): string
-    {
-        return $this->generatePrototype_($i, $decl) . ';';
-    }
-
-    private function generatePrototype_(array $i, \C\Declaration $decl): string
-    {
-        $generateType = $i['function'] ?? $i['prototype'];
-
-        $identifierPos = $decl['identifier']['pos'];
-        $decl['items'][$identifierPos] = $this->generateName($decl['items'][$identifierPos]);
-
-        // if (isset($generateType)) {
-        // $pos = $decl['identifier']['pos'];
-        // $decl['items'][$pos] = $generateType;
-        // }
-        return $this->prototypeToString($decl);
-    }
-
-    private function generateFunction(array $i, \C\Declaration $decl): string
+    private function generateFunction(array $i, Declaration $decl): string
     {
         return "\n" . $this->generatePrototype_($i, $decl) . ($decl->getElements()['cstatement'] ?? '');
-    }
-
-    private function getSourceType(\C\ReaderElement $element): SourceType
-    {
-        if ($element instanceof \C\Macro)
-            return SourceType::Macro;
-        if ($element->getGroup() === \C\DeclarationGroup::definition)
-            return SourceType::Function;
-
-        return SourceType::Prototype;
     }
 
     private function getGenerateStrategy(SourceType $sourceType): callable
@@ -352,78 +252,8 @@ class Generate extends \Action\BaseAction
         };
     }
 
-    private function flushStorage(): void
-    {
-        $finfo = $this->oneFileData->fileInfo;
-        $groupByIds = [];
-        $infosToSave = [];
-        $targetInfos = [];
-
-        // Group by target
-        foreach ($this->storage as $storageItem) {
-            [
-                $instructionArray,
-                $sourceElement
-            ] = $storageItem;
-
-            $targets = $this->getTargets((array) $instructionArray['target']);
-            $tkey = $this->getTargetKey($targets);
-            $sourceType = $this->getSourceType($sourceElement);
-            $tags = \array_merge((array) $sourceType->value, (array) ($instructionArray['tag'] ?? null));
-            \sort($tags);
-
-            $gid = $ids[$tkey] ??= $this->groupId ++;
-
-            foreach ($targets as $t)
-                $targetInfos[$t][$gid] = null;
-
-            $groupByIds[$tkey][] = $storageItem + [
-                2 => $tags,
-                $sourceType
-            ];
-        }
-        $targetInfos = \array_map(\array_keys(...), $targetInfos);
-
-        // Config child block {
-        $lastConfig = $this->config;
-        $this->config = $this->config->child();
-
-        foreach ($groupByIds as $targets => $storageItems) {
-
-            foreach ($storageItems as [
-                $instructionArray,
-                $sourceElement,
-                $tags,
-                $sourceType
-            ]) {
-                $subConfig = \Data\TreeConfig::from($instructionArray);
-                $subConfig = $subConfig['[]'];
-
-                if (! empty($subConfig)) {
-                    $this->config->clear();
-                    $this->config->mergeArrayRecursive($subConfig);
-                }
-                $infosToSave[$ids[$targets]][] = [
-                    'tags' => $tags,
-                    'text' => $this->getGenerateStrategy($sourceType)($instructionArray, $sourceElement)
-                ];
-            }
-        }
-        $this->config = $lastConfig;
-        // } Config child block
-
-        $fileDir = "{$finfo->getPathInfo()}/";
-
-        if (! is_dir($fileDir))
-            mkdir($fileDir, 0777, true);
-
-        \Help\IO::printPHPFile("$fileDir/{$finfo->getFileName()}.php", $infosToSave);
-        \Help\IO::printPHPFile("$fileDir/{$finfo->getFileName()}.target.php", $targetInfos);
-        $this->storage = [];
-    }
-
     // ========================================================================
-    private function macroIsPCP(\C\Macro $macro): bool
+    private function macroIsPCP(Macro $macro): bool
     {
         return \in_array($macro->getFirstArgument(), $this->config['cpp.name']);
     }

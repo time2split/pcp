@@ -1,8 +1,11 @@
 <?php
-namespace C;
+namespace C\Element;
 
-class Macro extends ReaderElement
+use C\ReaderElement;
+
+final class Macro extends ReaderElement
 {
+    use ElementTypeTrait;
 
     private ?string $first;
 
@@ -21,11 +24,15 @@ class Macro extends ReaderElement
         parent::__construct($elements);
         $this->directive = $directive;
         $this->text = $text;
-        $this->args = \Help\Arrays::listValueAsKey($args, true);
+
+        $args = \Help\Arrays::listValueAsKey($args, true);
         $this->fileCursors = $cursors;
-        $args = \array_keys(\array_slice($this->args, 0, 2));
-        $this->first = $args[0] ?? null;
-        $this->cmd = $args[1] ?? null;
+        $argsk = \array_keys(\array_slice($args, 0, 2));
+        $this->first = $argsk[0] ?? null;
+        $this->cmd = $argsk[1] ?? null;
+
+        // Remove the 'first' & 'cmd' arguments
+        $this->args = \array_slice($args, 2);
     }
 
     public static function fromReaderElements(array $element): self
