@@ -1,6 +1,8 @@
 <?php
 namespace Action\PCP;
 
+use C\Element\Container;
+
 class EchoAction extends \Action\BaseAction
 {
 
@@ -9,7 +11,7 @@ class EchoAction extends \Action\BaseAction
         error_dump(__class__ . " onSubscribe()");
     }
 
-    public function onMessage(\Action\IActionMessage $msg): void
+    public function onMessage(Container $msg): void
     {
         error_dump(__class__ . " onMessage()");
         error_dump($msg);

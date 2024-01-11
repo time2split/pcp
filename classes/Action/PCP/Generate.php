@@ -1,6 +1,7 @@
 <?php
 namespace Action\PCP;
 
+use C\Element\Container;
 use C\Element\Macro;
 use C\Element\Declaration;
 
@@ -44,28 +45,31 @@ class Generate extends \Action\BaseAction
         $this->area = [];
     }
 
-    public function onMessage(\Action\IActionMessage $msg): void
+    public function onMessage(Container $msg): void
     {
-        if ($msg instanceof Macro) {
+        if ($msg->isMacro()) {
+            $macro = $msg->getMacro();
 
-            if ($msg->getDirective() === 'pragma' && $msg->getCommand() === 'generate')
-                $this->doInstruction($msg);
-            elseif ($msg->getDirective() === 'define') {
+            if ($macro->getDirective() === 'pragma' && $macro->getCommand() === 'generate')
+                $this->doInstruction($macro);
+            elseif ($macro->getDirective() === 'define') {
                 throw new \Exception('Not implemented: ' . __file__);
             }
-        } elseif ($msg instanceof Declaration) {
+        } elseif ($msg->isDeclaration()) {
+            $declaration = $msg->getDeclaration();
 
-            switch ($msg->getType()) {
+            switch ($declaration->getType()) {
 
                 case \C\DeclarationType::tfunction:
-                    $instruction = $this->nextInstruction($msg);
+                    $instruction = $this->nextInstruction($declaration);
 
                     if (! isset($instruction))
                         break;
 
                     if ( //
-                    $msg->getGroup() === \C\DeclarationGroup::definition || //
-                    $msg->getGroup() === \C\DeclarationGroup::declaration && $msg->getType() === \C\DeclarationType::tfunction) {
+                    $declaration->getGroup() === \C\DeclarationGroup::definition || //
+                    ($declaration->getGroup() === \C\DeclarationGroup::declaration && //
+                    $declaration->getType() === \C\DeclarationType::tfunction)) {
                         $first = $instruction->getArguments();
                         $secnd = $this->config->subConfig('generate');
 
@@ -74,11 +78,12 @@ class Generate extends \Action\BaseAction
                         $i->merge($secnd);
                         $i = $this->decorateConfig($i);
 
-                        $this->istorage->add($this->ifactory->create($msg, $i));
+                        $this->istorage->add($this->ifactory->create($declaration, $i));
                     }
                     break;
             }
-        }
+        } else
+            throw new \Error();
     }
 
     public function onPhase(\Action\Phase $phase, $data = null): void

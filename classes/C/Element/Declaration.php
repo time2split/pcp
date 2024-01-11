@@ -23,11 +23,6 @@ final class Declaration extends ReaderElement
         return new Declaration($element);
     }
 
-    public function sendTo(\Action\IAction $action): bool
-    {
-        return $action->deliver($this);
-    }
-
     public function getGroup(): DeclarationGroup
     {
         return $this['group'];
