@@ -23,7 +23,6 @@ final class ActionFactory
         return match ($action) {
             'process' => [
                 // new \Action\PCP\EchoAction($this->config),
-                new \Action\PCP\Conf($this->config),
                 new \Action\PCP\Generate($this->config)
             ],
             'clean' => [
