@@ -1,7 +1,7 @@
 <?php
 namespace C;
 
-abstract class ReaderElement extends \ArrayObject implements Element, \Action\IActionMessage
+abstract class ReaderElement extends \ArrayObject implements Element
 {
 
     protected function __construct(array $elements)

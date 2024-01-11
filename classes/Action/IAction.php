@@ -1,6 +1,8 @@
 <?php
 namespace Action;
 
+use C\Element\Container;
+
 interface IAction extends \DataFlow\ISubscriber
 {
 
@@ -11,7 +13,7 @@ interface IAction extends \DataFlow\ISubscriber
      *            The message to deliver
      * @return bool true if the message is delivered.
      */
-    function onMessage(IActionMessage $msg): void;
+    function onMessage(Container $msg): void;
 
     function onPhase(Phase $phase, $data = null): void;
 }

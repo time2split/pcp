@@ -2,6 +2,7 @@
 namespace C;
 
 use C\Element\Macro;
+use C\Element\Container;
 
 /**
  * PHP: C preprocessor
@@ -19,10 +20,10 @@ class PCP extends \DataFlow\BasePublisher
         parent::__construct();
     }
 
-    private function deliverMessage(\Action\IActionMessage $d)
+    private function deliverMessage(Container $container)
     {
         foreach ($this->getSubscribers() as $s)
-            $s->onMessage($d);
+            $s->onMessage($container);
     }
 
     private function updatePhase(\Action\PhaseName $name, \Action\PhaseState $state, $data = null)
@@ -143,8 +144,9 @@ class PCP extends \DataFlow\BasePublisher
         );
 
         while (null !== ($element = $creader->next())) {
+            $container = Container::of($element);
 
-            if ($element instanceof Macro) {
+            if ($container->isMacro()) {
 
                 if ($element->getDirective() === "pragma") {
 
@@ -168,7 +170,7 @@ class PCP extends \DataFlow\BasePublisher
                 }
             }
             if (! $skip)
-                $this->deliverMessage($element);
+                $this->deliverMessage($container);
         }
         $creader->close();
         $this->updatePhase( //

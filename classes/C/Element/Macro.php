@@ -98,11 +98,6 @@ final class Macro extends ReaderElement
         return $this->args;
     }
 
-    public function sendTo(\Action\IAction $action): bool
-    {
-        return $action->deliver($this);
-    }
-
     public function __toString()
     {
         return "$this->directive $this->text";

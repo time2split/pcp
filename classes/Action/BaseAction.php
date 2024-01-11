@@ -2,6 +2,7 @@
 namespace Action;
 
 use Data\IConfig;
+use C\Element\Container;
 
 abstract class BaseAction extends \DataFlow\BaseSubscriber implements IAction
 {
@@ -38,7 +39,7 @@ abstract class BaseAction extends \DataFlow\BaseSubscriber implements IAction
         \Help\IO::wdPop();
     }
 
-    public function onMessage(IActionMessage $msg): void
+    public function onMessage(Container $msg): void
     {}
 
     public function onPhase(Phase $phase, $data = null): void
