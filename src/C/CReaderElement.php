@@ -1,7 +1,7 @@
 <?php
 namespace Time2Split\PCP\C;
 
-abstract class ReaderElement extends \ArrayObject implements Element
+abstract class CReaderElement extends \ArrayObject implements CElement
 {
 
     protected function __construct(array $elements)

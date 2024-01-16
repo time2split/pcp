@@ -3,11 +3,11 @@ namespace Time2Split\PCP\C;
 
 use Time2Split\Help\FIO;
 use Time2Split\Help\IO;
-use Time2Split\PCP\C\Element\Declaration;
-use Time2Split\PCP\C\Element\Macro;
+use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CMacro;
 use Time2Split\PCP\File\Navigator;
 
-class Reader
+class CReader
 {
 
     private const debug = false;
@@ -191,7 +191,7 @@ class Reader
     }
 
     // ========================================================================
-    private function nextWord(?callable $pred = null): ?string
+    private function nextWord(?\Closure $pred = null): ?string
     {
         if (! isset($pred)) {
             $pred = fn ($c) => //
@@ -234,7 +234,6 @@ class Reader
             $text = $this->nextWord();
 
             if ($text === null) {
-                $lastWord = $text;
                 return $ret;
             } else {
                 $ret[] = $text;
@@ -248,7 +247,7 @@ class Reader
 
         while (true) {
 
-            while (($c = $this->nextChar()) === '*')
+            while ($this->nextChar() === '*')
                 $ret[] = '*';
 
             $this->fungetc();
@@ -276,7 +275,7 @@ class Reader
     private function clearStates(): void
     {
         $this->states = [];
-        $this->pushState(ReaderState::start, self::zeroData);
+        $this->pushState(CReaderState::start, self::zeroData);
     }
 
     private function pushFileState(): void
@@ -289,7 +288,7 @@ class Reader
         \fseek(SEEK_SET, \array_pop($this->fileStates));
     }
 
-    private function pushState(ReaderState $s, $data = null): void
+    private function pushState(CReaderState $s, $data = null): void
     {
         $this->states[] = [
             $s,
@@ -301,7 +300,7 @@ class Reader
     {
         if (empty($this->states))
             return [
-                ReaderState::invalid,
+                CReaderState::invalid,
                 null
             ];
 
@@ -313,7 +312,7 @@ class Reader
         ];
     }
 
-    private function forgetState(ReaderState $s): void
+    private function forgetState(CReaderState $s): void
     {
         list ($state, $data, $fileState) = \array_pop($this->states);
 
@@ -325,8 +324,8 @@ class Reader
     private function newElement(): array
     {
         return [
-            'group' => DeclarationGroup::declaration,
-            'type' => DeclarationType::tvariable,
+            'group' => CDeclarationGroup::declaration,
+            'type' => CDeclarationType::tvariable,
             'cursor' => $this->fnav->getCursorPosition(),
             'items' => [],
             'infos' => []
@@ -375,8 +374,8 @@ class Reader
             $id = $element['items'][$i];
 
             // Abstract declarator
-            if ((\strlen($id) > 0 && ! \ctype_alpha($id[0])) || Matching::isSpecifier($id)) {
-                $elements['items'][] = null;
+            if ((\strlen($id) > 0 && ! \ctype_alpha($id[0])) || CMatching::isSpecifier($id)) {
+                $element['items'][] = null;
                 $i ++;
             }
             self::setElementIdentifier($element, $i);
@@ -423,14 +422,14 @@ class Reader
 
     private function _parseDefine(): ?array
     {
-        $state = ReaderState::start;
+        $state = CReaderState::start;
         $element = [];
 
         while (true) {
 
             switch ($state) {
 
-                case ReaderState::start:
+                case CReaderState::start:
                     $name = $this->nextWord();
 
                     if ($name === false)
@@ -493,7 +492,7 @@ class Reader
         }
     }
 
-    public function nextMacro(): ?Macro
+    public function nextMacro(): ?CMacro
     {
         while (true) {
             $c = $this->nextChar();
@@ -508,15 +507,15 @@ class Reader
         }
     }
 
-    public function getMacro(): ?Macro
+    public function getMacro(): ?CMacro
     {
-        $state = ReaderState::start;
+        $state = CReaderState::start;
 
         while (true) {
 
             switch ($state) {
 
-                case ReaderState::start:
+                case CReaderState::start:
                     $c = $this->nextChar();
 
                     if ($c === false)
@@ -524,17 +523,17 @@ class Reader
 
                     if ($c === '#') {
                         $element = [
-                            'group' => DeclarationGroup::cpp,
+                            'group' => CDeclarationGroup::cpp,
                             'cursor' => $this->fnav->getCursorPosition()->decrement()
                         ];
-                        $state = ReaderState::cpp_directive;
+                        $state = CReaderState::cpp_directive;
                     } else
                         return null;
                     break;
 
                 // ======================================================
 
-                case ReaderState::cpp_directive:
+                case CReaderState::cpp_directive:
                     $element += [
                         'directive' => $d = $this->nextWord()
                     ];
@@ -554,7 +553,7 @@ class Reader
                             if ($d === 'define')
                                 $element = \array_merge($element, $this->parseDefine($element['text']));
 
-                            return Macro::fromReaderElements($element);
+                            return CMacro::fromReaderElements($element);
                         } elseif ($c === '\\')
                             $skipNext = true;
                         elseif ($skipNext)
@@ -565,7 +564,7 @@ class Reader
         }
     }
 
-    public function next(): ?ReaderElement
+    public function next(): ?CReaderElement
     {
         $this->clearStates();
         $declarator_level = 0;
@@ -584,7 +583,7 @@ class Reader
 
             switch ($state) {
 
-                case ReaderState::start:
+                case CReaderState::start:
 
                     // Skip useless code
                     while (true) {
@@ -608,29 +607,29 @@ class Reader
                     } else {
                         $this->fungetc();
                         $element = $this->newElement();
-                        $this->pushState(ReaderState::returnElement, $data);
-                        $this->pushState(ReaderState::declaration_end, $data);
-                        $this->pushState(ReaderState::declaration, $data);
+                        $this->pushState(CReaderState::returnElement, $data);
+                        $this->pushState(CReaderState::declaration_end, $data);
+                        $this->pushState(CReaderState::declaration, $data);
                     }
                     break;
 
-                case ReaderState::returnElement:
+                case CReaderState::returnElement:
 
                     if (empty($retElements)) {
                         $this->clearStates();
                         break;
                     }
-                    return Declaration::fromReaderElements($retElements[0]);
+                    return CDeclaration::fromReaderElements($retElements[0]);
 
                 // ======================================================
 
-                case ReaderState::declaration:
-                    $this->pushState(ReaderState::declarator, $data);
-                    $this->pushState(ReaderState::declaration_specifiers, $data);
+                case CReaderState::declaration:
+                    $this->pushState(CReaderState::declarator, $data);
+                    $this->pushState(CReaderState::declaration_specifiers, $data);
                     break;
 
                 // specifiers declarator
-                case ReaderState::declaration_specifiers:
+                case CReaderState::declaration_specifiers:
                     $specifiers = $this->getPossibleSpecifiers();
                     $element['infos']['specifiers.nb'] = \count($specifiers);
 
@@ -640,9 +639,9 @@ class Reader
                     $element['items'] = $specifiers;
                     break;
 
-                case ReaderState::declaration_end:
+                case CReaderState::declaration_end:
 
-                    if ($element['group'] === DeclarationGroup::definition && $element['type'] == DeclarationType::tfunction)
+                    if ($element['group'] === CDeclarationGroup::definition && $element['type'] == CDeclarationType::tfunction)
                         $retElements[] = $element;
                     else {
                         $c = $this->nextChar();
@@ -651,12 +650,12 @@ class Reader
                             assert($declarator_level == 0, "Into a recursive declarator: level $declarator_level");
                             $retElements[] = $element;
                         } else
-                            $this->pushState(ReaderState::wait_end_declaration);
+                            $this->pushState(CReaderState::wait_end_declaration);
                     }
                     break;
 
                 // Well state for an unrecognized declaration
-                case ReaderState::wait_end_declaration:
+                case CReaderState::wait_end_declaration:
 
                     while (true) {
                         $c = $this->nextChar();
@@ -674,30 +673,30 @@ class Reader
                 // ======================================================
 
                 // pointer direct_declarator
-                case ReaderState::declarator:
+                case CReaderState::declarator:
                     // Pointer
                     $pointers = $this->getPointers();
                     self::elementAddItems($element, $pointers);
 
-                    $this->pushState(ReaderState::declarator_end, $data);
-                    $this->pushState(ReaderState::direct_declarator, $data);
+                    $this->pushState(CReaderState::declarator_end, $data);
+                    $this->pushState(CReaderState::direct_declarator, $data);
                     break;
 
-                case ReaderState::declarator_end:
+                case CReaderState::declarator_end:
                     self::makeElementIdentifier($element);
                     break;
 
-                case ReaderState::direct_declarator:
+                case CReaderState::direct_declarator:
                     $c = $this->nextChar();
 
                     // It may be a recursive declarator or a function declaration
                     if ($c === '(') {
                         $newElement = $this->newElement();
-                        $this->pushState(ReaderState::subdeclarator, [
+                        $this->pushState(CReaderState::subdeclarator, [
                             'e' => &$element,
                             'n' => &$newElement
                         ]);
-                        $this->pushState(ReaderState::declaration, [
+                        $this->pushState(CReaderState::declaration, [
                             'e' => &$newElement
                         ]);
                         unset($newElement);
@@ -709,51 +708,51 @@ class Reader
                 /*
                  * data['n']: the sub declaration
                  */
-                case ReaderState::subdeclarator:
+                case CReaderState::subdeclarator:
                     $c = $this->silentChar();
 
                     // List of parameters
                     if ($c === ',') {
-                        $element['type'] = DeclarationType::tfunction;
-                        $this->pushState(ReaderState::opt_function_definition, $data);
-                        $this->pushState(ReaderState::parameter_list, $data);
+                        $element['type'] = CDeclarationType::tfunction;
+                        $this->pushState(CReaderState::opt_function_definition, $data);
+                        $this->pushState(CReaderState::parameter_list, $data);
                     } elseif ($c === ')') {
                         $subDeclaration = $data['n'];
-                        $uinfos = Declaration::makeUnknownInfos($subDeclaration);
+                        $uinfos = CDeclaration::makeUnknownInfos($subDeclaration);
 
                         if (self::elementIsEmpty($subDeclaration) || self::elementIsParameter($uinfos)) {
-                            $element['type'] = DeclarationType::tfunction;
-                            $this->pushState(ReaderState::opt_function_definition, $data);
-                            $this->pushState(ReaderState::parameter_list, $data);
+                            $element['type'] = CDeclarationType::tfunction;
+                            $this->pushState(CReaderState::opt_function_definition, $data);
+                            $this->pushState(CReaderState::parameter_list, $data);
                         } elseif (self::elementIsNotParameter($uinfos)) {
                             $element['items'][] = '(';
-                            $this->pushState(ReaderState::subdeclarator_end, $data);
+                            $this->pushState(CReaderState::subdeclarator_end, $data);
                         } else {
                             // Unknown parenthesis type
                             // The following part will determine the type
                             $this->fgetc();
 
                             $newElement = $this->newElement();
-                            $this->pushState(ReaderState::subdeclarator_after, $data + [
+                            $this->pushState(CReaderState::subdeclarator_after, $data + [
                                 'a' => &$newElement
                             ]);
-                            $this->pushState(ReaderState::opt_array_or_function, [
+                            $this->pushState(CReaderState::opt_array_or_function, [
                                 'e' => &$newElement
                             ]);
                             unset($newElement);
                         }
                     } else
-                        $this->pushState(ReaderState::wait_end_declaration);
+                        $this->pushState(CReaderState::wait_end_declaration);
                     break;
 
-                case ReaderState::subdeclarator_after:
+                case CReaderState::subdeclarator_after:
                     $after = $data['a'];
                     $type2 = $after['type'];
 
                     $c = $this->silentChar();
 
                     // The subdeclarator is followed by a function|array declarator
-                    if (($isfun = ($type2 === DeclarationType::tfunction)) || $type2 === DeclarationType::tarray) {
+                    if (($isfun = ($type2 === CDeclarationType::tfunction)) || $type2 === CDeclarationType::tarray) {
 
                         // Merge the sub declarator with the main declarator
                         $element['items'][] = '(';
@@ -785,12 +784,12 @@ class Reader
                             self::elementAddItems($element, $after['items']);
                         }
                     } elseif ($c === '{') {
-                        $element['group'] = DeclarationGroup::definition;
-                        $element['type'] = DeclarationType::tfunction;
+                        $element['group'] = CDeclarationGroup::definition;
+                        $element['type'] = CDeclarationType::tfunction;
                         self::elementSet($element, 'parameters', [
                             $data['n']
                         ]);
-                        $this->pushState(ReaderState::opt_function_definition, [
+                        $this->pushState(CReaderState::opt_function_definition, [
                             'e' => &$element
                         ]);
                     } else {
@@ -800,7 +799,7 @@ class Reader
                         self::mergeElements($element, $data['n']);
                         $element['items'][] = ')';
 
-                        if ($n['type'] == DeclarationType::tfunction) {
+                        if ($n['type'] == CDeclarationType::tfunction) {
                             self::elementSet($element, 'parameters', $n['parameters']);
                         } else {
                             // Arbitrary set the element to be a recursive declaration
@@ -812,7 +811,7 @@ class Reader
                 /*
                  * The element is a recursive declarator
                  */
-                case ReaderState::subdeclarator_end:
+                case CReaderState::subdeclarator_end:
                     $c = $this->fgetc();
 
                     if ($c === ')') {
@@ -822,84 +821,84 @@ class Reader
                         self::mergeElements($element, $subDeclaration);
                         self::makeElementIdentifier($element);
                         $element['items'][] = ')';
-                        $this->pushState(ReaderState::opt_array_or_function, $data);
+                        $this->pushState(CReaderState::opt_array_or_function, $data);
                     } else {
                         $this->clearStates();
                         $this->fungetc();
                     }
                     break;
 
-                case ReaderState::opt_array_or_function:
+                case CReaderState::opt_array_or_function:
                     $c = $this->silentChar();
 
                     if ($c === '[') {
                         // Arrays may repeat
-                        $this->pushState(ReaderState::opt_array, $data);
-                        $this->pushState(ReaderState::direct_declarator_array, $data);
+                        $this->pushState(CReaderState::opt_array, $data);
+                        $this->pushState(CReaderState::direct_declarator_array, $data);
                     } elseif ($c === '(') {
                         $this->fgetc();
-                        $this->pushState(ReaderState::direct_declarator_function, $data);
+                        $this->pushState(CReaderState::direct_declarator_function, $data);
                     }
                     break;
 
-                case ReaderState::opt_array:
+                case CReaderState::opt_array:
                     $c = $this->silentChar();
 
                     if ($c === '[')
-                        $this->pushState(ReaderState::direct_declarator_array, $data);
+                        $this->pushState(CReaderState::direct_declarator_array, $data);
                     break;
 
-                case ReaderState::opt_cstatement:
+                case CReaderState::opt_cstatement:
                     $c = $this->silentChar();
 
                     if ($c === '{') {
                         $cstatement = $this->getDelimitedText();
-                        $element['group'] = DeclarationGroup::definition;
+                        $element['group'] = CDeclarationGroup::definition;
                         $element['cstatement'] = $cstatement;
                     }
                     break;
 
-                case ReaderState::opt_function_definition:
+                case CReaderState::opt_function_definition:
 
                     if ($declarator_level === 0)
-                        $this->pushState(ReaderState::opt_cstatement, $data);
+                        $this->pushState(CReaderState::opt_cstatement, $data);
                     break;
 
-                case ReaderState::direct_declarator_array:
-                    $element['type'] = DeclarationType::tarray;
+                case CReaderState::direct_declarator_array:
+                    $element['type'] = CDeclarationType::tarray;
                     self::makeElementIdentifier($element);
                     $content = $this->getDelimitedText(self::C_DELIMITERS);
                     $element['items'][] = $content;
                     break;
 
-                case ReaderState::direct_declarator_function:
-                    $element['type'] = DeclarationType::tfunction;
-                    $this->pushState(ReaderState::opt_function_definition, $data);
-                    $this->pushState(ReaderState::parameter, $data);
+                case CReaderState::direct_declarator_function:
+                    $element['type'] = CDeclarationType::tfunction;
+                    $this->pushState(CReaderState::opt_function_definition, $data);
+                    $this->pushState(CReaderState::parameter, $data);
                     break;
 
                 // ======================================================
 
-                case ReaderState::parameter:
+                case CReaderState::parameter:
                     $newElement = $this->newElement();
-                    $this->pushState(ReaderState::parameter_list, [
+                    $this->pushState(CReaderState::parameter_list, [
                         'e' => &$element,
                         'n' => &$newElement
                     ]);
                     $data = [
                         'e' => &$newElement
                     ];
-                    $this->pushState(ReaderState::declarator, $data);
-                    $this->pushState(ReaderState::declaration_specifiers, $data);
+                    $this->pushState(CReaderState::declarator, $data);
+                    $this->pushState(CReaderState::declaration_specifiers, $data);
                     unset($newElement);
                     break;
 
-                case ReaderState::parameter_list:
+                case CReaderState::parameter_list:
                     $c = $this->nextChar();
                     $element['_parameters'][] = $data['n'];
 
                     if ($c === ',') {
-                        $this->pushState(ReaderState::parameter, $data);
+                        $this->pushState(CReaderState::parameter, $data);
                     } elseif ($c === ')') {
                         $this->makeElementIdentifier($element);
                         $params = $element['_parameters'];
@@ -911,7 +910,7 @@ class Reader
                             $empty = \array_filter($params, 'self::elementIsEmpty');
 
                             if (! empty($empty)) {
-                                $this->pushState(ReaderState::wait_end_declaration);
+                                $this->pushState(CReaderState::wait_end_declaration);
                                 break;
                             }
                             $nbItems = \count($element['items']) + 1;
@@ -919,7 +918,7 @@ class Reader
 
                             $element['items'][] = '(';
                             foreach ($params as $p)
-                                $element['items'][] = Declaration::fromReaderElements($p);
+                                $element['items'][] = CDeclaration::fromReaderElements($p);
                             $element['items'][] = ')';
                         }
                     } else

@@ -1,14 +1,14 @@
 <?php
 namespace Time2Split\PCP\Action\PCP\Generate\Instruction;
 
-use Time2Split\Config\IConfig;
+use Time2Split\Config\Configuration;
 use Time2Split\PCP\Action\PCP\Generate\Instruction;
-use Time2Split\PCP\C\Element;
+use Time2Split\PCP\C\CElement;
 
 final class Factory
 {
 
-    public function create(Element $subject, IConfig $instruction): Instruction
+    public function create(CElement $subject, Configuration $instruction): Instruction
     {
         $i = clone $instruction;
         $keys = $i->keys();

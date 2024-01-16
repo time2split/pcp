@@ -3,7 +3,7 @@ namespace Time2Split\PCP\Action\PCP;
 
 use Time2Split\PCP\Action\BaseAction;
 use Time2Split\PCP\Action\Phase;
-use Time2Split\PCP\C\Element\Container;
+use Time2Split\PCP\C\Element\CContainer;
 
 class EchoAction extends BaseAction
 {
@@ -13,7 +13,7 @@ class EchoAction extends BaseAction
         error_dump(__class__ . " onSubscribe()");
     }
 
-    public function onMessage(Container $msg): void
+    public function onMessage(CContainer $msg): void
     {
         error_dump(__class__ . " onMessage()");
         error_dump($msg);

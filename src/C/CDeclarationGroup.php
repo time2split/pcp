@@ -1,7 +1,7 @@
 <?php
 namespace Time2Split\PCP\C;
 
-enum DeclarationGroup
+enum CDeclarationGroup
 {
 
     case cpp;

@@ -2,14 +2,14 @@
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Help\Arrays;
-use Time2Split\PCP\C\DeclarationGroup;
-use Time2Split\PCP\C\DeclarationType;
-use Time2Split\PCP\C\Matching;
-use Time2Split\PCP\C\ReaderElement;
+use Time2Split\PCP\C\CDeclarationGroup;
+use Time2Split\PCP\C\CDeclarationType;
+use Time2Split\PCP\C\CMatching;
+use Time2Split\PCP\C\CReaderElement;
 
-final class Declaration extends ReaderElement
+final class CDeclaration extends CReaderElement
 {
-    use ElementTypeTrait;
+    use CElementTypeTrait;
 
     private array $uinfos;
 
@@ -21,15 +21,15 @@ final class Declaration extends ReaderElement
 
     public static function fromReaderElements(array $element)
     {
-        return new Declaration($element);
+        return new CDeclaration($element);
     }
 
-    public function getGroup(): DeclarationGroup
+    public function getGroup(): CDeclarationGroup
     {
         return $this['group'];
     }
 
-    public function getType(): DeclarationType
+    public function getType(): CDeclarationType
     {
         return $this['type'];
     }
@@ -49,13 +49,13 @@ final class Declaration extends ReaderElement
         $nbSpecifiers = $element['infos']['specifiers.nb'];
 
         $specifiers = \array_slice($element['items'], 0, $nbSpecifiers);
-        $unknown = \array_filter($specifiers, fn ($n) => ! Matching::isSpecifier($n));
-        $typeSpecifiers = \array_filter($specifiers, fn ($n) => Matching::isTypeSpecifier($n));
+        $unknown = \array_filter($specifiers, fn ($n) => ! CMatching::isSpecifier($n));
+        $typeSpecifiers = \array_filter($specifiers, fn ($n) => CMatching::isTypeSpecifier($n));
 
         $pointers = \array_slice($element['items'], $nbSpecifiers);
         $pointers = \array_filter($pointers); // Avoid null value (generated identifier)
         list ($p, $punknown) = Arrays::partition($pointers, //
-        fn ($n) => $n === '*' || Matching::isTypeQualifier($n));
+        fn ($n) => $n === '*' || CMatching::isTypeQualifier($n));
 
         return [
             'specifiers' => [

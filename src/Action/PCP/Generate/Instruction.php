@@ -1,8 +1,8 @@
 <?php
 namespace Time2Split\PCP\Action\PCP\Generate;
 
-use Time2Split\Config\IConfig;
-use Time2Split\PCP\C\Element;
+use Time2Split\Config\Configuration;
+use Time2Split\PCP\C\CElement;
 
 abstract class Instruction
 {
@@ -12,13 +12,13 @@ abstract class Instruction
     public abstract function getTargets(): array;
 
     // ========================================================================
-    private Element $subject;
+    private CElement $subject;
 
-    private IConfig $instruction;
+    private Configuration $instruction;
 
     private array $tags;
 
-    protected function __construct(Element $subject, IConfig $instruction)
+    protected function __construct(CElement $subject, Configuration $instruction)
     {
         $this->subject = $subject;
 
@@ -34,12 +34,12 @@ abstract class Instruction
         $this->instruction = $i;
     }
 
-    public function getSubject(): Element
+    public function getSubject(): CElement
     {
         return $this->subject;
     }
 
-    public function getInstruction(): IConfig
+    public function getInstruction(): Configuration
     {
         return $this->instruction;
     }

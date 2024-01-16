@@ -4,22 +4,12 @@ namespace Time2Split\PCP\File;
 final class CursorPosition
 {
 
-    private int $line;
-
-    private int $linePos;
-
-    private int $pos;
-
-    private function __construct()
+    private function __construct(private int $line,  private int $linePos,  private int $pos)
     {}
 
     public static function create(int $line, int $linePos, int $pos): CursorPosition
     {
-        $ret = new CursorPosition();
-        $ret->line = $line;
-        $ret->linePos = $linePos;
-        $ret->pos = $pos;
-        return $ret;
+        return new self($line, $linePos, $pos);
     }
 
     public function decrement(): CursorPosition

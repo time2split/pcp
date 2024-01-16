@@ -1,21 +1,21 @@
 <?php
 namespace Time2Split\PCP\Action\PCP\Generate\Instruction;
 
-use Time2Split\Config\IConfig;
+use Time2Split\Config\Configuration;
 use Time2Split\PCP\Action\PCP\Generate\Instruction;
-use Time2Split\PCP\C\Element;
-use Time2Split\PCP\C\Element\Declaration;
-use Time2Split\PCP\C\Element\ElementType;
+use Time2Split\PCP\C\CElement;
+use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CElementType;
 
 final class Prototype extends Instruction
 {
 
-    private function __construct(Element $subject, IConfig $instruction)
+    private function __construct(CElement $subject, Configuration $instruction)
     {
         parent::__construct($subject, $instruction);
     }
 
-    public static function create(Element $subject, IConfig $instruction): self
+    public static function create(CElement $subject, Configuration $instruction): self
     {
         return new self($subject, $instruction);
     }
@@ -25,11 +25,11 @@ final class Prototype extends Instruction
         $subject = $this->getSubject();
 
         switch ($subject->getElementType()) {
-            case ElementType::Prototype:
-            case ElementType::Function:
+            case CElementType::Prototype:
+            case CElementType::Function:
                 return $this->generatePrototype();
                 break;
-            case ElementType::Macro:
+            case CElementType::Macro:
                 throw new \Exception("Cannot generate a prototype from a Macro element");
         }
     }
@@ -63,7 +63,7 @@ final class Prototype extends Instruction
         return $this->prototypeToString($subject);
     }
 
-    private function prototypeToString(Declaration $declaration): string
+    private function prototypeToString(CDeclaration $declaration): string
     {
         $ret = '';
         $lastIsAlpha = false;
@@ -71,7 +71,7 @@ final class Prototype extends Instruction
 
         foreach ($declaration['items'] as $s) {
 
-            if ($s instanceof Declaration) {
+            if ($s instanceof CDeclaration) {
                 $ret .= $paramSep . $this->prototypeToString($s);
                 $paramSep = ', ';
             } else {
