@@ -1,0 +1,37 @@
+{
+	"name": "time2split/pcp",
+	"description": "PHP C Preprocessor",
+	"license": "MIT",
+	"keywords": [
+		"cli",
+		"C",
+		"preprocessor"
+	],
+	"authors": [
+		{
+			"name": "Olivier Rodriguez (zuri)",
+			"email": "zuri@time2split.net",
+			"role": "Developer"
+		}
+	],
+	"autoload": {
+		"psr-4": {
+			"Time2Split\\PCP\\": "src"
+		}
+	},
+	"repositories": [
+		{
+			"type": "vcs",
+			"url": "git@github.com:time2split/php-time2help.git"
+		},
+		{
+			"type": "vcs",
+			"url": "git@github.com:time2split/php-time2configure.git"
+		}
+	],
+	"require": {
+		"php": ">=8.2",
+		"time2split/time2configure": "dev-develop",
+		"time2split/time2help": "dev-develop"
+	}
+}

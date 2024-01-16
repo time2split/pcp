@@ -1,0 +1,80 @@
+<?php
+namespace Time2Split\PCP\C\Element;
+
+use Time2Split\Help\Arrays;
+use Time2Split\PCP\C\DeclarationGroup;
+use Time2Split\PCP\C\DeclarationType;
+use Time2Split\PCP\C\Matching;
+use Time2Split\PCP\C\ReaderElement;
+
+final class Declaration extends ReaderElement
+{
+    use ElementTypeTrait;
+
+    private array $uinfos;
+
+    private function __construct(array $elements)
+    {
+        parent::__construct($elements);
+        $this->uinfos = [];
+    }
+
+    public static function fromReaderElements(array $element)
+    {
+        return new Declaration($element);
+    }
+
+    public function getGroup(): DeclarationGroup
+    {
+        return $this['group'];
+    }
+
+    public function getType(): DeclarationType
+    {
+        return $this['type'];
+    }
+
+    // ========================================================================
+    public function getUnknownInfos(): array
+    {
+        if (! empty($this->uinfos))
+            return $this->uinfos;
+
+        return $this->uinfos = self::makeUnknownInfos($this->elements);
+    }
+
+    // ========================================================================
+    public static function makeUnknownInfos(array $element): array
+    {
+        $nbSpecifiers = $element['infos']['specifiers.nb'];
+
+        $specifiers = \array_slice($element['items'], 0, $nbSpecifiers);
+        $unknown = \array_filter($specifiers, fn ($n) => ! Matching::isSpecifier($n));
+        $typeSpecifiers = \array_filter($specifiers, fn ($n) => Matching::isTypeSpecifier($n));
+
+        $pointers = \array_slice($element['items'], $nbSpecifiers);
+        $pointers = \array_filter($pointers); // Avoid null value (generated identifier)
+        list ($p, $punknown) = Arrays::partition($pointers, //
+        fn ($n) => $n === '*' || Matching::isTypeQualifier($n));
+
+        return [
+            'specifiers' => [
+                'nb' => $nbSpecifiers,
+                'unknown.nb' => $n1 = \count($unknown),
+                'type.nb' => \count($typeSpecifiers),
+                'unknown' => $unknown,
+                'type' => $typeSpecifiers
+            ],
+            'pointers' => [
+                'nb' => \count($pointers),
+                'unknown.nb' => $n2 = \count($punknown),
+                '' => $pointers,
+                'unknown' => $punknown
+            ],
+            'unknown' => [
+                'nb' => $n1 + $n2,
+                '' => \array_merge($unknown, $punknown)
+            ]
+        ];
+    }
+}
