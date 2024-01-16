@@ -1,8 +1,8 @@
 <?php
-namespace Time2Split\PCP\C;
+namespace Time2Split\PCP;
 
-use Time2Split\Config\Configs;
-use Time2Split\Config\IConfig;
+use Time2Split\Config\Configuration;
+use Time2Split\Config\Configurations;
 use Time2Split\Help\IO;
 use Time2Split\PCP\Action\ActionFactory;
 use Time2Split\PCP\Action\Phase;
@@ -10,7 +10,8 @@ use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
-use Time2Split\PCP\C\Element\Container;
+use Time2Split\PCP\C\CReader;
+use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\DataFlow\BasePublisher;
 
 /**
@@ -22,14 +23,14 @@ use Time2Split\PCP\DataFlow\BasePublisher;
 class PCP extends BasePublisher
 {
 
-    private IConfig $config;
+    private Configuration $config;
 
     public function __construct()
     {
         parent::__construct();
     }
 
-    private function deliverMessage(Container $container)
+    private function deliverMessage(CContainer $container)
     {
         foreach ($this->getSubscribers() as $s)
             $s->onMessage($container);
@@ -41,9 +42,9 @@ class PCP extends BasePublisher
             $s->onPhase(Phase::create($name, $state), $data);
     }
 
-    public function process(IConfig $config): void
+    public function process(Configuration $config): void
     {
-        $this->config = Configs::emptyChild($config);
+        $this->config = Configurations::emptyChild($config);
         $this->config['dateTime'] = $date = new \DateTime();
         $this->config['dateTime.format'] = $date->format(\DateTime::ATOM);
 
@@ -142,8 +143,7 @@ class PCP extends BasePublisher
         PhaseState::Start, //
         $phaseData);
 
-        $creader = Reader::fromFile($finfo);
-        $pragmas = [];
+        $creader = CReader::fromFile($finfo);
         $cppNameRef = (array) $this->config['cpp.name'];
         $skip = false;
 
@@ -153,7 +153,7 @@ class PCP extends BasePublisher
         );
 
         while (null !== ($element = $creader->next())) {
-            $container = Container::of($element);
+            $container = CContainer::of($element);
 
             if ($container->isMacro()) {
 

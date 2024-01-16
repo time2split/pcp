@@ -1,19 +1,19 @@
 <?php
 namespace Time2Split\PCP\Action;
 
-use Time2Split\Config\IConfig;
+use Time2Split\Config\Configuration;
 
 final class ActionFactory
 {
 
-    private IConfig $config;
+    private Configuration $config;
 
-    private function __construct(IConfig $config)
+    private function __construct(Configuration $config)
     {
         $this->config = $config;
     }
 
-    public static function get(IConfig $config)
+    public static function get(Configuration $config)
     {
         return new self($config);
     }

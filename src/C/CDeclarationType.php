@@ -1,7 +1,7 @@
 <?php
 namespace Time2Split\PCP\C;
 
-enum DeclarationType
+enum CDeclarationType
 {
 
     case tfunction;

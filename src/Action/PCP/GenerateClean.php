@@ -6,8 +6,8 @@ use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
-use Time2Split\PCP\C\Reader;
-use Time2Split\PCP\C\Element\Macro;
+use Time2Split\PCP\C\CReader;
+use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\File\Insertion;
 
 final class GenerateClean extends BaseAction
@@ -46,7 +46,7 @@ final class GenerateClean extends BaseAction
         ]))
             return;
 
-        $creader = Reader::fromFile($finfo);
+        $creader = CReader::fromFile($finfo);
         $cppNameRef = (array) $this->config['cpp.name'];
         $waitForEnd = false;
         $fpos = [];
@@ -54,7 +54,7 @@ final class GenerateClean extends BaseAction
         while (null !== ($element = $creader->next())) {
 
             if ( //
-            ! ($element instanceof Macro) || //
+            ! ($element->getElementType() === CElementType::Macro) || //
             ! ($element->getDirective() === "pragma") || //
             ! \in_array($element->getFirstArgument(), $cppNameRef))
                 continue;

@@ -1,8 +1,8 @@
 <?php
 namespace Time2Split\PCP\Action\PCP;
 
-use Time2Split\Config\Configs;
-use Time2Split\Config\IConfig;
+use Time2Split\Config\Configuration;
+use Time2Split\Config\Configurations;
 use Time2Split\Help\Arrays;
 use Time2Split\Help\IO;
 use Time2Split\PCP\Action\BaseAction;
@@ -10,12 +10,12 @@ use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
-use Time2Split\PCP\C\DeclarationGroup;
-use Time2Split\PCP\C\DeclarationType;
-use Time2Split\PCP\C\Reader;
-use Time2Split\PCP\C\Element\Container;
-use Time2Split\PCP\C\Element\Declaration;
-use Time2Split\PCP\C\Element\Macro;
+use Time2Split\PCP\C\CDeclarationGroup;
+use Time2Split\PCP\C\CDeclarationType;
+use Time2Split\PCP\C\CReader;
+use Time2Split\PCP\C\Element\CContainer;
+use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CMacro;
 use Time2Split\PCP\File\Insertion;
 
 class Generate extends BaseAction
@@ -45,20 +45,20 @@ class Generate extends BaseAction
 
     private array $area;
 
-    private ?Macro $nextInstruction;
+    private ?CMacro $nextInstruction;
 
     private ReadingOneFile $oneFileData;
 
-    public function __construct(IConfig $config)
+    public function __construct(Configuration $config)
     {
         parent::__construct($config);
-        $this->config = Configs::emptyChild($this->config);
+        $this->config = Configurations::emptyChild($this->config);
         $this->ifactory = new Generate\Instruction\Factory();
         $this->istorage = new Generate\Instruction\Storage($config);
         $this->area = [];
     }
 
-    public function onMessage(Container $msg): void
+    public function onMessage(CContainer $msg): void
     {
         if ($msg->isMacro()) {
             $macro = $msg->getMacro();
@@ -73,21 +73,21 @@ class Generate extends BaseAction
 
             switch ($declaration->getType()) {
 
-                case DeclarationType::tfunction:
+                case CDeclarationType::tfunction:
                     $instruction = $this->nextInstruction($declaration);
 
                     if (! isset($instruction))
                         break;
 
                     if ( //
-                    $declaration->getGroup() === DeclarationGroup::definition || //
-                    ($declaration->getGroup() === DeclarationGroup::declaration && //
-                    $declaration->getType() === DeclarationType::tfunction)) {
+                    $declaration->getGroup() === CDeclarationGroup::definition || //
+                    ($declaration->getGroup() === CDeclarationGroup::declaration && //
+                    $declaration->getType() === CDeclarationType::tfunction)) {
                         // The order of the $instruction is important
                         $first = $instruction->getArguments();
                         $secnd = $this->config->subConfig('generate');
 
-                        $i = Configs::emptyOf($this->config);
+                        $i = Configurations::emptyOf($this->config);
                         $i->merge($first);
                         $i->merge($secnd);
                         // That's not an error, we must override the $secnd value by $first if set
@@ -136,7 +136,7 @@ class Generate extends BaseAction
     }
 
     // ========================================================================
-    private function nextMacroInstruction(Macro $macro): ?Macro
+    private function nextMacroInstruction(CMacro $macro): ?CMacro
     {
         if (isset($this->nextInstruction)) {
             $next = $this->nextInstruction;
@@ -146,20 +146,20 @@ class Generate extends BaseAction
         return null;
     }
 
-    private function nextInstruction(Declaration $decl): ?Macro
+    private function nextInstruction(CDeclaration $decl): ?CMacro
     {
         $next = null;
 
         if (! isset($this->nextInstruction)) {
 
             // Function definition
-            if ($decl->getType() === DeclarationType::tfunction && $decl->getGroup() === DeclarationGroup::definition) {
+            if ($decl->getType() === CDeclarationType::tfunction && $decl->getGroup() === CDeclarationGroup::definition) {
 
                 if (($p = isset($this->myConfig['always.prototype'])) && isset($this->myConfig['always.function']));
                 elseif ($p)
-                    $next = Macro::fromText('generate prototype');
+                    $next = CMacro::fromText('generate prototype');
                 else
-                    $next = Macro::fromText('generate function');
+                    $next = CMacro::fromText('generate function');
             }
         } else {
             $next = $this->nextInstruction;
@@ -168,7 +168,7 @@ class Generate extends BaseAction
         return $next;
     }
 
-    private function doInstruction(Macro $inst): void
+    private function doInstruction(CMacro $inst): void
     {
         $args = $inst->getArguments();
 
@@ -228,12 +228,12 @@ class Generate extends BaseAction
         return $conf['generate.name.format'];
     }
 
-    private function generateMacro(array $i, Macro $macro)
+    private function generateMacro(array $i, CMacro $macro)
     {
         $macroTokens = $i['function'];
         $macroTokens .= ';';
 
-        $macroFun = Reader::fromStream(IO::stringToStream($macroTokens))->next();
+        $macroFun = CReader::fromStream(IO::stringToStream($macroTokens))->next();
         $macroFun['identifier']['name'] = $this->generateName($macro['name']);
 
         $macroFunParameters = $macroFun->getParameters();
@@ -251,13 +251,13 @@ class Generate extends BaseAction
         return "\n$ret";
     }
 
-    private function generateFunction(array $i, Declaration $decl): string
+    private function generateFunction(array $i, CDeclaration $decl): string
     {
         return "\n" . $this->generatePrototype_($i, $decl) . ($decl['cstatement'] ?? '');
     }
 
     // ========================================================================
-    private function macroIsPCP(Macro $macro): bool
+    private function macroIsPCP(CMacro $macro): bool
     {
         return \in_array($macro->getFirstArgument(), $this->config['cpp.name']);
     }
@@ -265,7 +265,7 @@ class Generate extends BaseAction
     private function skipGenerated($stream): int
     {
         $pos = \ftell($stream);
-        $reader = Reader::fromStream($stream, false);
+        $reader = CReader::fromStream($stream, false);
         $macro = $reader->nextMacro();
 
         if (null === $macro || ! $this->macroIsPCP($macro) || $macro->getCommand() !== 'begin')
@@ -287,8 +287,8 @@ class Generate extends BaseAction
     {
         $ret = include "$file.php";
 
-        foreach ($ret as $k => &$sub)
-            foreach ($sub as $kk => &$item)
+        foreach ($ret as &$sub)
+            foreach ($sub as &$item)
                 $item['tags'] = \array_flip([
                     ...$item['tags'],
                     'remaining'

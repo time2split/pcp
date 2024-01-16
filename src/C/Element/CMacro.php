@@ -3,11 +3,11 @@ namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Help\Arrays;
 use Time2Split\PCP\Action\InstructionArgs;
-use Time2Split\PCP\C\ReaderElement;
+use Time2Split\PCP\C\CReaderElement;
 
-final class Macro extends ReaderElement
+final class CMacro extends CReaderElement
 {
-    use ElementTypeTrait;
+    use CElementTypeTrait;
 
     private ?string $first;
 

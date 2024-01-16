@@ -3,7 +3,7 @@ namespace Time2Split\PCP\C;
 
 use Time2Split\Help\Classes\NotInstanciable;
 
-final class Matching
+final class CMatching
 {
     use NotInstanciable;
 

@@ -3,7 +3,7 @@ namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Help\Optional;
 
-final class Container
+final class CContainer
 {
 
     private Optional $macro;
@@ -16,22 +16,22 @@ final class Container
         $this->declaration = Optional::empty();
     }
 
-    public static function of(Macro|Declaration $element): self
+    public static function of(CMacro|CDeclaration $element): self
     {
-        if ($element instanceof Macro)
+        if ($element instanceof CMacro)
             return self::ofMacro($element);
 
         return self::ofDeclaration($element);
     }
 
-    public static function ofMacro(Macro $macro): self
+    public static function ofMacro(CMacro $macro): self
     {
         $ret = new self();
         $ret->macro = Optional::of($macro);
         return $ret;
     }
 
-    public static function ofDeclaration(Declaration $declaration): self
+    public static function ofDeclaration(CDeclaration $declaration): self
     {
         $ret = new self();
         $ret->declaration = Optional::of($declaration);
@@ -48,12 +48,12 @@ final class Container
         return $this->declaration->isPresent();
     }
 
-    public final function getMacro(): Macro
+    public final function getMacro(): CMacro
     {
         return $this->macro->get();
     }
 
-    public final function getDeclaration(): Declaration
+    public final function getDeclaration(): CDeclaration
     {
         return $this->declaration->get();
     }

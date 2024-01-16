@@ -1,7 +1,7 @@
 <?php
 namespace Time2Split\PCP\C;
 
-enum ReaderState
+enum CReaderState
 {
 
     case invalid;

@@ -8,11 +8,8 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 $CONFIG = [
     'cpp.wd' => getcwd() . '/cpp.wd',
-    'pragmas_fileConfig' => __DIR__ . '/config.php',
     'debug' => false,
-    // 'cleaned' => null,
     'cpp.name' => [
-        'zrlib',
         'pcp'
     ],
     'paths' => [
