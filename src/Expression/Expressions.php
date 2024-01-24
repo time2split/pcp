@@ -48,6 +48,20 @@ final class Expressions
 {
     use NotInstanciable;
 
+    private static function boolNode(bool $b): Node
+    {
+        return new class($b) implements Node {
+
+            function __construct(public readonly bool $b)
+            {}
+
+            public function get(Configuration $config): bool
+            {
+                return $this->b;
+            }
+        };
+    }
+
     private static function stringNode(string $s): Node
     {
         return new class($s) implements Node {
@@ -55,7 +69,7 @@ final class Expressions
             function __construct(public readonly string $text)
             {}
 
-            public function get(Configuration $config): mixed
+            public function get(Configuration $config): string
             {
                 return $this->text;
             }
@@ -352,7 +366,8 @@ final class Expressions
 
         $assignment = [
             $makeAssign('='),
-            $makeAssign(':')
+            $makeAssign(':'),
+            $var->map(fn ($res) => self::assignmentNode('=', $res[0], self::boolNode(true)))
         ];
         $assignment = choice(...$assignment);
         $assignment = self::skipSpaces($assignment);
