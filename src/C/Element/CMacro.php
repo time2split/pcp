@@ -1,9 +1,10 @@
 <?php
 namespace Time2Split\PCP\C\Element;
 
-use Time2Split\Help\Arrays;
-use Time2Split\PCP\Action\InstructionArgs;
+use Time2Split\Config\Configuration;
+use Time2Split\Config\Configurations;
 use Time2Split\PCP\C\CReaderElement;
+use Time2Split\PCP\Expression\Expressions;
 
 final class CMacro extends CReaderElement
 {
@@ -15,26 +16,46 @@ final class CMacro extends CReaderElement
 
     private string $directive;
 
-    private array $args;
+    private Configuration $args;
 
     private string $text;
 
     private array $fileCursors;
 
-    private function __construct(string $directive, array $args, array $elements, string $text, array $cursors)
+    private function __construct(string $directive, Configuration $args, array $elements, string $text, array $cursors)
     {
         parent::__construct($elements);
         $this->directive = $directive;
         $this->text = $text;
 
-        $args = Arrays::listValueAsKey($args, true);
+        // $args = Arrays::listValueAsKey($args, true);thu
         $this->fileCursors = $cursors;
-        $argsk = \array_keys(\array_slice($args, 0, 2));
+
+        $keys = $args->traversableKeys();
+
+        $i = 0;
+
+        foreach ($keys as $k) {
+            $argsk[] = $k;
+            if (++ $i == 2)
+                break;
+        }
         $this->first = $argsk[0] ?? null;
         $this->cmd = $argsk[1] ?? null;
 
         // Remove the 'first' & 'cmd' arguments
-        $this->args = \array_slice($args, 2);
+        unset($args[$this->first]);
+        unset($args[$this->cmd]);
+        $this->args = $args;
+    }
+
+    private static function parseArguments(string $text): Configuration
+    {
+        $config = Configurations::empty();
+        $parser = Expressions::arguments();
+        $result = $parser->tryString($text)->output();
+        $result->get($config); // Do the assignation
+        return $config;
     }
 
     public static function fromReaderElements(array $element): self
@@ -46,14 +67,14 @@ final class CMacro extends CReaderElement
         $directive = $element['directive'];
         $text = $element['text'];
         $elements = $element['elements'] ?? [];
-        $args = empty($elements) ? InstructionArgs::parse($text) : [];
+        $args = self::parseArguments($text);
 
         return new self($directive, $args, $elements, $text, $cursors);
     }
 
     public static function fromText(string $text): self
     {
-        $args = InstructionArgs::parse($text);
+        $args = self::parseArguments($text);
         return new self('pragma', $args, [], $text, []);
     }
 
@@ -72,14 +93,6 @@ final class CMacro extends CReaderElement
         return $this->first;
     }
 
-    public function setArguments(array $args): self
-    {
-        return new self($this->directive, [
-            $this->directive,
-            ...$args
-        ], $this->elements, $this->text, $this->fileCursors);
-    }
-
     public function getFileCursors(): array
     {
         return $this->fileCursors;
@@ -95,7 +108,7 @@ final class CMacro extends CReaderElement
         return $this->directive;
     }
 
-    public function getArguments(): array
+    public function getArguments(): Configuration
     {
         return $this->args;
     }

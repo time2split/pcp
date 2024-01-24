@@ -127,7 +127,7 @@ class Generate extends BaseAction
 
                     // Reset the config for the file
                     $this->config->clear();
-                    $this->config->merge(self::DefaultConfig);
+                    Configurations::mergeArrayRecursive($this->config, self::DefaultConfig);
                 } elseif (PhaseState::Stop == $phase->state) {
                     $this->flushFileInfos();
                 }
@@ -185,8 +185,8 @@ class Generate extends BaseAction
 
             $this->nextInstruction = $inst;
         } else {
-            $args = Arrays::map_key(fn ($k) => "generate.$k", $args);
-            $this->config->merge($args);
+            $args = Arrays::map_key(fn ($k) => "generate.$k", $args->toArray());
+            Configurations::mergeTraversable($this->config, $args);
         }
     }
 
