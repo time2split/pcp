@@ -31,10 +31,14 @@ class PCP extends BasePublisher
         parent::__construct();
     }
 
-    private function deliverMessage(CContainer $container)
+    private function deliverMessage(CContainer $container): array
     {
+        $resElements = [];
+
         foreach ($this->getSubscribers() as $s)
-            $s->onMessage($container);
+            $resElements = \array_merge($resElements, $s->onMessage($container));
+
+        return $resElements;
     }
 
     private function updatePhase(PhaseName $name, PhaseState $state, $data = null)
@@ -152,8 +156,15 @@ class PCP extends BasePublisher
         PhaseName::ReadingOneFile, //
         PhaseState::Run //
         );
+        $elements = [];
 
-        while (null !== ($element = $creader->next())) {
+        while (true) {
+
+            if (! empty($elements))
+                $element = \array_pop($elements);
+            else if (null === ($element = $creader->next()))
+                break;
+
             $container = CContainer::of($element);
 
             if ($container->isPCPPragma()) {
@@ -171,8 +182,12 @@ class PCP extends BasePublisher
                     continue;
                 }
             }
-            if (! $skip)
-                $this->deliverMessage($container);
+            if (! $skip) {
+                $resElements = $this->deliverMessage($container);
+
+                // Reverse the order to allow to array_pop($elements) in the original order
+                $elements = \array_merge($elements, \array_reverse($resElements));
+            }
         }
         $creader->close();
         $this->updatePhase( //

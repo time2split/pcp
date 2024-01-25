@@ -43,8 +43,10 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         IO::wdPop();
     }
 
-    public function onMessage(CContainer $msg): void
-    {}
+    public function onMessage(CContainer $msg): array
+    {
+        return [];
+    }
 
     public function onPhase(Phase $phase, $data = null): void
     {}

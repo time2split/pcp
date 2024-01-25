@@ -60,7 +60,7 @@ class Generate extends BaseAction
         $this->area = [];
     }
 
-    public function onMessage(CContainer $ccontainer): void
+    public function onMessage(CContainer $ccontainer): array
     {
         if ($ccontainer->isPCPPragma()) {
             $macro = $ccontainer->getPCPPragma();
@@ -98,6 +98,7 @@ class Generate extends BaseAction
                     break;
             }
         }
+        return [];
     }
 
     public function onPhase(Phase $phase, $data = null): void
