@@ -374,7 +374,7 @@ final class Expressions
         $assignment = self::skipSpaces($assignment);
 
         $endSpaces = many(controlChar());
-        return $ret = some($assignment)->thenIgnore($endSpaces)
+        return $ret = many($assignment)->thenIgnore($endSpaces)
             ->thenEof()
             ->map(self::assignmentsNode(...));
     }
