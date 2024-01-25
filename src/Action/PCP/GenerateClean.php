@@ -7,7 +7,8 @@ use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\C\CReader;
-use Time2Split\PCP\C\Element\CElementType;
+use Time2Split\PCP\C\Element\CContainer;
+use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\File\Insertion;
 
 final class GenerateClean extends BaseAction
@@ -47,16 +48,14 @@ final class GenerateClean extends BaseAction
             return;
 
         $creader = CReader::fromFile($finfo);
-        $cppNameRef = (array) $this->config['cpp.name'];
+        $creader->setCPPDirectiveFactory(CPPDirectives::factory($this->config));
         $waitForEnd = false;
         $fpos = [];
 
         while (null !== ($element = $creader->next())) {
+            $ccontainer = CContainer::of($element);
 
-            if ( //
-            ! ($element->getElementType() === CElementType::Macro) || //
-            ! ($element->getDirective() === "pragma") || //
-            ! \in_array($element->getFirstArgument(), $cppNameRef))
+            if (! $ccontainer->isPCPPragma())
                 continue;
 
             $cmd = $element->getCommand();

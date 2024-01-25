@@ -8,7 +8,7 @@ require_once __DIR__ . '/vendor/autoload.php';
 $CONFIG = [
     'cpp.wd' => getcwd() . '/cpp.wd',
     'debug' => false,
-    'cpp.name' => [
+    'pcp.name' => [
         'pcp'
     ],
     'paths' => [
@@ -27,9 +27,6 @@ if (! \in_array($action, $actions))
 
 $CONFIG['action'] = $action;
 
-$theConfig = TreeConfigBuilder::builder()->setDelimiter('.')
-    ->setContent($CONFIG)
-    ->setInterpolator(Expressions::interpolator())
-    ->build();
+$theConfig = App::getConfigBuilder()->setContent($CONFIG)->build();
 
 (new PCP())->process($theConfig);

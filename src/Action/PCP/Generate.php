@@ -15,8 +15,10 @@ use Time2Split\PCP\C\CDeclarationType;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CDeclaration;
-use Time2Split\PCP\C\Element\CMacro;
+use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\File\Insertion;
+use Time2Split\PCP\C\Element\PCPPragma;
+use Time2Split\PCP\C\Element\CPPDirectives;
 
 class Generate extends BaseAction
 {
@@ -45,7 +47,7 @@ class Generate extends BaseAction
 
     private array $area;
 
-    private ?CMacro $nextInstruction;
+    private ?PCPPragma $nextInstruction;
 
     private ReadingOneFile $oneFileData;
 
@@ -58,18 +60,15 @@ class Generate extends BaseAction
         $this->area = [];
     }
 
-    public function onMessage(CContainer $msg): void
+    public function onMessage(CContainer $ccontainer): void
     {
-        if ($msg->isMacro()) {
-            $macro = $msg->getMacro();
+        if ($ccontainer->isPCPPragma()) {
+            $macro = $ccontainer->getPCPPragma();
 
-            if ($macro->getDirective() === 'pragma' && $macro->getCommand() === 'generate')
+            if ($macro->getCommand() === 'generate')
                 $this->doInstruction($macro);
-            elseif ($macro->getDirective() === 'define') {
-                throw new \Exception('Not implemented: for directive define');
-            }
-        } elseif ($msg->isDeclaration()) {
-            $declaration = $msg->getDeclaration();
+        } elseif ($ccontainer->isDeclaration()) {
+            $declaration = $ccontainer->getDeclaration();
 
             switch ($declaration->getType()) {
 
@@ -98,8 +97,7 @@ class Generate extends BaseAction
                     }
                     break;
             }
-        } else
-            throw new \Error();
+        }
     }
 
     public function onPhase(Phase $phase, $data = null): void
@@ -136,7 +134,7 @@ class Generate extends BaseAction
     }
 
     // ========================================================================
-    private function nextMacroInstruction(CMacro $macro): ?CMacro
+    private function nextMacroInstruction(CPPDirective $macro): ?CPPDirective
     {
         if (isset($this->nextInstruction)) {
             $next = $this->nextInstruction;
@@ -146,20 +144,19 @@ class Generate extends BaseAction
         return null;
     }
 
-    private function nextInstruction(CDeclaration $decl): ?CMacro
+    private function nextInstruction(CDeclaration $decl): ?PCPPragma
     {
         $next = null;
 
         if (! isset($this->nextInstruction)) {
-
             // Function definition
             if ($decl->getType() === CDeclarationType::tfunction && $decl->getGroup() === CDeclarationGroup::definition) {
 
                 if (($p = isset($this->myConfig['always.prototype'])) && isset($this->myConfig['always.function']));
                 elseif ($p)
-                    $next = CMacro::fromText('generate prototype');
+                    $next = CPPDirective::fromText('generate prototype');
                 else
-                    $next = CMacro::fromText('generate function');
+                    $next = CPPDirective::fromText('generate function');
             }
         } else {
             $next = $this->nextInstruction;
@@ -168,7 +165,7 @@ class Generate extends BaseAction
         return $next;
     }
 
-    private function doInstruction(CMacro $inst): void
+    private function doInstruction(PCPPragma $inst): void
     {
         $args = $inst->getArguments();
 
@@ -208,16 +205,22 @@ class Generate extends BaseAction
     {
         $areas = \array_filter((array) $this->area);
 
-        if (empty($areas))
-            return;
-
         $finfo = $this->oneFileData->fileInfo;
         $fileDir = "{$finfo->getPathInfo()}/";
+        $fname = "$fileDir/{$finfo->getFileName()}.area.php";
+
+        if (empty($areas)) {
+
+            if (\is_file($fname))
+                \unlink($fname);
+
+            return;
+        }
 
         if (! is_dir($fileDir))
             mkdir($fileDir, 0777, true);
 
-        IO::printPHPFile("$fileDir/{$finfo->getFileName()}.area.php", $areas);
+        IO::printPHPFile($fname, $areas);
         $this->area = [];
     }
 
@@ -228,7 +231,7 @@ class Generate extends BaseAction
         return $conf['generate.name.format'];
     }
 
-    private function generateMacro(array $i, CMacro $macro)
+    private function generateMacro(array $i, CPPDirective $macro)
     {
         $macroTokens = $i['function'];
         $macroTokens .= ';';
@@ -257,7 +260,7 @@ class Generate extends BaseAction
     }
 
     // ========================================================================
-    private function macroIsPCP(CMacro $macro): bool
+    private function macroIsPCP(CPPDirective $macro): bool
     {
         return \in_array($macro->getFirstArgument(), $this->config['cpp.name']);
     }
@@ -266,15 +269,17 @@ class Generate extends BaseAction
     {
         $pos = \ftell($stream);
         $reader = CReader::fromStream($stream, false);
-        $macro = $reader->nextMacro();
+        $reader->setCPPDirectiveFactory(CPPDirectives::factory($this->config));
 
-        if (null === $macro || ! $this->macroIsPCP($macro) || $macro->getCommand() !== 'begin')
+        $cppDirective = $reader->nextCPPDirective();
+
+        if (! isset($cppDirective) || ! CContainer::of($cppDirective)->isPCPPragma() || $cppDirective->getCommand() !== 'begin')
             goto noBegin;
 
         while (true) {
-            $macro = $reader->nextMacro();
+            $cppDirective = $reader->nextCPPDirective();
 
-            if (null === $macro || ($this->macroIsPCP($macro) && $macro->getCommand() === 'end'))
+            if (isset($cppDirective) && CContainer::of($cppDirective)->isPCPPragma() && $cppDirective->getCommand() === 'end')
                 break;
         }
         return \ftell($stream) - $pos;
@@ -302,7 +307,7 @@ class Generate extends BaseAction
         $filesDir = \getcwd();
         $this->goWorkingDir(self::wd);
 
-        $cppNames = (array) $this->config['cpp.name'];
+        $cppNames = (array) $this->config['pcp.name'];
         $cppName = Arrays::first($cppNames);
         $sourceCache = [];
 
@@ -317,7 +322,12 @@ class Generate extends BaseAction
             $sourceInfos = $sourceCache[$fileSource] ??= self::includeSource($fileSource);
 
             foreach ($targets as $targetFile => $targetGIDs) {
-                $writer = Insertion::fromFilePath("$filesDir/$targetFile", 'tmp');
+                $targetFileDir = "$filesDir/$targetFile";
+
+                if (! \is_file($targetFileDir))
+                    continue;
+
+                $writer = Insertion::fromFilePath($targetFileDir, 'tmp');
                 $targetAreas = @include "$targetFile.area.php";
 
                 if (false === $targetAreas)

@@ -13,6 +13,7 @@ use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\DataFlow\BasePublisher;
+use Time2Split\PCP\C\Element\CPPDirectives;
 
 /**
  * PHP: C preprocessor
@@ -144,7 +145,7 @@ class PCP extends BasePublisher
         $phaseData);
 
         $creader = CReader::fromFile($finfo);
-        $cppNameRef = (array) $this->config['cpp.name'];
+        $creader->setCPPDirectiveFactory(CPPDirectives::factory($this->config));
         $skip = false;
 
         $this->updatePhase( //
@@ -155,27 +156,19 @@ class PCP extends BasePublisher
         while (null !== ($element = $creader->next())) {
             $container = CContainer::of($element);
 
-            if ($container->isMacro()) {
+            if ($container->isPCPPragma()) {
+                $cmd = $element->getCommand();
 
-                if ($element->getDirective() === "pragma") {
+                // Avoid begin/end blocks
+                if ($skip) {
 
-                    // Do not process unknownn #pragma
-                    if (! \in_array($element->getFirstArgument(), $cppNameRef))
-                        continue;
-
-                    $cmd = $element->getCommand();
-
-                    // Avoid begin/end blocks
-                    if ($skip) {
-
-                        if ($cmd === 'end') {
-                            $skip = false;
-                            continue;
-                        }
-                    } elseif ($cmd === 'begin') {
-                        $skip = true;
+                    if ($cmd === 'end') {
+                        $skip = false;
                         continue;
                     }
+                } elseif ($cmd === 'begin') {
+                    $skip = true;
+                    continue;
                 }
             }
             if (! $skip)
