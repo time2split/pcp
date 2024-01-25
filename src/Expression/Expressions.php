@@ -15,6 +15,7 @@ use function Parsica\Parsica\ {
     between,
     alphaChar,
     alphaNumChar,
+    controlChar,
     printChar,
     nothing,
     keepSecond,
@@ -372,7 +373,10 @@ final class Expressions
         $assignment = choice(...$assignment);
         $assignment = self::skipSpaces($assignment);
 
-        return $ret = some($assignment)->thenEof()->map(self::assignmentsNode(...));
+        $endSpaces = many(controlChar());
+        return $ret = some($assignment)->thenIgnore($endSpaces)
+            ->thenEof()
+            ->map(self::assignmentsNode(...));
     }
 
     // ========================================================================
