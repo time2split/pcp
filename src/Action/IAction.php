@@ -7,7 +7,14 @@ use Time2Split\PCP\DataFlow\ISubscriber;
 interface IAction extends ISubscriber
 {
 
-    function onMessage(CContainer $msg): void;
+    /**
+     * Send a message to the Action that may (or may not) interpret it
+     *
+     * @param CContainer $msg
+     *            The C element message
+     * @return array An array that may contains some new PCPPragma instructions to send to each Action instances
+     */
+    function onMessage(CContainer $msg): array;
 
     function onPhase(Phase $phase, $data = null): void;
 }
