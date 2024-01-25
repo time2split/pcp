@@ -11,12 +11,12 @@ enum CElementType: string
 
     case Function = 'from.function';
 
-    case Macro = 'from.macro';
+    case CPPMacro = 'from.macro';
 
     public static function of(CReaderElement $element): self
     {
-        if ($element instanceof CMacro)
-            return self::Macro;
+        if ($element instanceof CPPDefine)
+            return self::CPPMacro;
         if ($element->getGroup() === CDeclarationGroup::definition)
             return self::Function;
 

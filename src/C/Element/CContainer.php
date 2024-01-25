@@ -6,41 +6,43 @@ use Time2Split\Help\Optional;
 final class CContainer
 {
 
-    private Optional $macro;
+    private function __construct( //
+    private readonly Optional $cppDirective, //
+    private readonly Optional $declaration)
+    {}
 
-    private Optional $declaration;
-
-    private function __construct()
+    public static function of(CPPDirective|CDeclaration $element): self
     {
-        $this->macro = Optional::empty();
-        $this->declaration = Optional::empty();
-    }
-
-    public static function of(CMacro|CDeclaration $element): self
-    {
-        if ($element instanceof CMacro)
-            return self::ofMacro($element);
+        if ($element instanceof CPPDirective)
+            return self::ofCPPDirective($element);
 
         return self::ofDeclaration($element);
     }
 
-    public static function ofMacro(CMacro $macro): self
+    public static function ofCPPDirective(CPPDirective $macro): self
     {
-        $ret = new self();
-        $ret->macro = Optional::of($macro);
-        return $ret;
+        return new self(Optional::of($macro), Optional::empty());
     }
 
     public static function ofDeclaration(CDeclaration $declaration): self
     {
-        $ret = new self();
-        $ret->declaration = Optional::of($declaration);
-        return $ret;
+        return new self(Optional::empty(), Optional::of($declaration));
     }
 
-    public final function isMacro(): bool
+    // ========================================================================
+    public final function isCPPDirective(): bool
     {
-        return $this->macro->isPresent();
+        return $this->cppDirective->isPresent();
+    }
+
+    public final function isMacroDefinition(): bool
+    {
+        return $this->isCPPDirective() && $this->getCppDirective() instanceof CPPDefine;
+    }
+
+    public final function isPCPPragma(): bool
+    {
+        return $this->isCPPDirective() && $this->getCppDirective() instanceof PCPPragma;
     }
 
     public final function isDeclaration(): bool
@@ -48,9 +50,20 @@ final class CContainer
         return $this->declaration->isPresent();
     }
 
-    public final function getMacro(): CMacro
+    // ========================================================================
+    public final function getCppDirective(): CPPDirective
     {
-        return $this->macro->get();
+        return $this->cppDirective->get();
+    }
+
+    public final function getMacroDefinition(): CPPDefine
+    {
+        return $this->cppDirective->get();
+    }
+
+    public final function getPCPPragma(): PCPPragma
+    {
+        return $this->cppDirective->get();
     }
 
     public final function getDeclaration(): CDeclaration

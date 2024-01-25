@@ -9,6 +9,11 @@ abstract class CReaderElement extends \ArrayObject implements CElement
         parent::__construct($elements);
     }
 
+    /**
+     * Get the parameters of a function or a functional macroS
+     *
+     * @return array|NULL
+     */
     public function getParameters(): ?array
     {
         if (! isset($this['parameters']))

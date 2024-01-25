@@ -4,7 +4,7 @@ namespace Time2Split\PCP\C;
 use Time2Split\Help\FIO;
 use Time2Split\Help\IO;
 use Time2Split\PCP\C\Element\CDeclaration;
-use Time2Split\PCP\C\Element\CMacro;
+use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\File\Navigator;
 
 class CReader
@@ -14,6 +14,8 @@ class CReader
 
     private ?Navigator $fnav;
 
+    private \Closure $cppDirectiveFactory;
+
     private function __construct($stream, bool $closeStream = true)
     {
         $mdata = \stream_get_meta_data($stream);
@@ -22,6 +24,12 @@ class CReader
             throw new \Exception(__class__ . " The stream must be readable mode, the mode is {$mdata['mode']}");
 
         $this->fnav = Navigator::fromStream($stream, $closeStream);
+        $this->setCPPDirectiveFactory();
+    }
+
+    public function setCPPDirectiveFactory(?\Closure $pcpPragmaFactory = null): void
+    {
+        $this->cppDirectiveFactory = $pcpPragmaFactory ?? CPPDirective::create(...);
     }
 
     public function __destruct()
@@ -33,7 +41,8 @@ class CReader
     {
         if (\is_resource($source))
             return self::fromStream($source, $closeStream);
-
+        if (\is_string($source))
+            return self::fromString($source);
         return self::fromFile($source, $closeStream);
     }
 
@@ -45,6 +54,11 @@ class CReader
     public static function fromFile($filePath, bool $closeStream = true): self
     {
         return new self(\fopen((string) $filePath, 'r'), $closeStream);
+    }
+
+    public static function fromString($string): self
+    {
+        return new self(IO::stringToStream($string), false);
     }
 
     public function close(): void
@@ -314,7 +328,7 @@ class CReader
 
     private function forgetState(CReaderState $s): void
     {
-        list ($state, $data, $fileState) = \array_pop($this->states);
+        list ($state, ,) = \array_pop($this->states);
 
         if ($state !== $s)
             throw new \Exception(__class__ . " waiting to forget $s->name but have $state->name");
@@ -414,85 +428,46 @@ class CReader
     }
 
     // ========================================================================
-    private function parseDefine(string $text): array
+    public static function parseCPPDefine(string $text): ?array
     {
-        $stream = IO::stringToStream($text);
-        return self::fromStream($stream)->_parseDefine();
+        return self::fromString($text)->_parseDefine();
     }
 
     private function _parseDefine(): ?array
     {
-        $state = CReaderState::start;
-        $element = [];
+        $name = $this->nextWord();
+        $params = [];
 
-        while (true) {
+        if ($name === false)
+            return null;
 
-            switch ($state) {
+        $c = $this->fgetc();
 
-                case CReaderState::start:
-                    $name = $this->nextWord();
+        if ($c === '(') {
+            $params = [];
 
-                    if ($name === false)
-                        return $element;
+            while (true) {
+                $w = $this->nextWord();
 
-                    $c = $this->nextChar();
+                if (null === $w)
+                    return null;
 
-                    if ($c !== '(')
-                        $state = 10;
-                    $args = [];
-
-                    while (true) {
-                        $w = $this->nextWord();
-
-                        if (null === $w)
-                            return null;
-
-                        $args[] = $w;
-                        $c = $this->nextChar();
-                        if ($c === ',')
-                            continue;
-                        if ($c === ')')
-                            break;
-                    }
-                    return [
-                        'type' => empty($args) ? 'object' : 'function',
-                        'elements' => [
-                            'name' => $name,
-                            'args' => $args,
-                            'tokens' => \stream_get_contents($this->fnav->getStream())
-                        ]
-                    ];
-                    break;
-
-                // ======================================================
-
-                // Argument List
-                case 10:
-                    $element['directive'] = $this->nextWord();
-                    $this->skipSpaces();
-
-                    $skipNext = false;
-                    $buff = '';
-
-                    while (true) {
-                        $c = $this->fgetc();
-                        $buff .= $c;
-
-                        if (($c === "\n" && ! $skipNext) || $c === false) {
-                            $element['text'] = \rtrim($buff);
-                            $element['cursor2'] = $this->fnav->getCursorPosition();
-                            return $element;
-                        } elseif ($c === '\\')
-                            $skipNext = true;
-                        elseif ($skipNext)
-                            $skipNext = false;
-                    }
+                $params[] = $w;
+                $c = $this->nextChar();
+                if ($c === ',')
+                    continue;
+                if ($c === ')')
                     break;
             }
         }
+        return [
+            'name' => $name,
+            'params' => $params,
+            'text' => \stream_get_contents($this->fnav->getStream())
+        ];
     }
 
-    public function nextMacro(): ?CMacro
+    public function nextCPPDirective(): ?CPPDirective
     {
         while (true) {
             $c = $this->nextChar();
@@ -501,13 +476,13 @@ class CReader
                 return null;
             if ($c === '#') {
                 $this->fungetc();
-                return $this->getMacro();
+                return $this->getCPPDirective();
             }
             $this->fnav->skipChars(fn ($c) => $c !== "\n");
         }
     }
 
-    public function getMacro(): ?CMacro
+    private function getCPPDirective(): ?CPPDirective
     {
         $state = CReaderState::start;
 
@@ -522,10 +497,7 @@ class CReader
                         return null;
 
                     if ($c === '#') {
-                        $element = [
-                            'group' => CDeclarationGroup::cpp,
-                            'cursor' => $this->fnav->getCursorPosition()->decrement()
-                        ];
+                        $cursors[] = $this->fnav->getCursorPosition()->decrement();
                         $state = CReaderState::cpp_directive;
                     } else
                         return null;
@@ -534,9 +506,7 @@ class CReader
                 // ======================================================
 
                 case CReaderState::cpp_directive:
-                    $element += [
-                        'directive' => $d = $this->nextWord()
-                    ];
+                    $directive = $this->nextWord();
                     $this->skipSpaces();
 
                     $skipNext = false;
@@ -547,13 +517,8 @@ class CReader
                         $buff .= $c;
 
                         if (($c === "\n" && ! $skipNext) || $c === false) {
-                            $element['text'] = \rtrim($buff);
-                            $element['cursor2'] = $this->fnav->getCursorPosition();
-
-                            if ($d === 'define')
-                                $element = \array_merge($element, $this->parseDefine($element['text']));
-
-                            return CMacro::fromReaderElements($element);
+                            $cursors[] = $this->fnav->getCursorPosition();
+                            return ($this->cppDirectiveFactory)($directive, $buff, $cursors);
                         } elseif ($c === '\\')
                             $skipNext = true;
                         elseif ($skipNext)
@@ -603,7 +568,7 @@ class CReader
 
                     if ($c === '#') {
                         $this->fungetc();
-                        return $this->getMacro();
+                        return $this->getCPPDirective();
                     } else {
                         $this->fungetc();
                         $element = $this->newElement();

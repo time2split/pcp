@@ -54,7 +54,7 @@ final class CDeclaration extends CReaderElement
 
         $pointers = \array_slice($element['items'], $nbSpecifiers);
         $pointers = \array_filter($pointers); // Avoid null value (generated identifier)
-        list ($p, $punknown) = Arrays::partition($pointers, //
+        list (, $punknown) = Arrays::partition($pointers, //
         fn ($n) => $n === '*' || CMatching::isTypeQualifier($n));
 
         return [
