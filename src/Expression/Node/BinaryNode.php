@@ -9,4 +9,9 @@ abstract class BinaryNode implements Node
     protected readonly Node $left, //
     protected readonly Node $right) //
     {}
+
+    public function __toString()
+    {
+        return "$this->left $this->op $this->right";
+    }
 }
