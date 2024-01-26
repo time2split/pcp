@@ -351,11 +351,11 @@ final class Expressions
         $expr = between(string('${'), self::skipSpaces(char('}')), self::expression());
         $string = self::inText();
         $value = [
+            $expr,
             self::string()->map(fn ($s) => $string->tryString($s->text)
                 ->output())
                 ->map(self::arrayNode(...)),
-            atLeastOne(satisfy(notPred(\ctype_space(...))))->map(self::stringNode(...)),
-            $expr
+            atLeastOne(satisfy(notPred(\ctype_space(...))))->map(self::stringNode(...))
         ];
         $value = choice(...$value)->map($toArray);
         $value = self::skipSpaces($value);
