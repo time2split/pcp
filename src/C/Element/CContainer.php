@@ -2,6 +2,7 @@
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Help\Optional;
+use Time2Split\PCP\C\CElement;
 
 final class CContainer
 {
@@ -68,6 +69,14 @@ final class CContainer
 
     public final function getDeclaration(): CDeclaration
     {
+        return $this->declaration->get();
+    }
+
+    public final function getCElement(): CElement
+    {
+        if ($this->cppDirective->isPresent())
+            return $this->cppDirective->get();
+
         return $this->declaration->get();
     }
 }

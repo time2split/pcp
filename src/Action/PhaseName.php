@@ -9,4 +9,6 @@ enum PhaseName
     case OpeningDirectory;
 
     case ProcessingFiles;
+
+    case ReadingCElement;
 }

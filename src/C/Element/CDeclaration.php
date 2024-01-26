@@ -77,4 +77,9 @@ final class CDeclaration extends CReaderElement
             ]
         ];
     }
+
+    public function __toString()
+    {
+        return "CDeclaration:{$this->getType()}";
+    }
 }

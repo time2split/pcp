@@ -7,19 +7,27 @@ use Time2Split\PCP\C\CReaderElement;
 enum CElementType: string
 {
 
-    case Prototype = 'from.prototype';
+    case Prototype = 'prototype';
 
-    case Function = 'from.function';
+    case Function = 'function';
 
-    case CPPMacro = 'from.macro';
+    case CPPMacro = 'cpp.macro';
+
+    case CPPDirective = 'cpp.directive';
 
     public static function of(CReaderElement $element): self
     {
         if ($element instanceof CPPDefine)
             return self::CPPMacro;
-        if ($element->getGroup() === CDeclarationGroup::definition)
-            return self::Function;
+        if ($element instanceof CPPDirective)
+            return self::CPPDirective;
+        if ($element instanceof CDeclaration) {
 
-        return self::Prototype;
+            if ($element->getGroup() === CDeclarationGroup::definition)
+                return self::Function;
+
+            return self::Prototype;
+        }
+        throw new \Error(__METHOD__ . "Unknown element type");
     }
 }
