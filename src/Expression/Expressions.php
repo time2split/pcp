@@ -45,14 +45,18 @@ use function Parsica\Parsica\Expression\ {
 };
 use Time2Split\PCP\Expression\Node\BinaryNode;
 use Time2Split\PCP\Expression\Node\UnaryNode;
+use Time2Split\PCP\Expression\Node\ConfigValueNode;
+use Time2Split\PCP\Expression\Node\StringNode;
+use Time2Split\PCP\Expression\Node\BoolNode;
+use Time2Split\PCP\Expression\Node\AssignmentNode;
 
 final class Expressions
 {
     use NotInstanciable;
 
-    private static function boolNode(bool $b): Node
+    private static function boolNode(bool $b): BoolNode
     {
-        return new class($b) implements Node {
+        return new class($b) extends BoolNode {
 
             function __construct(public readonly bool $b)
             {}
@@ -64,9 +68,9 @@ final class Expressions
         };
     }
 
-    private static function stringNode(string $s): Node
+    private static function stringNode(string $s): StringNode
     {
-        return new class($s) implements Node {
+        return new class($s) extends StringNode {
 
             function __construct(public readonly string $text)
             {}
@@ -75,12 +79,17 @@ final class Expressions
             {
                 return $this->text;
             }
+
+            public function __toString()
+            {
+                return $this->text;
+            }
         };
     }
 
-    private static function configValueNode(string $key): Node
+    private static function configValueNode(string $key): ConfigValueNode
     {
-        return new class($key) implements Node {
+        return new class($key) extends ConfigValueNode {
 
             function __construct(private readonly string $key)
             {}
@@ -88,6 +97,11 @@ final class Expressions
             public function get(Configuration $config): mixed
             {
                 return $config[$this->key];
+            }
+
+            public function __toString()
+            {
+                return $this->key;
             }
         };
     }
@@ -148,20 +162,20 @@ final class Expressions
     private static function assignmentNode(string $op, Node $left, Node $right): BinaryNode
     {
         return match ($op) {
-            '=' => new class("set$op", $left, $right) extends BinaryNode {
+            '=' => new class("set$op", $left, $right) extends AssignmentNode {
 
                 public function get(Configuration $config): mixed
                 {
-                    return $config[$this->left->get($config)] = $this->right->get($config);
+                    return $this->assign($config, $this->left->get($config), $this->right);
                 }
             },
             // append
-            ':' => new class("set$op", $left, $right) extends BinaryNode {
+            ':' => new class("set$op", $left, $right) extends AssignmentNode {
 
                 public function get(Configuration $config): mixed
                 {
                     $key = $this->left->get($config);
-                    $val = $this->right->get($config);
+                    $val = $this->right;
                     $cval = $config[$key];
 
                     if (\is_array($cval)) {
@@ -180,7 +194,7 @@ final class Expressions
                     else
                         $cval = $val;
 
-                    return $config[$key] = $cval;
+                    return $this->assign($config, $key, $cval);
                 }
             }
         };
@@ -202,6 +216,19 @@ final class Expressions
                         $ret[] = $v->get($config);
                     else
                         $ret[] = $v;
+                }
+                return \implode('', $ret);
+            }
+
+            public function __toString()
+            {
+                $ret = [];
+
+                foreach ($this->array as $v) {
+                    if ($v instanceof Node)
+                        $ret[] = "\${ $v  }";
+                    else
+                        $ret[] = (string) $v;
                 }
                 return \implode('', $ret);
             }
@@ -386,6 +413,10 @@ final class Expressions
 
             public function compile($value): Optional
             {
+                // Set directly a compiled node
+                if ($value instanceof Node)
+                    return Optional::of($value);
+
                 if (! is_string($value))
                     return Optional::empty();
 
