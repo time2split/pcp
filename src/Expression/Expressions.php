@@ -20,6 +20,7 @@ use function Parsica\Parsica\ {
     nothing,
     keepSecond,
     skipHSpace,
+    skipSpace,
     atLeastOne,
     recursive,
     choice,
@@ -373,8 +374,7 @@ final class Expressions
         $assignment = choice(...$assignment);
         $assignment = self::skipSpaces($assignment);
 
-        $endSpaces = many(controlChar());
-        return $ret = many($assignment)->thenIgnore($endSpaces)
+        return $ret = many($assignment)->thenIgnore(skipSpace())
             ->thenEof()
             ->map(self::assignmentsNode(...));
     }
