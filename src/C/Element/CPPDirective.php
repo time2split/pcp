@@ -23,7 +23,7 @@ class CPPDirective extends CReaderElement
         return $this->fileCursors;
     }
 
-    final public function getText(): array
+    final public function getText(): string
     {
         return $this->text;
     }
