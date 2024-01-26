@@ -129,7 +129,7 @@ class PCP extends BasePublisher
             if ($notFile || IO::olderThan($newFile, $finfo))
                 \file_put_contents($newFile, IO::get_include_contents($finfo));
 
-            // A new file to consider is create
+            // A new file to consider is created
             if ($notFile)
                 $this->newFiles[] = new \SplFileInfo($newFile);
 
@@ -162,8 +162,13 @@ class PCP extends BasePublisher
 
             if (! empty($elements))
                 $element = \array_pop($elements);
-            else if (null === ($element = $creader->next()))
-                break;
+            else {
+                $this->updatePhase(PhaseName::ReadingCElement, PhaseState::Start);
+                $element = $creader->next();
+
+                if (null === $element)
+                    break;
+            }
 
             $container = CContainer::of($element);
 
@@ -182,11 +187,19 @@ class PCP extends BasePublisher
                     continue;
                 }
             }
+
+            {
+                // Set C information(s)
+                $this->config['C.type'] = $element->getElementType($element)->value;
+            }
+
             if (! $skip) {
                 $resElements = $this->deliverMessage($container);
 
-                // Reverse the order to allow to array_pop($elements) in the original order
-                $elements = \array_merge($elements, \array_reverse($resElements));
+                if (! empty($resElements)) {
+                    // Reverse the order to allow to array_pop($elements) in the original order
+                    $elements = \array_merge($elements, \array_reverse($resElements));
+                }
             }
         }
         $creader->close();

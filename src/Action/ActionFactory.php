@@ -25,7 +25,8 @@ final class ActionFactory
         return match ($action) {
             'process' => [
                 // new \Action\PCP\EchoAction($this->config),
-                new PCP\Generate($this->config)
+                new PCP\Generate($this->config),
+                new PCP\ForAction($this->config)
             ],
             'clean' => [
                 new PCP\GenerateClean($this->config)

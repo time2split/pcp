@@ -19,6 +19,7 @@ use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\File\Insertion;
 use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\C\Element\CPPDirectives;
+use Time2Split\PCP\C\CElement;
 
 class Generate extends BaseAction
 {
@@ -27,9 +28,6 @@ class Generate extends BaseAction
 
     private const DefaultConfig = [
         'generate' => [
-            'always.prototype' => false,
-            'always.function' => false,
-
             'tags' => null,
             'targets' => '.',
             'targets.prototype' => '${targets}',
@@ -47,7 +45,9 @@ class Generate extends BaseAction
 
     private array $area;
 
-    private ?PCPPragma $nextInstruction;
+    private ?CContainer $currentCContainer = null;
+
+    private array $instructions;
 
     private ReadingOneFile $oneFileData;
 
@@ -63,47 +63,62 @@ class Generate extends BaseAction
     public function onMessage(CContainer $ccontainer): array
     {
         if ($ccontainer->isPCPPragma()) {
-            $macro = $ccontainer->getPCPPragma();
+            $pragma = $ccontainer->getPCPPragma();
 
-            if ($macro->getCommand() === 'generate')
-                $this->doInstruction($macro);
-        } elseif ($ccontainer->isDeclaration()) {
-            $declaration = $ccontainer->getDeclaration();
-
-            switch ($declaration->getType()) {
-
-                case CDeclarationType::tfunction:
-                    $instruction = $this->nextInstruction($declaration);
-
-                    if (! isset($instruction))
-                        break;
-
-                    if ( //
-                    $declaration->getGroup() === CDeclarationGroup::definition || //
-                    ($declaration->getGroup() === CDeclarationGroup::declaration && //
-                    $declaration->getType() === CDeclarationType::tfunction)) {
-                        // The order of the $instruction is important
-                        $first = $instruction->getArguments();
-                        $secnd = $this->config->subConfig('generate');
-
-                        $i = Configurations::emptyOf($this->config);
-                        $i->merge($first);
-                        $i->merge($secnd);
-                        // That's not an error, we must override the $secnd value by $first if set
-                        $i->merge($first);
-                        $i = $this->decorateConfig($i);
-
-                        $this->istorage->add($this->ifactory->create($declaration, $i));
-                    }
-                    break;
+            if ($pragma->getCommand() === 'generate') {
+                $this->doInstruction($pragma);
             }
+        } elseif ($ccontainer->isDeclaration()) {
+            $this->currentCContainer = $ccontainer;
+            $this->processCContainer($ccontainer);
         }
         return [];
+    }
+
+    private function processCContainer(CContainer $ccontainer)
+    {
+        if ($ccontainer->isDeclaration())
+            $this->processCDeclaration($ccontainer->getDeclaration());
+    }
+
+    private function processCDeclaration(CDeclaration $declaration)
+    {
+        if (! $declaration->getType() === CDeclarationType::tfunction)
+            return;
+
+        if ( //
+        $declaration->getGroup() === CDeclarationGroup::definition || //
+        ($declaration->getGroup() === CDeclarationGroup::declaration && //
+        $declaration->getType() === CDeclarationType::tfunction)) {
+
+            foreach ($this->instructions as $instruction) {
+                // The order of the $instruction is important
+                $first = $instruction->getArguments();
+                $secnd = $this->config->subConfig('generate');
+
+                $i = Configurations::hierarchy($secnd, $first);
+                $i = $this->decorateConfig($i);
+
+                $this->istorage->add($this->ifactory->create($declaration, $i));
+            }
+            $this->instructions = [];
+        }
     }
 
     public function onPhase(Phase $phase, $data = null): void
     {
         switch ($phase->name) {
+
+            case PhaseName::ReadingCElement:
+
+                if (PhaseState::Start == $phase->state) {
+
+                    if ($this->currentCContainer) {
+                        $this->processCContainer($this->currentCContainer);
+                        $this->currentCContainer = null;
+                    }
+                }
+                break;
 
             case PhaseName::ProcessingFiles:
 
@@ -126,6 +141,8 @@ class Generate extends BaseAction
 
                     // Reset the config for the file
                     $this->config->clear();
+
+                    $this->instructions = [];
                     Configurations::mergeArrayRecursive($this->config, self::DefaultConfig);
                 } elseif (PhaseState::Stop == $phase->state) {
                     $this->flushFileInfos();
@@ -135,37 +152,6 @@ class Generate extends BaseAction
     }
 
     // ========================================================================
-    private function nextMacroInstruction(CPPDirective $macro): ?CPPDirective
-    {
-        if (isset($this->nextInstruction)) {
-            $next = $this->nextInstruction;
-            $this->nextInstruction = null;
-            return $next;
-        }
-        return null;
-    }
-
-    private function nextInstruction(CDeclaration $decl): ?PCPPragma
-    {
-        $next = null;
-
-        if (! isset($this->nextInstruction)) {
-            // Function definition
-            if ($decl->getType() === CDeclarationType::tfunction && $decl->getGroup() === CDeclarationGroup::definition) {
-
-                if (($p = isset($this->myConfig['always.prototype'])) && isset($this->myConfig['always.function']));
-                elseif ($p)
-                    $next = CPPDirective::fromText('generate prototype');
-                else
-                    $next = CPPDirective::fromText('generate function');
-            }
-        } else {
-            $next = $this->nextInstruction;
-            $this->nextInstruction = null;
-        }
-        return $next;
-    }
-
     private function doInstruction(PCPPragma $inst): void
     {
         $args = $inst->getArguments();
@@ -177,11 +163,7 @@ class Generate extends BaseAction
                 'date' => $this->config['dateTime']
             ];
         } elseif (isset($args['function']) || isset($args['prototype'])) {
-
-            if (isset($this->nextInstruction))
-                throw new \Exception("Cannot execute the instruction '$inst' because another one is already waiting '$this->nextInstruction'");
-
-            $this->nextInstruction = $inst;
+            $this->instructions[] = $inst;
         } else {
             $args = Arrays::map_key(fn ($k) => "generate.$k", $args->toArray());
             Configurations::mergeTraversable($this->config, $args);
@@ -255,17 +237,7 @@ class Generate extends BaseAction
         return "\n$ret";
     }
 
-    private function generateFunction(array $i, CDeclaration $decl): string
-    {
-        return "\n" . $this->generatePrototype_($i, $decl) . ($decl['cstatement'] ?? '');
-    }
-
     // ========================================================================
-    private function macroIsPCP(CPPDirective $macro): bool
-    {
-        return \in_array($macro->getFirstArgument(), $this->config['cpp.name']);
-    }
-
     private function skipGenerated($stream): int
     {
         $pos = \ftell($stream);
@@ -379,5 +351,7 @@ class Generate extends BaseAction
             }
         }
         $this->outWorkingDir();
+        return;
+        unset($sourceCache);
     }
 }
