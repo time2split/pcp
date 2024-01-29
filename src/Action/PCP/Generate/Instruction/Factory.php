@@ -4,6 +4,7 @@ namespace Time2Split\PCP\Action\PCP\Generate\Instruction;
 use Time2Split\Config\Configuration;
 use Time2Split\PCP\Action\PCP\Generate\Instruction;
 use Time2Split\PCP\C\CElement;
+use Time2Split\Help\Traversables;
 
 final class Factory
 {
@@ -11,8 +12,7 @@ final class Factory
     public function create(CElement $subject, Configuration $instruction): Instruction
     {
         $i = clone $instruction;
-        $keys = $i->keys();
-        $kfirst = $keys[0];
+        $kfirst = Traversables::firstValue($i->traversableKeys());
 
         if ($kfirst === 'prototype') {
             unset($i['prototype']);
