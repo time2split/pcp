@@ -20,7 +20,7 @@ use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\C\Element\PCPPragma;
 
-class Generate extends BaseAction
+final class Generate extends BaseAction
 {
 
     private const wd = 'generate';
@@ -55,7 +55,7 @@ class Generate extends BaseAction
         parent::__construct($config);
         $this->config = Configurations::emptyChild($this->config);
         $this->ifactory = new Generate\Instruction\Factory();
-        $this->istorage = new Generate\Instruction\Storage($config);
+        $this->istorage = new Generate\Instruction\Storage();
         $this->area = [];
     }
 

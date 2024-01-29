@@ -1,7 +1,6 @@
 <?php
 namespace Time2Split\PCP\Action\PCP\Generate\Instruction;
 
-use Time2Split\Config\Configuration;
 use Time2Split\Help\IO;
 use Time2Split\PCP\Action\PCP\Generate\Instruction;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
@@ -11,14 +10,11 @@ final class Storage
 
     private int $groupId = 0;
 
-    private Configuration $config;
-
     private array $storage;
 
-    public function __construct(Configuration $mainConfig)
+    public function __construct()
     {
-        $this->storage = [];
-        $this->config = $mainConfig;
+        $this->clear();
     }
 
     private function clear(): void
