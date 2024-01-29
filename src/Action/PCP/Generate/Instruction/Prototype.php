@@ -55,7 +55,7 @@ final class Prototype extends Instruction
 
     private function generatePrototype_(): string
     {
-        $subject = $this->getSubject();
+        $subject = clone $this->getSubject();
 
         $identifierPos = $subject['identifier']['pos'];
         $subject['items'][$identifierPos] = $this->generateName($subject['items'][$identifierPos]);

@@ -373,8 +373,7 @@ class CReader
     private static function setElementIdentifier(array &$element, int $pos): void
     {
         $element['identifier'] = [
-            'pos' => $pos,
-            'name' => &$element['items'][$pos]
+            'pos' => $pos
         ];
     }
 
@@ -516,6 +515,7 @@ class CReader
                         $c = $this->fgetc();
                         $buff .= $c;
 
+                        // TODO handle comments
                         if (($c === "\n" && ! $skipNext) || $c === false) {
                             $cursors[] = $this->fnav->getCursorPosition();
                             return ($this->cppDirectiveFactory)($directive, $buff, $cursors);
