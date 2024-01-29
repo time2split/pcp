@@ -20,13 +20,17 @@ $actions = [
     'process',
     'clean'
 ];
-$action = $argv[1] ?? 'process';
 
-if (! \in_array($action, $actions))
-    throw new \Exception("Unknown action '$action'");
+\array_shift($argv);
 
-$CONFIG['action'] = $action;
+while ($action = \array_shift($argv)) {
 
-$theConfig = App::getConfigBuilder()->setContent($CONFIG)->build();
+    if (! \in_array($action, $actions))
+        throw new \Exception("Unknown action '$action'");
 
-(new PCP())->process($theConfig);
+    $CONFIG['action'] = $action;
+
+    $theConfig = App::getConfigBuilder()->setContent($CONFIG)->build();
+
+    (new PCP())->process($theConfig);
+}
