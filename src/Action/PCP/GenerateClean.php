@@ -1,6 +1,7 @@
 <?php
 namespace Time2Split\PCP\Action\PCP;
 
+use Time2Split\PCP\App;
 use Time2Split\PCP\Action\BaseAction;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
@@ -9,7 +10,6 @@ use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CPPDirectives;
-use Time2Split\PCP\File\Insertion;
 
 final class GenerateClean extends BaseAction
 {
@@ -82,12 +82,12 @@ final class GenerateClean extends BaseAction
         if (empty($fpos))
             return;
 
-        $insert = Insertion::fromFilePath($finfo, $this->tmpFile);
+        $insert = App::fileInsertion($finfo, $this->tmpFile);
         $fpos = \array_reverse($fpos);
 
         while (! empty($fpos)) {
-            $insert->seek(\array_pop($fpos));
-            $insert->seekForget(\array_pop($fpos));
+            $insert->seekSet(\array_pop($fpos));
+            $insert->seekSkip(\array_pop($fpos));
         }
         $insert->close();
     }

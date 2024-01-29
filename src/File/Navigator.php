@@ -107,7 +107,7 @@ final class Navigator
         $this->nl -= $nblines;
 
         // Get the pos in the line
-        list ($lpos, $lsize) = $this->cache[$this->nl];
+        list ($lpos,) = $this->cache[$this->nl];
         $this->nlc = $this->nc - $lpos;
     }
 
