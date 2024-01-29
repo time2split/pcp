@@ -5,6 +5,7 @@ use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Help\Arrays;
 use Time2Split\Help\IO;
+use Time2Split\PCP\App;
 use Time2Split\PCP\Action\BaseAction;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
@@ -16,10 +17,8 @@ use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CPPDirective;
-use Time2Split\PCP\File\Insertion;
-use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\C\Element\CPPDirectives;
-use Time2Split\PCP\C\CElement;
+use Time2Split\PCP\C\Element\PCPPragma;
 
 class Generate extends BaseAction
 {
@@ -92,7 +91,7 @@ class Generate extends BaseAction
         $declaration->getType() === CDeclarationType::tfunction)) {
 
             foreach ($this->instructions as $instruction) {
-                // The order of the $instruction is important
+                // The order of the $instruction arguments is important
                 $first = $instruction->getArguments();
                 $secnd = $this->config->subConfig('generate');
 
@@ -165,6 +164,7 @@ class Generate extends BaseAction
         } elseif (isset($args['function']) || isset($args['prototype'])) {
             $this->instructions[] = $inst;
         } else {
+            // Update the configuration
             $args = Arrays::map_key(fn ($k) => "generate.$k", $args->toArray());
             Configurations::mergeTraversable($this->config, $args);
         }
@@ -300,7 +300,7 @@ class Generate extends BaseAction
                 if (! \is_file($targetFileDir))
                     continue;
 
-                $writer = Insertion::fromFilePath($targetFileDir, 'tmp');
+                $writer = App::fileInsertion($targetFileDir, 'tmp');
                 $targetAreas = @include "$targetFile.area.php";
 
                 if (false === $targetAreas)
@@ -308,7 +308,7 @@ class Generate extends BaseAction
 
                 foreach ($targetAreas as $area) {
                     $pos = $area['pos'];
-                    $writer->seek($pos);
+                    $writer->seekSet($pos);
                     $areaTags = \array_flip((array) $area['tags']);
 
                     if (empty($areaTags))
@@ -320,11 +320,11 @@ class Generate extends BaseAction
                         };
 
                     // Test if the generation is already present
-                    $rstream = $writer->getReadStream();
+                    $rstream = $writer->getSourceStream();
                     $skipped = $this->skipGenerated($rstream);
 
                     if ($skipped > 0) {
-                        $writer->seekAdd($skipped);
+                        $writer->seekMore($skipped);
                         $write = function () {};
                     } else
                         $write = function ($text) use ($writer) {
