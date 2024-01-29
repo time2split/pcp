@@ -83,11 +83,24 @@ final class Storage
         }
         $fileDir = "{$finfo->getPathInfo()}/";
 
-        if (! is_dir($fileDir))
-            mkdir($fileDir, 0777, true);
+        if (! \is_dir($fileDir))
+            \mkdir($fileDir, 0777, true);
 
-        IO::printPHPFile("$fileDir/{$finfo->getFileName()}.php", $infosToSave);
-        IO::printPHPFile("$fileDir/{$finfo->getFileName()}.target.php", $targetInfos);
+        $fileInfosPath = "$fileDir/{$finfo->getFileName()}.php";
+        $fileTargetPath = "$fileDir/{$finfo->getFileName()}.target.php";
+
+        if (empty($infosToSave)) {
+            // Clean existing files
+
+            if (\is_file($fileInfosPath))
+                \unlink($fileInfosPath);
+
+            if (\is_file($fileTargetPath))
+                \unlink($fileTargetPath);
+        } else {
+            IO::printPHPFile($fileInfosPath, $infosToSave);
+            IO::printPHPFile($fileTargetPath, $targetInfos);
+        }
         $this->clear();
     }
 }
