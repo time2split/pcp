@@ -55,6 +55,18 @@ final class Prototype extends Instruction
         $identifierPos = $subject['identifier']['pos'];
         $subject['items'][$identifierPos] = $this->generateName($subject['items'][$identifierPos]);
 
+        // Drop some specifiers
+        $args = $this->getArguments();
+        $drop = (array) $args['drop'];
+        $drop = \array_combine($drop, \array_fill(0, \count($drop), true));
+
+        for ($i = 0, $c = (int) $subject['infos']['specifiers.nb']; $i < $c; $i ++) {
+            $s = &$subject['items'][$i];
+
+            if (isset($drop[$s]))
+                $s = null;
+        }
+        unset($s);
         return $this->prototypeToString($subject);
     }
 
