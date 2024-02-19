@@ -5,15 +5,14 @@ use Time2Split\Config\Configuration;
 use Time2Split\Help\FIO;
 use Time2Split\Help\IO;
 use Time2Split\Help\Classes\NotInstanciable;
+use Time2Split\PCP\File\Section;
 
 final class CPPDirectives
 {
     use NotInstanciable;
 
-    public static function create(Configuration $pcpConfig, string $directive, string $text, array $cursors): CPPDirective
+    public static function create(Configuration $pcpConfig, string $directive, string $text, Section $cursors): CPPDirective
     {
-        assert(\count($cursors) === 2 && \array_is_list($cursors));
-
         if ($directive === 'define')
             return CPPDefine::createCPPDefine($text, $cursors);
 
@@ -29,6 +28,6 @@ final class CPPDirectives
 
     public static function factory(Configuration $pcpConfig): \Closure
     {
-        return fn ($directive, $text, $cursors) => self::create($pcpConfig, $directive, $text, $cursors);
+        return fn (string $directive, string $text, Section $cursors) => self::create($pcpConfig, $directive, $text, $cursors);
     }
 }

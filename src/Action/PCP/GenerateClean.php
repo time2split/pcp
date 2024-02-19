@@ -59,22 +59,22 @@ final class GenerateClean extends BaseAction
                 continue;
 
             $cmd = $element->getCommand();
-            $cursors = $element->getFileCursors();
+            $section = $element->getFileSection();
 
             if (! $waitForEnd) {
 
                 if ($cmd === 'begin') {
                     $waitForEnd = true;
-                    $fpos[] = $cursors[0]->getPos();
+                    $fpos[] = $section->begin->pos;
                 } elseif ($cmd === 'end')
-                    throw new \Exception("Malformed file ($finfo), unexpected 'pragma end' at line {$cursors[0]->getLine()}");
+                    throw new \Exception("Malformed file ($finfo), unexpected 'pragma end' at {{$section}}");
             } else {
 
                 if ($cmd === 'end') {
                     $waitForEnd = false;
-                    $fpos[] = $cursors[1]->getPos();
+                    $fpos[] = $section->end->pos;
                 } elseif ($cmd === 'begin')
-                    throw new \Exception("Malformed file ($finfo), unexpected 'pragma begin' at line {$cursors[0]->getLine()}");
+                    throw new \Exception("Malformed file ($finfo), unexpected 'pragma begin' at {{$section}}");
             }
         }
         $creader->close();

@@ -251,13 +251,13 @@ final class Generate extends BaseAction
                 $genTime = $this->genTime;
                 $areaMTime = (int) $area->getArguments()['mtime'];
 
-                $cursors = $area->getFileCursors();
+                $fileSection = $area->getFileSection();
 
                 if ($areaMTime >= $genTime) {
-                    $writer->seekSet($cursors[1]->getPos());
+                    $writer->seekSet($fileSection->end->getPos());
                 } else {
-                    $writer->seekSet($cursors[0]->getPos());
-                    $writer->seekSkip($cursors[1]->getPos());
+                    $writer->seekSet($fileSection->begin->getPos());
+                    $writer->seekSkip($fileSection->end->getPos());
 
                     $date = \date(DATE_ATOM, $genTime);
                     $writer->write("#pragma pcp begin mtime=$genTime date=\"$date\"\n");

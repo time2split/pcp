@@ -2,6 +2,7 @@
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\PCP\C\CReaderElement;
+use Time2Split\PCP\File\Section;
 
 class CPPDirective extends CReaderElement
 {
@@ -10,17 +11,17 @@ class CPPDirective extends CReaderElement
     protected function __construct( //
     private readonly string $directive, //
     private readonly string $text, //
-    private readonly array $fileCursors)
+    private readonly Section $fileSection)
     {}
 
-    final public static function create(string $directive, string $text, array $cursors)
+    final public static function create(string $directive, string $text, Section $cursors)
     {
         return new self($directive, $text, $cursors);
     }
 
-    final public function getFileCursors(): array
+    final public function getFileSection(): Section
     {
-        return $this->fileCursors;
+        return $this->fileSection;
     }
 
     final public function getText(): string
@@ -35,6 +36,6 @@ class CPPDirective extends CReaderElement
 
     public function __toString()
     {
-        return "#$this->directive $this->text /*({$this->fileCursors[0]})*/";
+        return "#$this->directive $this->text /*($this->fileSection)*/";
     }
 }

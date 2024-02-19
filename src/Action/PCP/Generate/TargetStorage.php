@@ -5,6 +5,7 @@ use Time2Split\PCP\App;
 use Time2Split\PCP\Action\PCP\Generate;
 use Time2Split\PCP\C\CElements;
 use Time2Split\PCP\C\CReader;
+use Time2Split\PCP\File\Section;
 
 final class TargetStorage
 {
@@ -79,7 +80,8 @@ final class TargetStorage
                         throw new \Exception("$target: waiting 'end' pcp pragma from $begin; reached the end of the file");
 
                     $args['mtime'] = $begin->getArguments()['mtime'] ?? $srcMTime;
-                    yield Areas::create($begin->getFileCursors()[0], $end->getFileCursors()[1], $args);
+                    $fileSection = new Section($begin->getFileSection()->begin, $end->getFileSection()->end);
+                    yield Areas::create($fileSection, $args);
                     continue;
                 } else {
                     $next = $begin;
@@ -87,12 +89,12 @@ final class TargetStorage
             }
             noBegin:
             // No begin/end area: return the cursor after the pragma
-            $c = $elem->getFileCursors()[1];
+            $c = $elem->getFileSection()->end;
 
             // The next element to check is $begin
             $next = $begin;
             $args['mtime'] = $srcMTime;
-            yield Areas::create($c, $c, $args);
+            yield Areas::create(new Section($c, $c), $args);
         }
     }
 }
