@@ -10,14 +10,9 @@ use Time2Split\PCP\C\Element\CElementType;
 final class Prototype extends Instruction
 {
 
-    private function __construct(CElement $subject, Configuration $instruction)
+    public function __construct(CElement $subject, Configuration $instruction, \SplFileInfo $sourceFile)
     {
-        parent::__construct($subject, $instruction);
-    }
-
-    public static function create(CElement $subject, Configuration $instruction): self
-    {
-        return new self($subject, $instruction);
+        parent::__construct($subject, $instruction, $sourceFile);
     }
 
     public function generate(): string
@@ -36,14 +31,14 @@ final class Prototype extends Instruction
 
     public function getTargets(): array
     {
-        $iconfig = $this->getInstruction();
+        $iconfig = $this->getArguments();
         return (array) ($iconfig['targets.prototype'] ?? $iconfig['targets']);
     }
 
     // ========================================================================
     private function generateName(string $baseName): string
     {
-        $conf = $this->getInstruction();
+        $conf = $this->getArguments();
         $conf['name.base'] = $baseName;
         return $conf['name.format'] ?? $baseName;
     }

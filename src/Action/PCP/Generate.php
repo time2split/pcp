@@ -10,15 +10,22 @@ use Time2Split\PCP\Action\BaseAction;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
+use Time2Split\PCP\Action\PCP\Generate\Area;
+use Time2Split\PCP\Action\PCP\Generate\InstructionStorage;
+use Time2Split\PCP\Action\PCP\Generate\TargetStorage;
+use Time2Split\PCP\Action\PCP\Generate\TargetsCode;
+use Time2Split\PCP\Action\PCP\Generate\Instruction\Factory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
 use Time2Split\PCP\C\CDeclarationGroup;
 use Time2Split\PCP\C\CDeclarationType;
+use Time2Split\PCP\C\CElement;
+use Time2Split\PCP\C\CElements;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CDeclaration;
-use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\C\Element\PCPPragma;
+use Time2Split\PCP\File\StreamInsertion;
 
 final class Generate extends BaseAction
 {
@@ -38,11 +45,9 @@ final class Generate extends BaseAction
         ]
     ];
 
-    private Generate\Instruction\Factory $ifactory;
+    private Factory $ifactory;
 
-    private Generate\Instruction\Storage $istorage;
-
-    private array $area;
+    private InstructionStorage $istorage;
 
     private ?CContainer $currentCContainer = null;
 
@@ -54,11 +59,14 @@ final class Generate extends BaseAction
     {
         parent::__construct($config);
         $this->config = Configurations::emptyChild($this->config);
-        $this->ifactory = new Generate\Instruction\Factory();
-        $this->istorage = new Generate\Instruction\Storage();
-        $this->area = [];
     }
 
+    public static function isPCPGenerate(CElement $element, ?string $firstArg = null): bool
+    {
+        return CElements::isPCPCommand($element, 'generate') && (! isset($firstArg) || $firstArg === App::configFirstKey($element->getArguments()));
+    }
+
+    // ========================================================================
     public function onMessage(CContainer $ccontainer): array
     {
         if ($ccontainer->isPCPPragma()) {
@@ -98,7 +106,7 @@ final class Generate extends BaseAction
                 $i = Configurations::hierarchy($secnd, $first);
                 $i = $this->decorateConfig($i);
 
-                $this->istorage->add($this->ifactory->create($declaration, $i));
+                $this->istorage->put($this->ifactory->create($declaration, $i));
             }
             $this->instructions = [];
         }
@@ -137,11 +145,14 @@ final class Generate extends BaseAction
 
                 if (PhaseState::Start == $phase->state) {
                     $this->oneFileData = $data;
+                    $this->oneFileMTime = $data->fileInfo->getMTime();
+                    $this->ifactory = new Factory($data);
+                    $this->istorage = new InstructionStorage($data);
+
+                    $this->instructions = [];
 
                     // Reset the config for the file
                     $this->config->clear();
-
-                    $this->instructions = [];
                     Configurations::mergeArrayRecursive($this->config, self::DefaultConfig);
                 } elseif (PhaseState::Stop == $phase->state) {
                     $this->flushFileInfos();
@@ -155,13 +166,7 @@ final class Generate extends BaseAction
     {
         $args = $inst->getArguments();
 
-        if (isset($args['area'])) {
-            $this->area[] = [
-                'tags' => $args['tags'] ?? null,
-                'pos' => $inst->getFileCursors()[1]->getPos(),
-                'date' => $this->config['dateTime']
-            ];
-        } elseif (isset($args['function']) || isset($args['prototype'])) {
+        if (isset($args['function']) || isset($args['prototype'])) {
             $this->instructions[] = $inst;
         } else {
             // Update the configuration
@@ -173,68 +178,32 @@ final class Generate extends BaseAction
     // ========================================================================
     private function flushStorage(): void
     {
-        $this->istorage->flushOnFile($this->oneFileData);
+        $codes = $this->istorage->getTargetsCode();
+        $finfo = $this->oneFileData->fileInfo;
+        $fileDir = "{$finfo->getPathInfo()}/";
+
+        if (! \is_dir($fileDir))
+            \mkdir($fileDir, 0777, true);
+
+        $filePath = "$fileDir/{$finfo->getFileName()}.gen.php";
+
+        if ($codes->isEmpty()) {
+            // Clean existing files
+            if (\is_file($filePath))
+                \unlink($filePath);
+        } else {
+            $export = $codes->array_encode();
+
+            if ($export !== @include $filePath)
+                IO::printPHPFile($filePath, $export);
+        }
     }
 
     private function flushFileInfos(): void
     {
         $this->goWorkingDir(self::wd);
         $this->flushStorage();
-        $this->flushArea();
         $this->outWorkingDir();
-    }
-
-    private function flushArea(): void
-    {
-        $areas = \array_filter((array) $this->area);
-
-        $finfo = $this->oneFileData->fileInfo;
-        $fileDir = "{$finfo->getPathInfo()}/";
-        $fname = "$fileDir/{$finfo->getFileName()}.area.php";
-
-        if (empty($areas)) {
-
-            if (\is_file($fname))
-                \unlink($fname);
-
-            return;
-        }
-
-        if (! is_dir($fileDir))
-            mkdir($fileDir, 0777, true);
-
-        IO::printPHPFile($fname, $areas);
-        $this->area = [];
-    }
-
-    private function generateName(string $baseName): string
-    {
-        $conf = $this->config;
-        $conf['generate.name.base'] = $baseName;
-        return $conf['generate.name.format'];
-    }
-
-    private function generateMacro(array $i, CPPDirective $macro)
-    {
-        $macroTokens = $i['function'];
-        $macroTokens .= ';';
-
-        $macroFun = CReader::fromStream(IO::stringToStream($macroTokens))->next();
-        $macroFun['identifier']['name'] = $this->generateName($macro['name']);
-
-        $macroFunParameters = $macroFun->getParameters();
-
-        foreach ($macro['args'] as $k => $name)
-            $macroFunParameters[$k]['identifier']['name'] = $name;
-
-        $code = $macro['tokens'] . ';';
-
-        if (false === \array_search('void', $macroFun['items']))
-            $code = "return $code";
-
-        $ret = $this->prototypeToString($macroFun);
-        $ret .= "\n{ $code }";
-        return "\n$ret";
     }
 
     // ========================================================================
@@ -261,93 +230,119 @@ final class Generate extends BaseAction
         return 0;
     }
 
-    private static function includeSource(string $file): array
+    private static function includeSource(string $file): TargetsCode
     {
-        $ret = include "$file.php";
+        return TargetsCode::array_decode(include $file);
+    }
 
-        foreach ($ret as &$sub)
-            foreach ($sub as &$item)
-                $item['tags'] = \array_flip([
-                    ...$item['tags'],
-                    'remaining'
-                ]);
+    private function areaWriter(StreamInsertion $writer, int $genTime, array $genCodes)
+    {
+        return new class($writer, $genTime, $genCodes) {
 
-        return $ret;
+            function __construct(private StreamInsertion $writer, private int $genTime, private array $genCodes)
+            {
+                foreach ($genCodes as $code)
+                    $code->moreTags()[] = 'remaining';
+            }
+
+            public function write(Area $area): void
+            {
+                $writer = $this->writer;
+                $genTime = $this->genTime;
+                $areaMTime = (int) $area->getArguments()['mtime'];
+
+                $cursors = $area->getFileCursors();
+
+                if ($areaMTime >= $genTime) {
+                    $writer->seekSet($cursors[1]->getPos());
+                } else {
+                    $writer->seekSet($cursors[0]->getPos());
+                    $writer->seekSkip($cursors[1]->getPos());
+
+                    $date = \date(DATE_ATOM, $genTime);
+                    $writer->write("#pragma pcp begin mtime=$genTime date=\"$date\"\n");
+                    $config = Configurations::emptyChild(clone $area->getArguments());
+
+                    foreach ($this->genCodes as $code) {
+                        $config->clear();
+                        $check = $config['tags'];
+
+                        if (\is_string($check)) {
+                            $check = \in_array($check, $code->getTags());
+                        } else {
+
+                            // Set tags for interpolation
+                            foreach ($code->getTags() as $tag)
+                                $config[$tag] = true;
+
+                            // Interpolate
+                            $check = $config['tags'];
+                        }
+
+                        if ($check) {
+                            $code->moreTags()->exchangeArray([]);
+                            $writer->write("{$code->getText()}\n");
+                        }
+                    }
+                    $writer->write("#pragma pcp end\n");
+                }
+            }
+
+            public function close()
+            {
+                $this->writer->close();
+            }
+        };
     }
 
     private function generate(): void
     {
-        $filesDir = \getcwd();
+        $sourcesPath = \getcwd();
         $this->goWorkingDir(self::wd);
 
-        $cppNames = (array) $this->config['pcp.name'];
-        $cppName = Arrays::first($cppNames);
+        // $cppNames = (array) $this->config['pcp.name'];
+        // $cppName = Arrays::first($cppNames);
         $sourceCache = [];
 
         $dirIterator = new \RecursiveDirectoryIterator('.', \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::KEY_AS_PATHNAME);
         $dirIterator = new \RecursiveIteratorIterator($dirIterator);
-        $dirIterator = new \RegexIterator($dirIterator, "/^.+\.target\.php$/");
+        $dirIterator = new \RegexIterator($dirIterator, "/^.+\.gen\.php$/");
 
-        foreach ($dirIterator as $baseTargetFile) {
-            $fileSource = \substr((string) $baseTargetFile, 0, - \strlen('.target.php'));
-            $targets = include $baseTargetFile;
+        foreach ($dirIterator as $genFilePath) {
+            // Skip the './' prefix
+            $genFilePath = \substr($genFilePath, 2);
 
-            $sourceInfos = $sourceCache[$fileSource] ??= self::includeSource($fileSource);
+            $baseFilePath = \substr($genFilePath, 0, - 8);
+            $baseFilePath = "$sourcesPath/$baseFilePath";
+            $srcMTime = \filemtime($baseFilePath);
+            $targetsCode = $sourceCache[$genFilePath] ??= self::includeSource($genFilePath);
 
-            foreach ($targets as $targetFile => $targetGIDs) {
-                $targetFileDir = "$filesDir/$targetFile";
+            foreach ($targetsCode as $target => $genCodes) {
+                $targetFilePath = "$sourcesPath/{$target->getFileInfo()}";
 
-                if (! \is_file($targetFileDir))
+                if (! \is_file($targetFilePath))
                     continue;
 
-                $writer = App::fileInsertion($targetFileDir, 'tmp');
-                $targetAreas = @include "$targetFile.area.php";
+                $targetFileInfo = new \SplFileInfo($targetFilePath);
+                $creader = CReader::fromFile($targetFileInfo);
+                $creader->setCPPDirectiveFactory(CPPDirectives::factory($this->config));
+                $areas = TargetStorage::areasIterator($targetFileInfo, $srcMTime, $creader);
+                $areas = \iterator_to_array($areas);
+                $creader->close();
 
-                if (false === $targetAreas)
-                    continue;
+                $targetLastMTime = \filemtime($targetFilePath);
 
-                foreach ($targetAreas as $area) {
-                    $pos = $area['pos'];
-                    $writer->seekSet($pos);
-                    $areaTags = \array_flip((array) $area['tags']);
+                $writer = App::fileInsertion($targetFilePath, 'tmp');
+                $areaWriter = $this->areaWriter($writer, $srcMTime, $genCodes);
 
-                    if (empty($areaTags))
-                        $cond = fn () => true;
-                    else
-                        $cond = function ($tags) use ($areaTags) {
-                            $a = \array_intersect_key($areaTags, $tags);
-                            return \count($a) === \count($areaTags);
-                        };
+                foreach ($areas as $area)
+                    $areaWriter->write($area);
 
-                    // Test if the generation is already present
-                    $rstream = $writer->getSourceStream();
-                    $skipped = $this->skipGenerated($rstream);
+                $areaWriter->close();
 
-                    if ($skipped > 0) {
-                        $writer->seekMore($skipped);
-                        $write = function () {};
-                    } else
-                        $write = function ($text) use ($writer) {
-                            $writer->write($text);
-                        };
-
-                    $write("#pragma $cppName begin\n");
-
-                    foreach ($targetGIDs as $gid) {
-
-                        foreach ($sourceInfos[$gid] as &$sourceInfo) {
-
-                            if (! $cond($sourceInfo['tags']))
-                                continue;
-
-                            unset($sourceInfo['tags']['remaining']);
-                            $write($sourceInfo['text']);
-                            $write("\n");
-                        }
-                    }
-                    $write("#pragma $cppName end\n");
-                }
-                $writer->close();
+                // No modification: reset the mtime
+                if ($writer->insertionCount() === 0)
+                    \touch($targetFilePath, $targetLastMTime);
             }
         }
         $this->outWorkingDir();

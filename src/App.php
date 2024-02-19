@@ -27,4 +27,44 @@ final class App
         copy($file, $buffFile);
         return StreamInsertionImpl::fromFilePath($buffFile, $file);
     }
+
+    // ========================================================================
+    public static function configFirstKey(Configuration $config, $default = null): mixed
+    {
+        return \Time2Split\Help\Traversables::firstValue($config->traversableKeys(), $default);
+    }
+
+    public static function configFirstValue(Configuration $config, $default = null): mixed
+    {
+        return \Time2Split\Help\Traversables::firstValue($config, $default);
+    }
+
+    public static function configFirstKeyValue(Configuration $config, $default = null): mixed
+    {
+        return \Time2Split\Help\Traversables::firstKeyValue($config, $default);
+    }
+
+    public static function configShift(Configuration $config, int $nb = 1): Configuration
+    {
+        $ret = clone $config;
+
+        if ($nb === 0)
+            return $ret;
+
+        if ($nb < 0)
+            throw new \ValueError(__FUNCTION__ . " \$nb must be a positive or a zero integer");
+
+        $keys = $config->keys();
+
+        foreach ($keys as $k) {
+
+            if (! isset($k))
+                break;
+
+            unset($ret[$k]);
+
+            if (-- $nb === 0)
+                return $ret;
+        }
+    }
 }
