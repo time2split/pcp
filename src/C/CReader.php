@@ -553,6 +553,7 @@ class CReader
                     // Skip useless code
                     while (true) {
                         $c = $this->nextChar();
+
                         if ($c === ';')
                             continue;
                         if ($c === '{') {
@@ -614,6 +615,9 @@ class CReader
                         if ($c === ';') {
                             assert($declarator_level == 0, "Into a recursive declarator: level $declarator_level");
                             $retElements[] = $element;
+                        } elseif ($c === '#') {
+                            $this->fungetc();
+                            return $this->getCPPDirective();
                         } else
                             $this->pushState(CReaderState::wait_end_declaration);
                     }
