@@ -235,6 +235,14 @@ final class Expressions
         };
     }
 
+    static function arrayNodeOrString(array $array): Node
+    {
+        if (\count($array) === 1 && \is_string($array[0]))
+            return self::stringNode($array[0]);
+
+        return self::arrayNode($array);
+    }
+
     static function assignmentsNode(array $array): Node
     {
         return new class($array) implements Node {
@@ -381,7 +389,7 @@ final class Expressions
             $expr,
             self::string()->map(fn ($s) => $string->tryString($s->text)
                 ->output())
-                ->map(self::arrayNode(...)),
+                ->map(self::arrayNodeOrString(...)),
             atLeastOne(satisfy(notPred(\ctype_space(...))))->map(self::stringNode(...))
         ];
         $value = choice(...$value)->map($toArray);
