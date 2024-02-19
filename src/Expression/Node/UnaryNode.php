@@ -8,4 +8,9 @@ abstract class UnaryNode implements Node
     protected readonly string $op, //
     protected readonly Node $node) //
     {}
+
+    public function __toString(): string
+    {
+        return "$this->op$this->node";
+    }
 }
