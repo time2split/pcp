@@ -6,6 +6,7 @@ use Time2Split\Help\IO;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\File\Navigator;
+use Time2Split\PCP\File\Section;
 
 class CReader
 {
@@ -518,7 +519,7 @@ class CReader
                         // TODO handle comments
                         if (($c === "\n" && ! $skipNext) || $c === false) {
                             $cursors[] = $this->fnav->getCursorPosition();
-                            return ($this->cppDirectiveFactory)($directive, $buff, $cursors);
+                            return ($this->cppDirectiveFactory)($directive, $buff, new Section(...$cursors));
                         } elseif ($c === '\\')
                             $skipNext = true;
                         elseif ($skipNext)

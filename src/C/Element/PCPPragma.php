@@ -6,12 +6,13 @@ use Time2Split\Config\Configurations;
 use Time2Split\Help\FIO;
 use Time2Split\Help\Traversables;
 use Time2Split\PCP\Expression\Expressions;
+use Time2Split\PCP\File\Section;
 
 final class PCPPragma extends CPPDirective
 {
 
     private function __construct( //
-    string $directive, string $text, array $cursors, //
+    string $directive, string $text, Section $cursors, //
     private string $cmd, //
     private string $textArgs, //
     private Configuration $arguments)
@@ -21,7 +22,7 @@ final class PCPPragma extends CPPDirective
 
     public static function createPCPPragma( //
     Configuration $pcpConfig, //
-    string $directive, string $text, array $cursors, //
+    string $directive, string $text, Section $cursors, //
     $subTextStream): //
     PCPPragma
     {
@@ -36,7 +37,7 @@ final class PCPPragma extends CPPDirective
                 ->output()
                 ->get($args);
         } catch (\Exception $e) {
-            throw new \Exception("Unable to parse the pragma arguments '$text' {$cursors[0]}) ; {$e->getMessage()}");
+            throw new \Exception("Unable to parse the pragma arguments '$text' {$cursors->begin}) ; {$e->getMessage()}");
         }
         return new self($directive, $text, $cursors, $cmd, $textArgs, $args);
     }
@@ -57,6 +58,6 @@ final class PCPPragma extends CPPDirective
         $args = Configurations::of($this->arguments);
         unset($args[$cmd]);
 
-        return new self($this->getDirective(), $this->getText(), $this->getFileCursors(), $cmd, $this->textArgs, $args);
+        return new self($this->getDirective(), $this->getText(), $this->getFileSection(), $cmd, $this->textArgs, $args);
     }
 }

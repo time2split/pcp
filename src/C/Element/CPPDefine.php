@@ -5,13 +5,14 @@ use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\Expression\Expressions;
+use Time2Split\PCP\File\Section;
 
 final class CPPDefine extends CPPDirective
 {
 
     private function __construct( //
     string $definitionText, //
-    array $cursors, //
+    Section $cursors, //
     private string $name, //
     private array $parameters, //
     private string $text) //
@@ -19,7 +20,7 @@ final class CPPDefine extends CPPDirective
         parent::__construct('define', $definitionText, $cursors);
     }
 
-    public static function createCPPDefine(string $definitionText, array $cursors): CPPDirective
+    public static function createCPPDefine(string $definitionText, Section $cursors): CPPDirective
     {
         $element = CReader::parseCPPDefine($definitionText);
 
