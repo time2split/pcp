@@ -5,6 +5,11 @@ interface StreamInsertion
 {
 
     /**
+     * Return the number of inserted bytes.
+     */
+    public function insertionCount(): int;
+
+    /**
      * Get the opened resource stream at its current position.
      * If the stream has been red then the new position of the stream is used for the next insertion operations.
      */
@@ -32,7 +37,7 @@ interface StreamInsertion
      * @return bool
      * @throws \Exception::
      */
-    public function seekMore(int $pos): void;
+    public function seekMore(int $nb): void;
 
     /**
      *

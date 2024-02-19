@@ -6,15 +6,11 @@ use Time2Split\PCP\File\StreamInsertion;
 final class StreamInsertionImpl implements StreamInsertion
 {
 
-    private string $sourceFile;
+    private $sourceStream;
 
-    private $destinationfp;
+    private $tmpStream;
 
-    private array $fp_metaData;
-
-    private $tmpfp;
-
-    private int $written = 0;
+    private int $inserted = 0;
 
     private int $pos = 0;
 
@@ -22,13 +18,21 @@ final class StreamInsertionImpl implements StreamInsertion
 
     private bool $closeStream;
 
-    private function __construct($destinationfp, string $sourceFile, bool $closeStream)
+    private function __construct($sourceStream, string $tmpFile, bool $closeStream)
     {
-        $this->sourceFile = $sourceFile;
-        $this->destinationfp = $destinationfp;
-        $this->fp_metaData = \stream_get_meta_data($this->destinationfp);
-        $this->tmpfp = \fopen($sourceFile, "w+");
+        $this->sourceStream = $sourceStream;
+        $this->tmpStream = \fopen($tmpFile, "w+");
         $this->closeStream = $closeStream;
+    }
+
+    public function __destruct()
+    {
+        $this->close();
+    }
+
+    public function insertionCount(): int
+    {
+        return $this->inserted;
     }
 
     public static function fromFilePath(string $file, string $tmpFile, bool $closeStream = true)
@@ -41,37 +45,36 @@ final class StreamInsertionImpl implements StreamInsertion
         $md = \stream_get_meta_data($stream);
 
         if ($md['mode'][0] !== 'r')
-            throw new \Exception(__class__ . " the mode must be r, has '{$md['mode']} ({$md['uri']})");
+            throw new \Exception("The mode must be r, has '{$md['mode']} ({$md['uri']})");
 
         return new self($stream, $tmpFile, $closeStream);
     }
 
     public function getSourceStream()
     {
-        if (\ftell($this->destinationfp) != $this->pos)
-            \fseek($this->destinationfp, $this->pos, SEEK_SET);
+        if (\ftell($this->sourceStream) != $this->pos)
+            \fseek($this->sourceStream, $this->pos, SEEK_SET);
 
-        return $this->destinationfp;
+        return $this->sourceStream;
     }
 
     public function close(): void
     {
-        if ($this->destinationfp && $this->closeStream) {
+        if ($this->sourceStream && $this->closeStream) {
             $this->seekReadStream();
-            $nb = \fwrite($this->tmpfp, \stream_get_contents($this->destinationfp));
-            $this->written += $nb;
+            \fwrite($this->tmpStream, \stream_get_contents($this->sourceStream));
 
-            \fclose($this->destinationfp);
-            \fclose($this->tmpfp);
-            $this->destinationfp = null;
+            \fclose($this->sourceStream);
+            \fclose($this->tmpStream);
+            $this->sourceStream = null;
         }
     }
 
     // ========================================================================
     private function seekReadStream()
     {
-        if (\ftell($this->destinationfp) != $this->copied)
-            \fseek($this->destinationfp, $this->copied, SEEK_SET);
+        if (\ftell($this->sourceStream) != $this->copied)
+            \fseek($this->sourceStream, $this->copied, SEEK_SET);
     }
 
     private function preWrite(): void
@@ -80,12 +83,12 @@ final class StreamInsertionImpl implements StreamInsertion
         if ($this->pos !== $this->copied) {
             $this->seekReadStream();
             $len = $this->pos - $this->copied;
-            $nb = \fwrite($this->tmpfp, \fread($this->destinationfp, $len));
+            $nb = \fwrite($this->tmpStream, \fread($this->sourceStream, $len));
 
             if ($nb !== $len)
-                throw new \Exception(__CLASS__ . " error, written $nb/$len bytes");
+                throw new \Exception("Written $nb/$len bytes");
 
-            $this->copied += $nb;
+            $this->copied = $this->pos;
         }
     }
 
@@ -97,32 +100,29 @@ final class StreamInsertionImpl implements StreamInsertion
     public function seekSet(int $pos): void
     {
         if ($pos < $this->pos)
-            throw new \Exception(__class__ . " Cannot move to a lower position than $this->pos: ask for $pos");
+            throw new \Exception("Cannot move to a lower position than $this->pos: ask for $pos");
 
         $this->pos = $pos;
     }
 
     public function seekSkip(int $pos): void
     {
-        if (! $this->destinationfp)
+        if (! $this->sourceStream)
             return;
 
         $this->preWrite();
         $this->seekSet($pos);
 
         // Just to raise the write condition at the end
-        $this->written += $this->pos - $this->copied;
-
         $this->copied = $this->pos;
     }
 
     public function write(string $text = ''): void
     {
-        if (! $this->destinationfp)
+        if (! $this->sourceStream)
             return;
 
-        $nb = $this->preWrite();
-        \fwrite($this->tmpfp, $text);
-        $this->written += $nb;
+        $this->preWrite();
+        $this->inserted += \fwrite($this->tmpStream, $text);
     }
 }

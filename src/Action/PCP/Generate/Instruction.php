@@ -12,26 +12,28 @@ abstract class Instruction
     public abstract function getTargets(): array;
 
     // ========================================================================
+    private array $targets;
+
     private CElement $subject;
 
-    private Configuration $instruction;
+    private Configuration $arguments;
 
     private array $tags;
 
-    protected function __construct(CElement $subject, Configuration $instruction)
+    protected function __construct(CElement $subject, Configuration $arguments, \SplFileInfo $sourceFile)
     {
         $this->subject = $subject;
 
-        $i = clone $instruction;
+        $i = clone $arguments;
         $stype = $subject->getElementType();
 
-        $tags = (array) ($instruction['tags'] ?? null);
+        $tags = (array) ($arguments['tags'] ?? null);
         $tags[] = $stype->value;
         \sort($tags);
         $this->tags = $tags;
         unset($i['tags']);
 
-        $this->instruction = $i;
+        $this->arguments = $i;
     }
 
     public function getSubject(): CElement
@@ -39,9 +41,9 @@ abstract class Instruction
         return $this->subject;
     }
 
-    public function getInstruction(): Configuration
+    public function getArguments(): Configuration
     {
-        return $this->instruction;
+        return $this->arguments;
     }
 
     public function getTags(): array
