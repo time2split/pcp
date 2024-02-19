@@ -54,7 +54,7 @@ final class Navigator
     // ========================================================================
     public function getCursorPosition(): CursorPosition
     {
-        return CursorPosition::create($this->nl + 1, $this->nlc, $this->nc);
+        return new CursorPosition($this->nl + 1, $this->nlc, $this->nc);
     }
 
     public function getc()
