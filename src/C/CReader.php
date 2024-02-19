@@ -514,16 +514,26 @@ class CReader
 
                     while (true) {
                         $c = $this->fgetc();
-                        $buff .= $c;
+
+                        if ($skipNext) {
+
+                            if ($c !== "\n")
+                                throw $this->parseException("Waiting for end of line after '\'");
+
+                            $skipNext = false;
+                            $c = ' ';
+                        }
+
+                        if ($c !== '\\')
+                            $buff .= $c;
+                        else
+                            $skipNext = true;
 
                         // TODO handle comments
-                        if (($c === "\n" && ! $skipNext) || $c === false) {
+                        if ($c === "\n" || $c === false) {
                             $cursors[] = $this->fnav->getCursorPosition();
                             return ($this->cppDirectiveFactory)($directive, $buff, new Section(...$cursors));
-                        } elseif ($c === '\\')
-                            $skipNext = true;
-                        elseif ($skipNext)
-                            $skipNext = false;
+                        }
                     }
                     break;
             }
