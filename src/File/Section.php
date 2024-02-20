@@ -7,6 +7,11 @@ final class Section
     public function __construct(public readonly CursorPosition $begin, public readonly CursorPosition $end)
     {}
 
+    public static function createPoint(CursorPosition $pos): self
+    {
+        return new self($pos, $pos);
+    }
+
     public function getCursorPositions(): array
     {
         return [

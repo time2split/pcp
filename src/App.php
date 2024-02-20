@@ -17,6 +17,11 @@ final class App
         return self::getConfigBuilder()->build();
     }
 
+    public static function configuration(array $config): Configuration
+    {
+        return self::getConfigBuilder()->setContent($config)->build();
+    }
+
     public static function getConfigBuilder(): TreeConfigBuilder
     {
         return TreeConfigBuilder::builder()->setDelimiter('.')->setInterpolator(Expressions::interpolator());
