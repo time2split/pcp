@@ -73,8 +73,7 @@ final class GenerateClean extends BaseAction
                 if ($cmd === 'end') {
                     $waitForEnd = false;
                     $fpos[] = $section->end->pos;
-                } elseif ($cmd === 'begin')
-                    throw new \Exception("Malformed file ($finfo), unexpected 'pragma begin' at {{$section}}");
+                }
             }
         }
         $creader->close();
