@@ -24,8 +24,6 @@ use Time2Split\PCP\C\Element\CPPDirectives;
 class PCP extends BasePublisher
 {
 
-    private Configuration $config;
-
     public function __construct()
     {
         parent::__construct();
@@ -41,6 +39,16 @@ class PCP extends BasePublisher
         return $resElements;
     }
 
+    private function setSubscribersConfig(Configuration $config): array
+    {
+        $resElements = [];
+
+        foreach ($this->getSubscribers() as $s)
+            $s->setConfig($config);
+
+        return $resElements;
+    }
+
     private function updatePhase(PhaseName $name, PhaseState $state, $data = null)
     {
         foreach ($this->getSubscribers() as $s)
@@ -49,16 +57,12 @@ class PCP extends BasePublisher
 
     public function process(Configuration $config): void
     {
-        $this->config = Configurations::emptyChild($config);
-        $this->config['dateTime'] = $date = new \DateTime();
-        $this->config['dateTime.format'] = $date->format(\DateTime::ATOM);
-
-        $actions = ActionFactory::get($this->config)->getActions();
+        $actions = ActionFactory::get($config)->getActions();
         \array_walk($actions, $this->subscribe(...));
 
         // Init and check phase
         {
-            $wd = $this->config['cpp.wd'];
+            $wd = $config['pcp.dir'];
 
             if (! is_dir($wd))
                 \mkdir($wd, 0777, true);
@@ -69,13 +73,11 @@ class PCP extends BasePublisher
         PhaseState::Start //
         );
 
-        $this->updatePhase( //
-        PhaseName::ProcessingFiles, //
-        PhaseState::Run //
-        );
+        $config['dateTime'] = $date = new \DateTime();
+        $config['dateTime.format'] = $date->format(\DateTime::ATOM);
 
         foreach ($config['paths'] as $dir)
-            $this->processDir($dir);
+            $this->processDir($dir, Configurations::emptyChild($config));
 
         $this->updatePhase( //
         PhaseName::ProcessingFiles, //
@@ -85,7 +87,7 @@ class PCP extends BasePublisher
 
     private $newFiles = [];
 
-    public function processDir($wdir): void
+    public function processDir($wdir, Configuration $config): void
     {
         $phaseData = ReadingDirectory::fromPath($wdir);
         $this->updatePhase( //
@@ -93,8 +95,28 @@ class PCP extends BasePublisher
         PhaseState::Start, //
         $phaseData);
 
+        $searchConfigFiles = (array) $config['pcp.reading.dir.configFiles'];
+        $config = Configurations::emptyChild($config);
+        $this->setSubscribersConfig($config);
+
+        foreach ($searchConfigFiles as $searchForFile) {
+            $searchForFile = new \SplFileInfo("$wdir/$searchForFile");
+
+            if (\is_file($searchForFile)) {
+                $this->processOneCFile($searchForFile, $config);
+            }
+        }
+
+        $this->updatePhase( //
+        PhaseName::OpeningDirectory, //
+        PhaseState::Run, //
+        $phaseData);
+
         $it = new \FileSystemIterator($wdir);
         $dirs = [];
+
+        $config = Configurations::emptyChild($config);
+        $this->setSubscribersConfig($config);
 
         loop:
         foreach ($it as $finfo) {
@@ -102,7 +124,7 @@ class PCP extends BasePublisher
             if ($finfo->isDir())
                 $dirs[] = $finfo;
             else
-                $this->processOneFile($finfo);
+                $this->processOneFile($finfo, $config);
         }
         // Iterate through new files
         if (! empty($this->newFiles)) {
@@ -112,7 +134,7 @@ class PCP extends BasePublisher
         }
 
         foreach ($dirs as $d)
-            $this->processDir($d);
+            $this->processDir($d, $config);
 
         $this->updatePhase( //
         PhaseName::OpeningDirectory, //
@@ -120,7 +142,7 @@ class PCP extends BasePublisher
         $phaseData);
     }
 
-    private function processOneFile(\SplFileInfo $finfo): void
+    private function processOneFile(\SplFileInfo $finfo, Configuration $config): void
     {
         if (\str_ends_with($finfo, '.php')) {
             $newFile = \substr($finfo, 0, - 4);
@@ -142,6 +164,11 @@ class PCP extends BasePublisher
         ]))
             return;
 
+        $this->processOneCFile($finfo, $config);
+    }
+
+    private function processOneCFile(\SplFileInfo $finfo, Configuration $config): void
+    {
         $phaseData = ReadingOneFile::fromPath($finfo);
         $this->updatePhase( //
         PhaseName::ReadingOneFile, //
@@ -149,13 +176,8 @@ class PCP extends BasePublisher
         $phaseData);
 
         $creader = CReader::fromFile($finfo);
-        $creader->setCPPDirectiveFactory(CPPDirectives::factory($this->config));
+        $creader->setCPPDirectiveFactory(CPPDirectives::factory($config));
         $skip = false;
-
-        $this->updatePhase( //
-        PhaseName::ReadingOneFile, //
-        PhaseState::Run //
-        );
         $elements = [];
 
         while (true) {
@@ -190,7 +212,7 @@ class PCP extends BasePublisher
 
             {
                 // Set C information(s)
-                $this->config['C.type'] = $element->getElementType($element)->value;
+                $config['C.type'] = $element->getElementType($element)->value;
             }
 
             if (! $skip) {

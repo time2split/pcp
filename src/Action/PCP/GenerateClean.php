@@ -30,7 +30,7 @@ final class GenerateClean extends BaseAction
 
     private function processDirectory(ReadingDirectory $directoryData): void
     {
-        $wd = $this->config['cpp.wd'];
+        $wd = $this->config['pcp.dir'];
         $this->tmpFile = "$wd/tmp";
         $dinfo = $directoryData->fileInfo;
         $it = new \FileSystemIterator($dinfo);

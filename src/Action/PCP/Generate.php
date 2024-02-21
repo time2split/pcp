@@ -108,7 +108,6 @@ final class Generate extends BaseAction
                 $secnd = $this->config->subConfig('generate');
 
                 $i = Configurations::hierarchy($secnd, $first);
-                $i = $this->decorateConfig($i);
 
                 $this->istorage->put($this->ifactory->create($declaration, $i));
             }
@@ -145,6 +144,13 @@ final class Generate extends BaseAction
                 }
                 break;
 
+            case PhaseName::OpeningDirectory:
+
+                if (PhaseState::Run == $phase->state) {
+                    $this->resetConfig();
+                }
+                break;
+
             case PhaseName::ReadingOneFile:
 
                 if (PhaseState::Start == $phase->state) {
@@ -152,17 +158,24 @@ final class Generate extends BaseAction
                     $this->oneFileMTime = $data->fileInfo->getMTime();
                     $this->ifactory = new Factory($data);
                     $this->istorage = new InstructionStorage($data);
-
+                    $this->resetConfig();
                     $this->instructions = [];
-
-                    // Reset the config for the file
-                    $this->config->clear();
-                    Configurations::mergeArrayRecursive($this->config, self::DefaultConfig);
                 } elseif (PhaseState::Stop == $phase->state) {
                     $this->flushFileInfos();
                 }
                 break;
         }
+    }
+
+    private function resetConfig(): void
+    {
+        $default = App::configuration(self::DefaultConfig);
+        foreach ($default as $k => $v) {
+            if (isset($this->config[$k]))
+                return;
+        }
+        Configurations::mergeArrayRecursive($this->config, self::DefaultConfig);
+        unset($v);
     }
 
     // ========================================================================
