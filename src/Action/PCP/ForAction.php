@@ -66,17 +66,32 @@ final class ForAction extends BaseAction
         return [];
     }
 
+    private PhaseState $readingDirPhase;
+
     public function onPhase(Phase $phase, $data = null): void
     {
         switch ($phase->name) {
 
-            case PhaseName::ReadingOneFile:
+            case PhaseName::OpeningDirectory:
+                $this->readingDirPhase = $phase->state;
 
                 if ($phase->state === PhaseState::Start) {
                     $this->forInstructions = [];
+                }
+                break;
+
+            case PhaseName::ReadingOneFile:
+
+                if ($phase->state === PhaseState::Start) {
+                    $this->forInstructions = $this->config['for.instructions'] ?? [];
                     $this->waitingFor = false;
                     $this->idGen = 0;
-                } elseif ($phase->state === PhaseState::Stop) {}
+                } elseif ($phase->state === PhaseState::Stop) {
+
+                    if ($this->readingDirPhase === PhaseState::Start) {
+                        $this->config['for.instructions'] = $this->forInstructions;
+                    }
+                }
                 break;
         }
     }
@@ -101,9 +116,12 @@ final class ForAction extends BaseAction
             $cond = $args->getOptional('cond', false);
 
             if (! $cond->isPresent())
-                throw new \Exception(__CLASS__ . ': a \'for\' action must have a \'cond\' value set');
+                throw new \Exception('A \'for\' action must have a \'cond\' value set');
 
             $cond = $cond->get();
+
+            if (! ($cond instanceof Interpolation))
+                throw new \Exception("A 'for' condition must be a valid dynamic expression");
 
             $this->waitingFor = true;
             $id = $args['id'] ?? null;

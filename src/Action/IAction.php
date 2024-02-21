@@ -1,6 +1,7 @@
 <?php
 namespace Time2Split\PCP\Action;
 
+use Time2Split\Config\Configuration;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\DataFlow\ISubscriber;
 
@@ -17,4 +18,6 @@ interface IAction extends ISubscriber
     function onMessage(CContainer $msg): array;
 
     function onPhase(Phase $phase, $data = null): void;
+
+    function setConfig(Configuration $config);
 }

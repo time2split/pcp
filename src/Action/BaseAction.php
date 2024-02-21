@@ -13,7 +13,12 @@ abstract class BaseAction extends BaseSubscriber implements IAction
 
     public function __construct(Configuration $config)
     {
-        $this->config = $this->decorateConfig($config);
+        $this->setConfig($config);
+    }
+
+    public function setConfig($config)
+    {
+        $this->config = $config;
     }
 
     public final function onNext($data): void
@@ -26,16 +31,7 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         if (\strlen($subDir) > 0 && $subDir[0] !== '/')
             $subDir = "/$subDir";
 
-        IO::wdPush($this->config['cpp.wd'] . $subDir);
-    }
-
-    public final function decorateConfig(Configuration $config): Configuration
-    {
-        return $config;
-        // Deactivated; TODO: set env config
-//         return InterpolatedConfig::from($config, [
-//             'env' => getenv(...)
-//         ]);
+        IO::wdPush($this->config['pcp.dir'] . $subDir);
     }
 
     public final function outWorkingDir(): void

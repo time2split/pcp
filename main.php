@@ -6,10 +6,12 @@ use Time2Split\PCP\Expression\Expressions;
 require_once __DIR__ . '/vendor/autoload.php';
 
 $CONFIG = [
-    'cpp.wd' => getcwd() . '/cpp.wd',
-    'debug' => false,
-    'pcp.name' => [
-        'pcp'
+    'pcp' => [
+        'dir' => getcwd() . '/cpp.wd',
+        'reading.dir.configFiles' => 'pcp.conf',
+        'name' => [
+            'pcp'
+        ]
     ],
     'paths' => [
         'src'
