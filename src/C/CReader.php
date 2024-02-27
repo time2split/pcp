@@ -1,4 +1,5 @@
 <?php
+declare(strict_types = 1);
 namespace Time2Split\PCP\C;
 
 use Time2Split\Help\FIO;
@@ -8,7 +9,7 @@ use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\File\Navigator;
 use Time2Split\PCP\File\Section;
 
-class CReader
+final class CReader
 {
 
     private const debug = false;
@@ -140,7 +141,7 @@ class CReader
 
     private function skipSpaces(): void
     {
-        $this->fnav->skipChars('\ctype_space');
+        $this->fnav->skipChars(\ctype_space(...));
     }
 
     private function skipUselessText(): void

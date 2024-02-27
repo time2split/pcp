@@ -1,4 +1,5 @@
 <?php
+declare(strict_types = 1);
 namespace Time2Split\PCP\File;
 
 use Time2Split\Help\Arrays;
@@ -112,33 +113,18 @@ final class Navigator
     }
 
     // ========================================================================
-    public function getChars(callable $predicate): ?string
+    public function getChars(\Closure $predicate): ?string
     {
-        return FIO::getChars([
-            $this,
-            'getc'
-        ], [
-            $this,
-            'ungetc'
-        ], $predicate);
+        return FIO::getChars($this->getc(...), $this->ungetc(...), $predicate);
     }
 
     public function getCharsUntil($endDelimitation): ?string
     {
-        return FIO::getCharsUntil([
-            $this,
-            'getc'
-        ], $endDelimitation);
+        return FIO::getCharsUntil($this->getc(...), $endDelimitation);
     }
 
-    public function skipChars(callable $predicate): ?string
+    public function skipChars(\Closure $predicate): int
     {
-        return FIO::skipChars([
-            $this,
-            'getc'
-        ], [
-            $this,
-            'ungetc'
-        ], $predicate);
+        return FIO::skipChars($this->getc(...), $this->ungetc(...), $predicate);
     }
 }

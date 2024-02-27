@@ -1,4 +1,5 @@
 <?php
+declare(strict_types = 1);
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Config\Configuration;
@@ -30,7 +31,7 @@ final class PCPPragma extends CPPDirective
         $cmd = FIO::streamGetCharsUntil($subTextStream, \ctype_space(...));
         $textArgs = \stream_get_contents($subTextStream);
 
-        $args = Configurations::emptyOf($pcpConfig);
+        $args = Configurations::emptyCopyOf($pcpConfig);
 
         try {
             Expressions::arguments()->tryString($textArgs)

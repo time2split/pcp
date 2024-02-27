@@ -174,7 +174,7 @@ final class Generate extends BaseAction
             if (isset($this->config[$k]))
                 return;
         }
-        Configurations::mergeArrayRecursive($this->config, self::DefaultConfig);
+        $this->config->mergeTree(self::DefaultConfig);
         unset($v);
     }
 
@@ -188,7 +188,7 @@ final class Generate extends BaseAction
         } else {
             // Update the configuration
             $args = Arrays::map_key(fn ($k) => "generate.$k", $args->toArray());
-            Configurations::mergeTraversable($this->config, $args);
+            $this->config->merge($args);
         }
     }
 
