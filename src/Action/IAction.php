@@ -20,4 +20,6 @@ interface IAction extends ISubscriber
     function onPhase(Phase $phase, $data = null): void;
 
     function setConfig(Configuration $config);
+
+    function hasMonopoly(): bool;
 }

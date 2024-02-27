@@ -1,4 +1,5 @@
 <?php
+declare(strict_types = 1);
 namespace Time2Split\PCP\Action;
 
 use Time2Split\Config\Configuration;
@@ -16,6 +17,11 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         $this->setConfig($config);
     }
 
+    public function hasMonopoly(): bool
+    {
+        return false;
+    }
+
     public function setConfig($config)
     {
         $this->config = $config;
@@ -26,7 +32,7 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         $this->onMessage($data);
     }
 
-    public final function goWorkingDir(string $subDir = ''): void
+    protected final function goWorkingDir(string $subDir = ''): void
     {
         if (\strlen($subDir) > 0 && $subDir[0] !== '/')
             $subDir = "/$subDir";
@@ -34,7 +40,7 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         IO::wdPush($this->config['pcp.dir'] . $subDir);
     }
 
-    public final function outWorkingDir(): void
+    protected final function outWorkingDir(): void
     {
         IO::wdPop();
     }

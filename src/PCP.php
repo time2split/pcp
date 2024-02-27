@@ -12,8 +12,9 @@ use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
-use Time2Split\PCP\DataFlow\BasePublisher;
 use Time2Split\PCP\C\Element\CPPDirectives;
+use Time2Split\PCP\DataFlow\BasePublisher;
+use Time2Split\PCP\DataFlow\ISubscriber;
 
 /**
  * PHP: C preprocessor
@@ -29,12 +30,33 @@ class PCP extends BasePublisher
         parent::__construct();
     }
 
+    private ?ISubscriber $monopolyFor = null;
+
     private function deliverMessage(CContainer $container): array
     {
         $resElements = [];
+        $monopoly = [];
 
-        foreach ($this->getSubscribers() as $s)
+        if (isset($this->monopolyFor))
+            $subscribers = [
+                $this->monopolyFor
+            ];
+        else
+            $subscribers = $this->getSubscribers();
+
+        foreach ($subscribers as $s) {
+            $this->monopolyFor = null;
             $resElements = \array_merge($resElements, $s->onMessage($container));
+
+            if ($s->hasMonopoly())
+                $monopoly[] = $s;
+        }
+        $nbMonopoly = \count($monopoly);
+
+        if ($nbMonopoly > 1)
+            throw new \Exception('Multiple actions had asked for monopoly');
+        if ($nbMonopoly === 1)
+            $this->monopolyFor = $monopoly[0];
 
         return $resElements;
     }
@@ -49,7 +71,7 @@ class PCP extends BasePublisher
         return $resElements;
     }
 
-    private function updatePhase(PhaseName $name, PhaseState $state, $data = null)
+    private function updatePhase(PhaseName $name, PhaseState $state, $data = null): void
     {
         foreach ($this->getSubscribers() as $s)
             $s->onPhase(Phase::create($name, $state), $data);

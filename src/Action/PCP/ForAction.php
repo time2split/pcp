@@ -1,4 +1,5 @@
 <?php
+declare(strict_types = 1);
 namespace Time2Split\PCP\Action\PCP;
 
 use Time2Split\PCP\Action\BaseAction;
@@ -29,16 +30,20 @@ final class ForAction extends BaseAction
 
     private int $idGen;
 
+    public function hasMonopoly(): bool
+    {
+        return $this->waitingFor;
+    }
+
     public function onMessage(CContainer $ccontainer): array
     {
         if ($ccontainer->isPCPPragma()) {
             $pcpPragma = $ccontainer->getPCPPragma();
 
-            if ($pcpPragma->getCommand() === 'for') {
+            if ($pcpPragma->getCommand() === 'for' || $this->waitingFor) {
                 $this->doFor($pcpPragma);
                 return [];
-            } elseif ($this->waitingFor)
-                throw new \Exception(__CLASS__ . ": A 'for' block can only have 'for' prefixed actions");
+            }
         }
 
         if ($this->waitingFor)
@@ -109,7 +114,7 @@ final class ForAction extends BaseAction
                 if (empty($this->forInstructions[$this->id]->instructions))
                     unset($this->forInstructions[$this->id]);
             } else
-                $this->storeInstruction($pcpPragma->shiftArguments());
+                $this->storeInstruction($pcpPragma);
         } else {
             // == Create the new 'for' block ==
 
@@ -129,7 +134,7 @@ final class ForAction extends BaseAction
             if (! isset($id))
                 $id = $this->idGen ++;
 
-            $this->id = $id;
+            $this->id = (string) $id;
             $this->forInstructions[$id] = new Cond($pcpPragma->getArguments(), $cond);
         }
     }
