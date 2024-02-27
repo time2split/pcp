@@ -32,7 +32,7 @@ while ($action = \array_shift($argv)) {
 
     $CONFIG['action'] = $action;
 
-    $theConfig = App::getConfigBuilder()->setContent($CONFIG)->build();
+    $theConfig = App::getConfigBuilder()->mergeTree($CONFIG)->build();
 
     (new PCP())->process($theConfig);
 }

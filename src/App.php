@@ -2,7 +2,9 @@
 namespace Time2Split\PCP;
 
 use Time2Split\Config\Configuration;
+use Time2Split\Config\Configurations;
 use Time2Split\Config\TreeConfigBuilder;
+use Time2Split\Help\Traversables;
 use Time2Split\Help\Classes\NotInstanciable;
 use Time2Split\PCP\Expression\Expressions;
 use Time2Split\PCP\File\StreamInsertion;
@@ -19,12 +21,12 @@ final class App
 
     public static function configuration(array $config): Configuration
     {
-        return self::getConfigBuilder()->setContent($config)->build();
+        return self::getConfigBuilder()->mergeTree($config)->build();
     }
 
     public static function getConfigBuilder(): TreeConfigBuilder
     {
-        return TreeConfigBuilder::builder()->setDelimiter('.')->setInterpolator(Expressions::interpolator());
+        return Configurations::builder()->setKeyDelimiter('.')->setInterpolator(Expressions::interpolator());
     }
 
     public static function fileInsertion(string $file, string $buffFile): StreamInsertion
@@ -36,7 +38,7 @@ final class App
     // ========================================================================
     public static function configFirstKey(Configuration $config, $default = null): mixed
     {
-        return \Time2Split\Help\Traversables::firstValue($config->traversableKeys(), $default);
+        return \Time2Split\Help\Traversables::firstKey($config, $default);
     }
 
     public static function configFirstValue(Configuration $config, $default = null): mixed
@@ -59,7 +61,7 @@ final class App
         if ($nb < 0)
             throw new \ValueError(__FUNCTION__ . " \$nb must be a positive or a zero integer");
 
-        $keys = $config->keys();
+        $keys = Traversables::keys($config);
 
         foreach ($keys as $k) {
 
