@@ -22,4 +22,6 @@ interface IAction extends ISubscriber
     function setConfig(Configuration $config);
 
     function hasMonopoly(): bool;
+
+    function noExpandAtConfig(): bool;
 }

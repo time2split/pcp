@@ -68,9 +68,9 @@ final class Expressions
         };
     }
 
-    private static function stringNode(string $s): StringNode
+    private static function stringNode(?string $s): StringNode
     {
-        return new class($s) extends StringNode {
+        return new class((string) $s) extends StringNode {
 
             function __construct(public readonly string $text)
             {}
@@ -305,7 +305,7 @@ final class Expressions
         if (isset($ret))
             return $ret;
 
-        $firstCharKey = either(char('_'), alphaChar());
+        $firstCharKey = choice(char('_'), char('@'), alphaChar());
         $oneKeyChar = either(alphaNumChar(), char('_'));
         $oneKey = atLeastOne($oneKeyChar);
 

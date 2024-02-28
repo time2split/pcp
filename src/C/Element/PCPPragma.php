@@ -5,6 +5,7 @@ namespace Time2Split\PCP\C\Element;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Help\FIO;
+use Time2Split\Help\IO;
 use Time2Split\Help\Traversables;
 use Time2Split\PCP\Expression\Expressions;
 use Time2Split\PCP\File\Section;
@@ -24,9 +25,12 @@ final class PCPPragma extends CPPDirective
     public static function createPCPPragma( //
     Configuration $pcpConfig, //
     string $directive, string $text, Section $cursors, //
-    $subTextStream): //
+    $subTextStream = null): //
     PCPPragma
     {
+        if (! isset($subTextStream))
+            $subTextStream = IO::stringToStream($text);
+
         FIO::streamSkipChars($subTextStream, \ctype_space(...));
         $cmd = FIO::streamGetCharsUntil($subTextStream, \ctype_space(...));
         $textArgs = \stream_get_contents($subTextStream);
@@ -43,6 +47,11 @@ final class PCPPragma extends CPPDirective
         return new self($directive, $text, $cursors, $cmd, $textArgs, $args);
     }
 
+    public function __clone()
+    {
+        $this->arguments = clone $this->arguments;
+    }
+
     public function getCommand(): string
     {
         return $this->cmd;
@@ -51,6 +60,11 @@ final class PCPPragma extends CPPDirective
     public function getArguments(): Configuration
     {
         return $this->arguments;
+    }
+
+    public function copy(Configuration $arguments = null): self
+    {
+        return new self($this->getDirective(), $this->getText(), $this->getFileSection(), $this->cmd, $this->textArgs, $arguments ?? clone $this->arguments);
     }
 
     public function shiftArguments(): self

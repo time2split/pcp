@@ -22,6 +22,11 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         return false;
     }
 
+    public function noExpandAtConfig(): bool
+    {
+        return false;
+    }
+
     public function setConfig($config)
     {
         $this->config = $config;

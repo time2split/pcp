@@ -6,6 +6,7 @@ use Time2Split\Help\FIO;
 use Time2Split\Help\IO;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CPPDirective;
+use Time2Split\PCP\File\CursorPosition;
 use Time2Split\PCP\File\Navigator;
 use Time2Split\PCP\File\Section;
 
@@ -71,6 +72,11 @@ final class CReader
     public function getStream()
     {
         return $this->fnav->getStream();
+    }
+
+    public function getCursorPosition(): CursorPosition
+    {
+        return $this->fnav->getCursorPosition();
     }
 
     // ========================================================================
@@ -169,7 +175,7 @@ final class CReader
         $this->nav->getCharsUntil($endDelimiter);
     }
 
-    private function getDelimitedText(string $delimiters = self::C_DELIMITERS): string
+    private function getDelimitedText(string $delimiters = self::C_DELIMITERS): string|false
     {
         $buff = "";
         $skip = false;

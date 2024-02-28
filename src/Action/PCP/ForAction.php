@@ -15,13 +15,6 @@ use Time2Split\Config\Configurations;
 final class ForAction extends BaseAction
 {
 
-    private const DefaultConfig = [
-        'for' => [
-            'id' => null,
-            'cond' => false
-        ]
-    ];
-
     private array $forInstructions;
 
     private bool $waitingFor;
@@ -31,6 +24,11 @@ final class ForAction extends BaseAction
     private int $idGen;
 
     public function hasMonopoly(): bool
+    {
+        return $this->waitingFor;
+    }
+
+    public function noExpandAtConfig(): bool
     {
         return $this->waitingFor;
     }
@@ -47,7 +45,7 @@ final class ForAction extends BaseAction
         }
 
         if ($this->waitingFor)
-            throw new \Exception(__CLASS__ . ": waiting for 'for' actions, has '{$ccontainer->getCElement()}'");
+            throw new \Exception("Waiting for 'for' cpp pragma actions, has '{$ccontainer->getCElement()}'");
 
         return $this->checkForConditions($ccontainer);
     }
@@ -79,23 +77,20 @@ final class ForAction extends BaseAction
 
             case PhaseName::OpeningDirectory:
                 $this->readingDirPhase = $phase->state;
-
-                if ($phase->state === PhaseState::Start) {
-                    $this->forInstructions = [];
-                }
                 break;
 
             case PhaseName::ReadingOneFile:
 
                 if ($phase->state === PhaseState::Start) {
-                    $this->forInstructions = $this->config['for.instructions'] ?? [];
+                    $this->forInstructions = $this->config['action.for'] ?? [];
                     $this->waitingFor = false;
                     $this->idGen = 0;
                 } elseif ($phase->state === PhaseState::Stop) {
 
-                    if ($this->readingDirPhase === PhaseState::Start) {
-                        $this->config['for.instructions'] = $this->forInstructions;
-                    }
+                    if ($this->waitingFor)
+                        throw new \Exception("Waiting for 'end' of 'for' block; reached end of file");
+                    if ($this->readingDirPhase === PhaseState::Start)
+                        $this->config['action.for'] = $this->forInstructions;
                 }
                 break;
         }
@@ -108,14 +103,21 @@ final class ForAction extends BaseAction
         if ($this->waitingFor) {
 
             // End of 'for' block
-            if (isset($args['end'])) {
+            if ($pcpPragma->getCommand() === 'for') {
+
+                if (! isset($args['end']))
+                    throw new \Exception("Waiting for 'end' of 'for' block");
+
                 $this->waitingFor = false;
 
                 if (empty($this->forInstructions[$this->id]->instructions))
                     unset($this->forInstructions[$this->id]);
             } else
                 $this->storeInstruction($pcpPragma);
-        } else {
+        } elseif (isset($args['clear']))
+            $this->config['for.instructions'] = //
+            $this->forInstructions = [];
+        else {
             // == Create the new 'for' block ==
 
             $cond = $args->getOptional('cond', false);
