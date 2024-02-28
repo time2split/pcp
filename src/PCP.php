@@ -5,6 +5,7 @@ use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Help\IO;
 use Time2Split\PCP\Action\ActionFactory;
+use Time2Split\PCP\Action\IAction;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
@@ -13,8 +14,8 @@ use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CPPDirectives;
+use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\DataFlow\BasePublisher;
-use Time2Split\PCP\DataFlow\ISubscriber;
 
 /**
  * PHP: C preprocessor
@@ -30,7 +31,7 @@ class PCP extends BasePublisher
         parent::__construct();
     }
 
-    private ?ISubscriber $monopolyFor = null;
+    private ?IAction $monopolyFor = null;
 
     private function deliverMessage(CContainer $container): array
     {
@@ -99,7 +100,7 @@ class PCP extends BasePublisher
         $config['dateTime.format'] = $date->format(\DateTime::ATOM);
 
         foreach ($config['paths'] as $dir)
-            $this->processDir($dir, Configurations::emptyChild($config));
+            $this->processDir($dir, $config);
 
         $this->updatePhase( //
         PhaseName::ProcessingFiles, //
@@ -109,7 +110,7 @@ class PCP extends BasePublisher
 
     private $newFiles = [];
 
-    public function processDir($wdir, Configuration $config): void
+    public function processDir(\SplFileInfo|string $wdir, Configuration $parentConfig): void
     {
         $phaseData = ReadingDirectory::fromPath($wdir);
         $this->updatePhase( //
@@ -117,16 +118,15 @@ class PCP extends BasePublisher
         PhaseState::Start, //
         $phaseData);
 
-        $searchConfigFiles = (array) $config['pcp.reading.dir.configFiles'];
-        $config = Configurations::emptyChild($config);
-        $this->setSubscribersConfig($config);
+        $searchConfigFiles = (array) $parentConfig['pcp.reading.dir.configFiles'];
+        $dirConfig = Configurations::emptyChild($parentConfig);
+        $this->setSubscribersConfig($dirConfig);
 
         foreach ($searchConfigFiles as $searchForFile) {
             $searchForFile = new \SplFileInfo("$wdir/$searchForFile");
 
-            if (\is_file($searchForFile)) {
-                $this->processOneCFile($searchForFile, $config);
-            }
+            if (\is_file($searchForFile))
+                $this->processOneCFile($searchForFile, $dirConfig);
         }
 
         $this->updatePhase( //
@@ -137,16 +137,18 @@ class PCP extends BasePublisher
         $it = new \FileSystemIterator($wdir);
         $dirs = [];
 
-        $config = Configurations::emptyChild($config);
-        $this->setSubscribersConfig($config);
+        $fileConfig = Configurations::emptyChild($dirConfig);
+        $this->setSubscribersConfig($fileConfig);
 
         loop:
         foreach ($it as $finfo) {
 
             if ($finfo->isDir())
                 $dirs[] = $finfo;
-            else
-                $this->processOneFile($finfo, $config);
+            else {
+                $fileConfig->clear();
+                $this->processOneFile($finfo, $fileConfig);
+            }
         }
         // Iterate through new files
         if (! empty($this->newFiles)) {
@@ -156,7 +158,7 @@ class PCP extends BasePublisher
         }
 
         foreach ($dirs as $d)
-            $this->processDir($d, $config);
+            $this->processDir($d, $dirConfig);
 
         $this->updatePhase( //
         PhaseName::OpeningDirectory, //
@@ -189,7 +191,41 @@ class PCP extends BasePublisher
         $this->processOneCFile($finfo, $config);
     }
 
-    private function processOneCFile(\SplFileInfo $finfo, Configuration $config): void
+    private function expandAtConfig(PCPPragma $pcpPragma, Configuration $fileConfig): PCPPragma
+    {
+        $updated = false;
+        $pcpArguments = $pcpPragma->getArguments();
+        $newConfig = Configurations::emptyCopyOf($pcpArguments);
+
+        foreach ($pcpArguments->getRawValueIterator() as $k => $v) {
+
+            if (! \str_starts_with($k, '@config')) {
+                $newConfig[$k] = $v;
+                continue;
+            }
+            $nextConfig = $fileConfig->getOptional($k, false);
+
+            if ($nextConfig->isPresent($k)) {
+
+                if (! $updated && $k === '@config')
+                    $updated = true;
+
+                $newConfig->merge($nextConfig->get()
+                    ->getRawValueIterator());
+            }
+        }
+
+        if (! $updated) {
+            $nextConfig = $fileConfig->getOptional('@config');
+
+            if ($nextConfig->isPresent())
+                $newConfig->merge($nextConfig->get()
+                    ->getRawValueIterator());
+        }
+        return $pcpPragma->copy($newConfig);
+    }
+
+    private function processOneCFile(\SplFileInfo $finfo, Configuration $fileConfig): void
     {
         $phaseData = ReadingOneFile::fromPath($finfo);
         $this->updatePhase( //
@@ -198,53 +234,58 @@ class PCP extends BasePublisher
         $phaseData);
 
         $creader = CReader::fromFile($finfo);
-        $creader->setCPPDirectiveFactory(CPPDirectives::factory($config));
+        $creader->setCPPDirectiveFactory(CPPDirectives::factory($fileConfig));
         $skip = false;
         $elements = [];
 
-        while (true) {
+        try {
+            while (true) {
 
-            if (! empty($elements))
-                $element = \array_pop($elements);
-            else {
-                $this->updatePhase(PhaseName::ReadingCElement, PhaseState::Start);
-                $element = $creader->next();
+                if (! empty($elements))
+                    $element = \array_pop($elements);
+                else {
+                    $this->updatePhase(PhaseName::ReadingCElement, PhaseState::Start);
+                    $element = $creader->next();
 
-                if (null === $element)
-                    break;
-            }
+                    if (null === $element)
+                        break;
+                }
 
-            $container = CContainer::of($element);
+                if (CContainer::of($element)->isPCPPragma()) {
+                    $cmd = $element->getCommand();
 
-            if ($container->isPCPPragma()) {
-                $cmd = $element->getCommand();
+                    // Avoid begin/end blocks
+                    if ($skip) {
 
-                // Avoid begin/end blocks
-                if ($skip) {
-
-                    if ($cmd === 'end') {
-                        $skip = false;
+                        if ($cmd === 'end') {
+                            $skip = false;
+                            continue;
+                        }
+                    } elseif ($cmd === 'begin') {
+                        $skip = true;
                         continue;
                     }
-                } elseif ($cmd === 'begin') {
-                    $skip = true;
-                    continue;
+
+                    if (! isset($this->monopolyFor) || ! $this->monopolyFor->noExpandAtConfig())
+                        $element = $this->expandAtConfig($element, $fileConfig);
+                }
+
+                {
+                    // Set C information(s)
+                    $fileConfig['C.type'] = $element->getElementType($element)->value;
+                }
+
+                if (! $skip) {
+                    $resElements = $this->deliverMessage(CContainer::of($element));
+
+                    if (! empty($resElements)) {
+                        // Reverse the order to allow to array_pop($elements) in the original order
+                        $elements = \array_merge($elements, \array_reverse($resElements));
+                    }
                 }
             }
-
-            {
-                // Set C information(s)
-                $config['C.type'] = $element->getElementType($element)->value;
-            }
-
-            if (! $skip) {
-                $resElements = $this->deliverMessage($container);
-
-                if (! empty($resElements)) {
-                    // Reverse the order to allow to array_pop($elements) in the original order
-                    $elements = \array_merge($elements, \array_reverse($resElements));
-                }
-            }
+        } catch (\Exception $e) {
+            throw new \Exception("File $finfo position {$creader->getCursorPosition()}", previous: $e);
         }
         $creader->close();
         $this->updatePhase( //
