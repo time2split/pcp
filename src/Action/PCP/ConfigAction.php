@@ -10,6 +10,7 @@ use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\Config\Configuration;
+use Time2Split\Config\Configurations;
 
 final class ConfigAction extends BaseAction
 {
@@ -81,7 +82,7 @@ final class ConfigAction extends BaseAction
             if ($pcpPragma->getCommand() === 'config') {
 
                 if (isset($args['end'])) {
-                    $this->config[$this->id] = $this->instructions;
+                    $this->config[$this->id] = Configurations::unmodifiable($this->instructions);
                     $this->waitingForInstructions = false;
                 } else
                     $this->storeInstruction($pcpPragma);
@@ -114,7 +115,7 @@ final class ConfigAction extends BaseAction
 
                 return;
             }
-            $this->config['@config'] = $pcpPragma->getArguments();
+            $this->config['@config'] = Configurations::unmodifiable($pcpPragma->getArguments());
         }
     }
 
