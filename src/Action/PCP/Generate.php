@@ -105,7 +105,7 @@ final class Generate extends BaseAction
             foreach ($this->instructions as $instruction) {
                 // The order of the $instruction arguments is important
                 $first = $instruction->getArguments();
-                $secnd = $this->config->subConfig('generate');
+                $secnd = $this->config->subTreeCopy('generate');
 
                 $i = Configurations::hierarchy($secnd, $first);
 
