@@ -58,19 +58,18 @@ final class GenerateClean extends BaseAction
             if (! $ccontainer->isPCPPragma())
                 continue;
 
-            $cmd = $element->getCommand();
             $section = $element->getFileSection();
 
             if (! $waitForEnd) {
 
-                if ($cmd === 'begin') {
+                if (Generate::PCPIsGenerate($element, 'begin')) {
                     $waitForEnd = true;
                     $fpos[] = $section->begin->pos;
-                } elseif ($cmd === 'end')
-                    throw new \Exception("Malformed file ($finfo), unexpected 'pragma end' at {{$section}}");
+                } elseif (Generate::PCPIsGenerate($element, 'end'))
+                    throw new \Exception("Malformed file ($finfo), unexpected '$element' at {{$section}}");
             } else {
 
-                if ($cmd === 'end') {
+                if (Generate::PCPIsGenerate($element, 'end')) {
                     $waitForEnd = false;
                     $fpos[] = $section->end->pos;
                 }
