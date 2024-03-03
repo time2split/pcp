@@ -235,7 +235,6 @@ class PCP extends BasePublisher
 
         $creader = CReader::fromFile($finfo);
         $creader->setCPPDirectiveFactory(CPPDirectives::factory($fileConfig));
-        $skip = false;
         $elements = [];
 
         try {
@@ -252,19 +251,6 @@ class PCP extends BasePublisher
                 }
 
                 if (CContainer::of($element)->isPCPPragma()) {
-                    $cmd = $element->getCommand();
-
-                    // Avoid begin/end blocks
-                    if ($skip) {
-
-                        if ($cmd === 'end') {
-                            $skip = false;
-                            continue;
-                        }
-                    } elseif ($cmd === 'begin') {
-                        $skip = true;
-                        continue;
-                    }
 
                     if (! isset($this->monopolyFor) || ! $this->monopolyFor->noExpandAtConfig())
                         $element = $this->expandAtConfig($element, $fileConfig);
@@ -275,13 +261,11 @@ class PCP extends BasePublisher
                     $fileConfig['C.type'] = $element->getElementType($element)->value;
                 }
 
-                if (! $skip) {
-                    $resElements = $this->deliverMessage(CContainer::of($element));
+                $resElements = $this->deliverMessage(CContainer::of($element));
 
-                    if (! empty($resElements)) {
-                        // Reverse the order to allow to array_pop($elements) in the original order
-                        $elements = \array_merge($elements, \array_reverse($resElements));
-                    }
+                if (! empty($resElements)) {
+                    // Reverse the order to allow to array_pop($elements) in the original order
+                    $elements = \array_merge($elements, \array_reverse($resElements));
                 }
             }
         } catch (\Exception $e) {

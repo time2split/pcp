@@ -67,17 +67,38 @@ final class Generate extends BaseAction
 
     public static function isPCPGenerate(CElement $element, ?string $firstArg = null): bool
     {
-        return CElements::isPCPCommand($element, 'generate') && (! isset($firstArg) || $firstArg === App::configFirstKey($element->getArguments()));
+        return CElements::isPCPCommand($element, 'generate', $firstArg);
+    }
+
+    public static function PCPIsGenerate(PCPPragma $element, ?string $firstArg = null): bool
+    {
+        return CElements::PCPIsCommand($element, 'generate', $firstArg);
     }
 
     // ========================================================================
+    private bool $waitingForEnd = false;
+
+    public function hasMonopoly(): bool
+    {
+        return $this->waitingForEnd;
+    }
+
     public function onMessage(CContainer $ccontainer): array
     {
         if ($ccontainer->isPCPPragma()) {
             $pragma = $ccontainer->getPCPPragma();
 
             if ($pragma->getCommand() === 'generate') {
-                $this->doInstruction($pragma);
+                $args = $pragma->getArguments();
+
+                if ($this->waitingForEnd) {
+
+                    if (isset($args['end']))
+                        $this->waitingForEnd = false;
+                } elseif (isset($args['begin'])) {
+                    $this->waitingForEnd = true;
+                } else
+                    $this->doInstruction($pragma);
             }
         } elseif ($ccontainer->isDeclaration()) {
             $this->currentCContainer = $ccontainer;
@@ -182,7 +203,6 @@ final class Generate extends BaseAction
     private function doInstruction(PCPPragma $inst): void
     {
         $args = $inst->getArguments();
-
         if (isset($args['function']) || isset($args['prototype'])) {
             $this->instructions[] = $inst;
         } else {
@@ -358,11 +378,11 @@ final class Generate extends BaseAction
                     $writer->seekSkip($section->end->pos);
 
                     if (! empty($selectedCodes)) {
-                        $writer->write("#pragma pcp begin mtime=$this->srcTime src=\"$this->srcFile\"\n// $this->srcTimeFormat\n");
+                        $writer->write("#pragma pcp generate begin mtime=$this->srcTime src=\"$this->srcFile\"\n// $this->srcTimeFormat\n");
                         foreach ($selectedCodes as $code)
                             $writer->write("{$code->getText()}\n");
                         if ($writeEnd)
-                            $this->writer->write("#pragma pcp end\n");
+                            $this->writer->write("#pragma pcp generate end\n");
                     }
                 }
             }
@@ -475,7 +495,7 @@ final class Generate extends BaseAction
             $sections = [];
 
             if (! isset($cppElement));
-            else if (CElements::isPCPCommand($cppElement, 'begin')) {
+            else if (self::isPCPGenerate($cppElement, 'begin')) {
 
                 while (true) {
                     $end = $creader->next();
@@ -483,9 +503,9 @@ final class Generate extends BaseAction
                     if (! isset($end))
                         break;
 
-                    $isPCPEnd = CElements::isPCPCommand($end, 'end');
+                    $isPCPEnd = self::isPCPGenerate($end, 'end');
 
-                    if ($isPCPEnd || CElements::isPCPCommand($end, 'begin')) {
+                    if ($isPCPEnd || self::isPCPGenerate($end, 'begin')) {
                         $section = new Section($cppElement->getFileSection()->begin, $end->getFileSection()->begin);
                         $sectionsArguments->attach($section, $cppElement->getArguments());
                         $sections[] = $section;
