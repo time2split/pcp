@@ -13,6 +13,7 @@ use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
+use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\DataFlow\BasePublisher;
@@ -257,8 +258,14 @@ class PCP extends BasePublisher
                 }
 
                 {
-                    // Set C information(s)
-                    $fileConfig['C.type'] = $element->getElementType($element)->value;
+                    // Set C informations
+                    $ctype = $element->getElementType($element);
+                    $fileConfig['C.type'] = $ctype->value;
+
+                    if ($ctype === CElementType::Function) {
+                        $fileConfig['C.specifiers'] = $element->getSpecifiers();
+                        $fileConfig['C.identifier'] = $element->getIdentifier();
+                    }
                 }
 
                 $resElements = $this->deliverMessage(CContainer::of($element));

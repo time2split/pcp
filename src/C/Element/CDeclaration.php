@@ -1,4 +1,5 @@
 <?php
+declare(strict_types = 1);
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Help\Arrays;
@@ -32,6 +33,40 @@ final class CDeclaration extends CReaderElement
     public function getType(): CDeclarationType
     {
         return $this['type'];
+    }
+
+    /**
+     * Get the specifiers of a function.
+     *
+     * @return array
+     * @throws \DomainException if the declaration is not a function.
+     */
+    public function getSpecifiers(): array
+    {
+        if ($this->getType() !== CDeclarationType::tfunction)
+            throw new \DomainException();
+
+        $ret = [];
+        $nb = (int) $this['infos']['specifiers.nb'];
+
+        for ($i = 0; $i < $nb; $i ++)
+            $ret[] = $this['items'][$i];
+
+        return $ret;
+    }
+
+    /**
+     * Get the identifier of a function.
+     *
+     * @return array
+     * @throws \DomainException if the declaration has no identifier
+     */
+    public function getIdentifier(): string
+    {
+        if (! isset($this['identifier']))
+            throw new \DomainException();
+
+        return $this['items'][$this['identifier']['pos']];
     }
 
     // ========================================================================
