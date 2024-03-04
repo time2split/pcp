@@ -6,8 +6,8 @@ use Time2Split\Config\Configuration;
 use Time2Split\PCP\App;
 use Time2Split\PCP\Action\PCP\Generate\Instruction;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
-use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\CDeclarationType;
+use Time2Split\PCP\C\Element\CDeclaration;
 
 final class Factory
 {
@@ -32,5 +32,13 @@ final class Factory
             throw new \Exception(sprintf("generate 'function': invalid C declaration subject '%s'", $subject->getType()->name));
         }
         throw new \Exception("Invalid action '$kfirst': " . \print_r($instruction->toArray(), true));
+    }
+
+    public function createWithoutSubject(Configuration $instruction): Instruction
+    {
+        if (isset($instruction['code']))
+            return new Code($instruction, $this->readingFile->fileInfo);
+
+        throw new \Exception("Invalid instruction: " . \print_r($instruction->toArray(), true));
     }
 }

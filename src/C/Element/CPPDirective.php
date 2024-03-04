@@ -1,4 +1,5 @@
 <?php
+declare(strict_types = 1);
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\PCP\C\CReaderElement;
