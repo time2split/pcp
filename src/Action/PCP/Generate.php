@@ -42,6 +42,7 @@ final class Generate extends BaseAction
             'targets' => '.',
             'targets.prototype' => '${targets}',
             'targets.function' => '${targets}',
+            'targets.code' => '${targets}',
 
             'name.base' => null,
             'name.prefix' => null,
@@ -96,9 +97,10 @@ final class Generate extends BaseAction
 
                     if (isset($args['end']))
                         $this->waitingForEnd = false;
-                } elseif (isset($args['begin'])) {
+                } elseif (isset($args['begin']))
                     $this->waitingForEnd = true;
-                } else
+                elseif ($this->instructionWithoutSubject($pragma));
+                else
                     $this->doInstruction($pragma);
             }
         } elseif ($ccontainer->isDeclaration()) {
@@ -106,6 +108,15 @@ final class Generate extends BaseAction
             $this->processCContainer($ccontainer);
         }
         return [];
+    }
+
+    private function makeInstruction(Configuration $instruction): Configuration
+    {
+        // The order of the $instruction arguments is important
+        $first = $instruction;
+        $secnd = $this->config->subTreeCopy('generate');
+
+        return Configurations::hierarchy($secnd, $first);
     }
 
     private function processCContainer(CContainer $ccontainer)
@@ -124,13 +135,8 @@ final class Generate extends BaseAction
         ($declaration->getGroup() === CDeclarationGroup::declaration && //
         $declaration->getType() === CDeclarationType::tfunction)) {
 
-            foreach ($this->instructions as $instruction) {
-                // The order of the $instruction arguments is important
-                $first = $instruction->getArguments();
-                $secnd = $this->config->subTreeCopy('generate');
-
-                $i = Configurations::hierarchy($secnd, $first);
-
+            foreach ($this->instructions as $pcpPragma) {
+                $i = $this->makeInstruction($pcpPragma->getArguments());
                 $this->istorage->put($this->ifactory->create($declaration, $i));
             }
             $this->instructions = [];
@@ -204,12 +210,24 @@ final class Generate extends BaseAction
     private function doInstruction(PCPPragma $inst): void
     {
         $args = $inst->getArguments();
+
         if (isset($args['function']) || isset($args['prototype'])) {
             $this->instructions[] = $inst;
         } else {
             // Update the configuration
             $args = Arrays::map_key(fn ($k) => "generate.$k", $args->toArray());
             $this->config->merge($args);
+        }
+    }
+
+    private function instructionWithoutSubject(PCPPragma $pcpPragma): bool
+    {
+        try {
+            $i = $this->makeInstruction($pcpPragma->getArguments());
+            $this->istorage->put($this->ifactory->createWithoutSubject($i));
+            return true;
+        } catch (\Exception $e) {
+            return false;
         }
     }
 
