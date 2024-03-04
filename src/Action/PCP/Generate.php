@@ -41,6 +41,7 @@ final class Generate extends BaseAction
             'tags' => null,
             'targets' => '.',
             'targets.prototype' => '${targets}',
+            'targets.function' => '${targets}',
 
             'name.base' => null,
             'name.prefix' => null,

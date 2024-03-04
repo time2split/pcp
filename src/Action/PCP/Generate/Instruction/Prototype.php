@@ -1,4 +1,5 @@
 <?php
+declare(strict_types = 1);
 namespace Time2Split\PCP\Action\PCP\Generate\Instruction;
 
 use Time2Split\Config\Configuration;
@@ -22,7 +23,7 @@ final class Prototype extends Instruction
         switch ($subject->getElementType()) {
             case CElementType::Prototype:
             case CElementType::Function:
-                return $this->generatePrototype();
+                return $this->generatePrototype($subject, $this->getArguments()) . ';';
                 break;
             case CElementType::Macro:
                 throw new \Exception("Cannot generate a prototype from a Macro element");
@@ -36,28 +37,20 @@ final class Prototype extends Instruction
     }
 
     // ========================================================================
-    private function generateName(string $baseName): string
+    private static function generateName(string $baseName, Configuration $arguments): string
     {
-        $conf = $this->getArguments();
-        $conf['name.base'] = $baseName;
-        return $conf['name.format'] ?? $baseName;
+        $arguments['name.base'] = $baseName;
+        return $arguments['name.format'] ?? $baseName;
     }
 
-    private function generatePrototype(): string
+    public static function generatePrototype(CDeclaration $subject, Configuration $arguments)
     {
-        return $this->generatePrototype_() . ';';
-    }
-
-    private function generatePrototype_(): string
-    {
-        $subject = clone $this->getSubject();
-
+        $subject = clone $subject;
         $identifierPos = $subject['identifier']['pos'];
-        $subject['items'][$identifierPos] = $this->generateName($subject['items'][$identifierPos]);
+        $subject['items'][$identifierPos] = self::generateName($subject['items'][$identifierPos], $arguments);
 
         // Drop some specifiers
-        $args = $this->getArguments();
-        $drop = (array) $args['drop'];
+        $drop = (array) $arguments['drop'];
         $drop = \array_combine($drop, \array_fill(0, \count($drop), true));
 
         for ($i = 0, $c = (int) $subject['infos']['specifiers.nb']; $i < $c; $i ++) {
@@ -67,10 +60,10 @@ final class Prototype extends Instruction
                 $s = null;
         }
         unset($s);
-        return $this->prototypeToString($subject);
+        return self::prototypeToString($subject);
     }
 
-    private function prototypeToString(CDeclaration $declaration): string
+    private static function prototypeToString(CDeclaration $declaration): string
     {
         $ret = '';
         $lastIsAlpha = false;
@@ -79,7 +72,7 @@ final class Prototype extends Instruction
         foreach ($declaration['items'] as $s) {
 
             if ($s instanceof CDeclaration) {
-                $ret .= $paramSep . $this->prototypeToString($s);
+                $ret .= $paramSep . self::prototypeToString($s);
                 $paramSep = ', ';
             } else {
                 $len = \strlen($s);
