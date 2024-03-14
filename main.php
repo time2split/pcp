@@ -7,6 +7,7 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 $CONFIG = [
     'pcp' => [
+        'process' => [],
         'dir' => getcwd() . '/cpp.wd',
         'reading.dir.configFiles' => 'pcp.conf',
         'name' => [
@@ -14,7 +15,7 @@ $CONFIG = [
         ]
     ],
     'paths' => [
-        'src'
+        'test'
     ]
 ];
 
