@@ -1,10 +1,11 @@
 <?php
+
 namespace Time2Split\PCP;
 
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
-use Time2Split\Config\TreeConfigBuilder;
-use Time2Split\Help\Traversables;
+use Time2Split\Config\TreeConfigurationBuilder;
+use Time2Split\Help\Iterables;
 use Time2Split\Help\Classes\NotInstanciable;
 use Time2Split\PCP\Expression\Expressions;
 use Time2Split\PCP\File\StreamInsertion;
@@ -24,7 +25,7 @@ final class App
         return self::getConfigBuilder()->mergeTree($config)->build();
     }
 
-    public static function getConfigBuilder(): TreeConfigBuilder
+    public static function getConfigBuilder(): TreeConfigurationBuilder
     {
         return Configurations::builder()->setKeyDelimiter('.')->setInterpolator(Expressions::interpolator());
     }
@@ -38,17 +39,17 @@ final class App
     // ========================================================================
     public static function configFirstKey(Configuration $config, $default = null): mixed
     {
-        return \Time2Split\Help\Traversables::firstKey($config, $default);
+        return Iterables::firstKey($config, $default);
     }
 
     public static function configFirstValue(Configuration $config, $default = null): mixed
     {
-        return \Time2Split\Help\Traversables::firstValue($config, $default);
+        return Iterables::firstValue($config, $default);
     }
 
     public static function configFirstKeyValue(Configuration $config, $default = null): mixed
     {
-        return \Time2Split\Help\Traversables::firstKeyValue($config, $default);
+        return Iterables::first($config, $default);
     }
 
     public static function configShift(Configuration $config, int $nb = 1): Configuration
@@ -61,16 +62,16 @@ final class App
         if ($nb < 0)
             throw new \ValueError(__FUNCTION__ . " \$nb must be a positive or a zero integer");
 
-        $keys = Traversables::keys($config);
+        $keys = Iterables::keys($config);
 
         foreach ($keys as $k) {
 
-            if (! isset($k))
+            if (!isset($k))
                 break;
 
             unset($ret[$k]);
 
-            if (-- $nb === 0)
+            if (--$nb === 0)
                 return $ret;
         }
     }

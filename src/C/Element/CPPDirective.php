@@ -1,5 +1,7 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\PCP\C\CReaderElement;
@@ -9,11 +11,12 @@ class CPPDirective extends CReaderElement
 {
     use CElementTypeTrait;
 
-    protected function __construct( //
-    private readonly string $directive, //
-    private readonly string $text, //
-    private readonly Section $fileSection)
-    {}
+    protected function __construct(
+        private readonly string $directive,
+        private readonly string $text,
+        private readonly Section $fileSection
+    ) {
+    }
 
     final public static function create(string $directive, string $text, Section $cursors)
     {

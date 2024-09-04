@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action\PhaseData;
 
 use Time2Split\Config\Configuration;
@@ -13,7 +14,7 @@ final class ProcessingFiles
         $this->config = $config;
     }
 
-    public static function create(Configuration $config): ReadingOneFile
+    public static function create(Configuration $config): ProcessingFiles
     {
         return new ProcessingFiles($config);
     }

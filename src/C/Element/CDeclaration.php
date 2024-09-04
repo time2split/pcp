@@ -1,5 +1,7 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Help\Arrays;
@@ -49,7 +51,7 @@ final class CDeclaration extends CReaderElement
         $ret = [];
         $nb = (int) $this['infos']['specifiers.nb'];
 
-        for ($i = 0; $i < $nb; $i ++)
+        for ($i = 0; $i < $nb; $i++)
             $ret[] = $this['items'][$i];
 
         return $ret;
@@ -63,20 +65,23 @@ final class CDeclaration extends CReaderElement
      */
     public function getIdentifier(): string
     {
-        if (! isset($this['identifier']))
+        if (!isset($this['identifier']))
             throw new \DomainException();
 
         return $this['items'][$this['identifier']['pos']];
     }
 
     // ========================================================================
+
+    /* 
     public function getUnknownInfos(): array
     {
-        if (! empty($this->uinfos))
+        if (!empty($this->uinfos))
             return $this->uinfos;
 
-        return $this->uinfos = self::makeUnknownInfos($this->elements);
+        return $this->uinfos = self::makeUnknownInfos($this->getArrayCopy());
     }
+    */
 
     // ========================================================================
     public static function makeUnknownInfos(array $element): array
@@ -84,13 +89,15 @@ final class CDeclaration extends CReaderElement
         $nbSpecifiers = $element['infos']['specifiers.nb'];
 
         $specifiers = \array_slice($element['items'], 0, $nbSpecifiers);
-        $unknown = \array_filter($specifiers, fn ($n) => ! CMatching::isSpecifier($n));
+        $unknown = \array_filter($specifiers, fn ($n) => !CMatching::isSpecifier($n));
         $typeSpecifiers = \array_filter($specifiers, fn ($n) => CMatching::isTypeSpecifier($n));
 
         $pointers = \array_slice($element['items'], $nbSpecifiers);
         $pointers = \array_filter($pointers); // Avoid null value (generated identifier)
-        list (, $punknown) = Arrays::partition($pointers, //
-        fn ($n) => $n === '*' || CMatching::isTypeQualifier($n));
+        list(, $punknown) = Arrays::arrayPartition(
+            $pointers,
+            fn ($n) => $n === '*' || CMatching::isTypeQualifier($n)
+        );
 
         return [
             'specifiers' => [

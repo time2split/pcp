@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Help\Optional;
@@ -7,10 +8,11 @@ use Time2Split\PCP\C\CElement;
 final class CContainer
 {
 
-    private function __construct( //
-    private readonly Optional $cppDirective, //
-    private readonly Optional $declaration)
-    {}
+    private function __construct(
+        private readonly Optional $cppDirective,
+        private readonly Optional $declaration
+    ) {
+    }
 
     public static function of(CPPDirective|CDeclaration $element): self
     {

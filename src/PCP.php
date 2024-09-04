@@ -1,8 +1,10 @@
 <?php
+
 namespace Time2Split\PCP;
 
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
+use Time2Split\Config\Entry\ReadingMode;
 use Time2Split\Help\IO;
 use Time2Split\PCP\Action\ActionFactory;
 use Time2Split\PCP\Action\IAction;
@@ -88,13 +90,13 @@ class PCP extends BasePublisher
         {
             $wd = $config['pcp.dir'];
 
-            if (! is_dir($wd))
+            if (!is_dir($wd))
                 \mkdir($wd, 0777, true);
         }
 
-        $this->updatePhase( //
-        PhaseName::ProcessingFiles, //
-        PhaseState::Start //
+        $this->updatePhase(
+            PhaseName::ProcessingFiles,
+            PhaseState::Start
         );
 
         $config['dateTime'] = $date = new \DateTime();
@@ -103,9 +105,9 @@ class PCP extends BasePublisher
         foreach ($config['paths'] as $dir)
             $this->processDir($dir, $config);
 
-        $this->updatePhase( //
-        PhaseName::ProcessingFiles, //
-        PhaseState::Stop //
+        $this->updatePhase(
+            PhaseName::ProcessingFiles,
+            PhaseState::Stop
         );
     }
 
@@ -114,10 +116,11 @@ class PCP extends BasePublisher
     public function processDir(\SplFileInfo|string $wdir, Configuration $parentConfig): void
     {
         $phaseData = ReadingDirectory::fromPath($wdir);
-        $this->updatePhase( //
-        PhaseName::OpeningDirectory, //
-        PhaseState::Start, //
-        $phaseData);
+        $this->updatePhase(
+            PhaseName::OpeningDirectory,
+            PhaseState::Start,
+            $phaseData
+        );
 
         $searchConfigFiles = (array) $parentConfig['pcp.reading.dir.configFiles'];
         $dirConfig = Configurations::emptyChild($parentConfig);
@@ -130,10 +133,11 @@ class PCP extends BasePublisher
                 $this->processOneCFile($searchForFile, $dirConfig);
         }
 
-        $this->updatePhase( //
-        PhaseName::OpeningDirectory, //
-        PhaseState::Run, //
-        $phaseData);
+        $this->updatePhase(
+            PhaseName::OpeningDirectory,
+            PhaseState::Run,
+            $phaseData
+        );
 
         $it = new \FileSystemIterator($wdir);
         $dirs = [];
@@ -152,7 +156,7 @@ class PCP extends BasePublisher
             }
         }
         // Iterate through new files
-        if (! empty($this->newFiles)) {
+        if (!empty($this->newFiles)) {
             $it = $this->newFiles;
             $this->newFiles = [];
             goto loop;
@@ -161,17 +165,18 @@ class PCP extends BasePublisher
         foreach ($dirs as $d)
             $this->processDir($d, $dirConfig);
 
-        $this->updatePhase( //
-        PhaseName::OpeningDirectory, //
-        PhaseState::Stop, //
-        $phaseData);
+        $this->updatePhase(
+            PhaseName::OpeningDirectory,
+            PhaseState::Stop,
+            $phaseData
+        );
     }
 
     private function processOneFile(\SplFileInfo $finfo, Configuration $config): void
     {
         if (\str_ends_with($finfo, '.php')) {
-            $newFile = \substr($finfo, 0, - 4);
-            $notFile = ! \is_file($newFile);
+            $newFile = \substr($finfo, 0, -4);
+            $notFile = !\is_file($newFile);
 
             if ($notFile || IO::olderThan($newFile, $finfo))
                 \file_put_contents($newFile, IO::get_include_contents($finfo));
@@ -183,7 +188,7 @@ class PCP extends BasePublisher
             return;
         }
 
-        if (! \in_array(\substr($finfo, - 2), [
+        if (!\in_array(\substr($finfo, -2), [
             '.h',
             '.c'
         ]))
@@ -196,19 +201,19 @@ class PCP extends BasePublisher
     {
         $updated = false;
         $pcpArguments = $pcpPragma->getArguments();
-        $newConfig = Configurations::emptyCopyOf($pcpArguments);
+        $newConfig = Configurations::emptyTreeCopyOf($pcpArguments);
 
         foreach ($pcpArguments->getRawValueIterator() as $k => $v) {
 
-            if (! \str_starts_with($k, '@config')) {
+            if (!\str_starts_with($k, '@config')) {
                 $newConfig[$k] = $v;
                 continue;
             }
-            $nextConfig = $fileConfig->getOptional($k, false);
+            $nextConfig = $fileConfig->getOptional($k, ReadingMode::RawValue);
 
             if ($nextConfig->isPresent($k)) {
 
-                if (! $updated && $k === '@config')
+                if (!$updated && $k === '@config')
                     $updated = true;
 
                 $newConfig->merge($nextConfig->get()
@@ -216,7 +221,7 @@ class PCP extends BasePublisher
             }
         }
 
-        if (! $updated) {
+        if (!$updated) {
             $nextConfig = $fileConfig->getOptional('@config');
 
             if ($nextConfig->isPresent())
@@ -229,10 +234,11 @@ class PCP extends BasePublisher
     private function processOneCFile(\SplFileInfo $finfo, Configuration $fileConfig): void
     {
         $phaseData = ReadingOneFile::fromPath($finfo);
-        $this->updatePhase( //
-        PhaseName::ReadingOneFile, //
-        PhaseState::Start, //
-        $phaseData);
+        $this->updatePhase(
+            PhaseName::ReadingOneFile,
+            PhaseState::Start,
+            $phaseData
+        );
 
         $creader = CReader::fromFile($finfo);
         $creader->setCPPDirectiveFactory(CPPDirectives::factory($fileConfig));
@@ -241,7 +247,7 @@ class PCP extends BasePublisher
         try {
             while (true) {
 
-                if (! empty($elements))
+                if (!empty($elements))
                     $element = \array_pop($elements);
                 else {
                     $this->updatePhase(PhaseName::ReadingCElement, PhaseState::Start);
@@ -253,11 +259,9 @@ class PCP extends BasePublisher
 
                 if (CContainer::of($element)->isPCPPragma()) {
 
-                    if (! isset($this->monopolyFor) || ! $this->monopolyFor->noExpandAtConfig())
+                    if (!isset($this->monopolyFor) || !$this->monopolyFor->noExpandAtConfig())
                         $element = $this->expandAtConfig($element, $fileConfig);
-                }
-
-                {
+                } {
                     // Set C informations
                     $ctype = $element->getElementType($element);
                     $fileConfig['C.type'] = $ctype->value;
@@ -270,7 +274,7 @@ class PCP extends BasePublisher
 
                 $resElements = $this->deliverMessage(CContainer::of($element));
 
-                if (! empty($resElements)) {
+                if (!empty($resElements)) {
                     // Reverse the order to allow to array_pop($elements) in the original order
                     $elements = \array_merge($elements, \array_reverse($resElements));
                 }
@@ -279,9 +283,10 @@ class PCP extends BasePublisher
             throw new \Exception("File $finfo position {$creader->getCursorPosition()}", previous: $e);
         }
         $creader->close();
-        $this->updatePhase( //
-        PhaseName::ReadingOneFile, //
-        PhaseState::Stop, //
-        $phaseData);
+        $this->updatePhase(
+            PhaseName::ReadingOneFile,
+            PhaseState::Stop,
+            $phaseData
+        );
     }
 }

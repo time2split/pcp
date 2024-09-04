@@ -1,9 +1,11 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\File;
 
 use Time2Split\Help\Arrays;
-use Time2Split\Help\FIO;
+use Time2Split\Help\Streams;
 
 final class Navigator
 {
@@ -65,23 +67,23 @@ final class Navigator
         if (false === $c)
             return false;
 
-        $this->nlc ++;
-        $this->nc ++;
+        $this->nlc++;
+        $this->nc++;
 
         if ($c === "\n") {
 
-            if (! isset($this->cache[$this->nl])) {
-                list ($i, $j) = Arrays::last($this->cache, [
+            if (!isset($this->cache[$this->nl])) {
+                list($i, $j) = \iterator_to_array(Arrays::lastValue($this->cache, [
                     0,
                     0
-                ]);
+                ]));
 
                 $this->cache[] = [
                     $i + $j, // pos
                     $this->nlc // size
                 ];
             }
-            $this->nl ++;
+            $this->nl++;
             $this->nlc = 0;
         }
         return $c;
@@ -99,32 +101,36 @@ final class Navigator
         \fseek($this->fp, $this->offset + $this->nc, SEEK_SET);
     }
 
-    private function ungetcUpdate(int $nb)
+    private function ungetcUpdate(int $nb): void
     {
         \fseek($this->fp, $this->offset + $this->nc, SEEK_SET);
         $contents = \fgets($this->fp, $nb + 1);
+
+        if (false === $contents)
+            return;
+
         $nblines = \substr_count($contents, "\n");
 
         $this->nl -= $nblines;
 
         // Get the pos in the line
-        list ($lpos,) = $this->cache[$this->nl];
+        list($lpos,) = $this->cache[$this->nl];
         $this->nlc = $this->nc - $lpos;
     }
 
     // ========================================================================
-    public function getChars(\Closure $predicate): ?string
+    public function getChars(\Closure $predicate): string
     {
-        return FIO::getChars($this->getc(...), $this->ungetc(...), $predicate);
+        return Streams::getChars($this->getc(...), $this->ungetc(...), $predicate);
     }
 
-    public function getCharsUntil($endDelimitation): ?string
+    public function getCharsUntil(\Closure $predicate): string
     {
-        return FIO::getCharsUntil($this->getc(...), $endDelimitation);
+        return Streams::getCharsUntil($this->getc(...), $this->ungetc(...), $predicate);
     }
 
     public function skipChars(\Closure $predicate): int
     {
-        return FIO::skipChars($this->getc(...), $this->ungetc(...), $predicate);
+        return Streams::skipChars($this->getc(...), $this->ungetc(...), $predicate);
     }
 }

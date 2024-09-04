@@ -1,9 +1,11 @@
 <?php
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Config\Configuration;
-use Time2Split\Help\FIO;
-use Time2Split\Help\IO;
+use Time2Split\Help\Streams;
 use Time2Split\Help\Classes\NotInstanciable;
 use Time2Split\PCP\File\Section;
 
@@ -11,13 +13,13 @@ final class CPPDirectives
 {
     use NotInstanciable;
 
-    public static function create(Configuration $pcpConfig, string $directive, string $text, Section $cursors): CPPDirective
+    private static function create(Configuration $pcpConfig, string $directive, string $text, Section $cursors): CPPDirective
     {
         if ($directive === 'define')
             return CPPDefine::createCPPDefine($text, $cursors);
 
-        $stream = IO::stringToStream($text);
-        $first = FIO::streamGetCharsUntil($stream, \ctype_space(...));
+        $stream = Streams::stringToStream($text);
+        $first = Streams::streamGetCharsUntil($stream, \ctype_space(...));
         $pcpNames = $pcpConfig['pcp.name'];
 
         if (\in_array($first, $pcpNames))

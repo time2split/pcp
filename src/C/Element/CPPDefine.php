@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Config\Configuration;
@@ -10,13 +11,13 @@ use Time2Split\PCP\File\Section;
 final class CPPDefine extends CPPDirective
 {
 
-    private function __construct( //
-    string $definitionText, //
-    Section $cursors, //
-    private string $name, //
-    private array $parameters, //
-    private string $text) //
-    {
+    private function __construct(
+        string $definitionText,
+        Section $cursors,
+        private string $name,
+        private array $parameters,
+        private string $text
+    ) {
         parent::__construct('define', $definitionText, $cursors);
     }
 

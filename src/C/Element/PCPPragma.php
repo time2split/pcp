@@ -1,11 +1,12 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
-use Time2Split\Help\FIO;
-use Time2Split\Help\IO;
+use Time2Split\Help\Streams;
 use Time2Split\Help\Traversables;
 use Time2Split\PCP\Expression\Expressions;
 use Time2Split\PCP\File\Section;
@@ -13,29 +14,32 @@ use Time2Split\PCP\File\Section;
 final class PCPPragma extends CPPDirective
 {
 
-    private function __construct( //
-    string $directive, string $text, Section $cursors, //
-    private string $cmd, //
-    private string $textArgs, //
-    private Configuration $arguments)
-    {
+    private function __construct(
+        string $directive,
+        string $text,
+        Section $cursors,
+        private string $cmd,
+        private string $textArgs,
+        private Configuration $arguments
+    ) {
         parent::__construct($directive, $text, $cursors);
     }
 
-    public static function createPCPPragma( //
-    Configuration $pcpConfig, //
-    string $directive, string $text, Section $cursors, //
-    $subTextStream = null): //
-    PCPPragma
-    {
-        if (! isset($subTextStream))
-            $subTextStream = IO::stringToStream($text);
+    public static function createPCPPragma(
+        Configuration $pcpConfig,
+        string $directive,
+        string $text,
+        Section $cursors,
+        $subTextStream = null
+    ): PCPPragma {
+        if (!isset($subTextStream))
+            $subTextStream = Streams::stringToStream($text);
 
-        FIO::streamSkipChars($subTextStream, \ctype_space(...));
-        $cmd = FIO::streamGetCharsUntil($subTextStream, \ctype_space(...));
+        Streams::streamSkipChars($subTextStream, \ctype_space(...));
+        $cmd = Streams::streamGetCharsUntil($subTextStream, \ctype_space(...));
         $textArgs = \stream_get_contents($subTextStream);
 
-        $args = Configurations::emptyCopyOf($pcpConfig);
+        $args = Configurations::emptyTreeCopyOf($pcpConfig);
 
         try {
             Expressions::arguments()->tryString($textArgs)
@@ -69,7 +73,7 @@ final class PCPPragma extends CPPDirective
 
     public function shiftArguments(): self
     {
-        list ($cmd,) = Traversables::firstKeyValue($this->arguments);
+        list($cmd,) = Traversables::firstKeyValue($this->arguments);
         $args = Configurations::of($this->arguments);
         unset($args[$cmd]);
 

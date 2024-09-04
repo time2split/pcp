@@ -1,5 +1,7 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\C;
 
 use Time2Split\Help\Classes\NotInstanciable;
@@ -14,26 +16,27 @@ final class CElements
 
     public static function isPCPCommand(CElement|CContainer $element, string $cmd, string $firstArg = null): bool
     {
-        if (! ($element instanceof CContainer))
+        if (!($element instanceof CContainer))
             $element = CContainer::of($element);
 
-        return //
-        $element->isPCPPragma() && //
-        self::PCPIsCommand($element->getPCPPragma(), $cmd, $firstArg);
+        return
+            $element->isPCPPragma() &&
+            self::PCPIsCommand($element->getPCPPragma(), $cmd, $firstArg);
     }
 
     public static function PCPIsCommand(PCPPragma $pcpPragma, string $cmd, string $firstArg = null): bool
     {
-        return //
-        $pcpPragma->getCommand() === $cmd && //
-        (! isset($firstArg) || $firstArg === App::configFirstKey($pcpPragma->getArguments()));
+        return
+            $pcpPragma->getCommand() === $cmd &&
+            (!isset($firstArg) || $firstArg === App::configFirstKey($pcpPragma->getArguments()));
     }
 
     private static CElement $null;
 
     public static function null()
     {
-        return self::$null ??= new class() implements CElement {
+        return self::$null ??= new class() implements CElement
+        {
 
             public function getElementType(): CElementType
             {

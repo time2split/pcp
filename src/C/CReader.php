@@ -1,9 +1,11 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\C;
 
-use Time2Split\Help\FIO;
-use Time2Split\Help\IO;
+use Time2Split\Help\CharPredicates;
+use Time2Split\Help\Streams;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\File\CursorPosition;
@@ -23,7 +25,7 @@ final class CReader
     {
         $mdata = \stream_get_meta_data($stream);
 
-        if (! $mdata['seekable'])
+        if (!$mdata['seekable'])
             throw new \Exception(__class__ . " The stream must be readable mode, the mode is {$mdata['mode']}");
 
         $this->fnav = Navigator::fromStream($stream, $closeStream);
@@ -61,7 +63,7 @@ final class CReader
 
     public static function fromString($string): self
     {
-        return new self(IO::stringToStream($string), false);
+        return new self(Streams::stringToStream($string), false);
     }
 
     public function close(): void
@@ -93,7 +95,9 @@ final class CReader
     // ========================================================================
     private function parseException(?string $msg): void
     {
-        throw new \RuntimeException("$this->filePath: line($this->line_n) char($this->char_n) $msg");
+        $fp = $this->fnav->getStream();
+        $cursor = $this->fnav->getCursorPosition();
+        throw new \RuntimeException("$fp: line($cursor->line) column($cursor->linePos) $msg");
     }
 
     private const C_DELIMITERS = '""\'\'(){}[]';
@@ -112,7 +116,7 @@ final class CReader
 
             switch ($state) {
 
-                // Comment ?
+                    // Comment ?
                 case 0:
                     if ('/' === $c)
                         $state = 1;
@@ -125,10 +129,10 @@ final class CReader
                     if ("\n" === $c)
                         return true;
                     break;
-                // Multiline comment
+                    // Multiline comment
                 case 100:
                     if ('*' === $c)
-                        $state ++;
+                        $state++;
                     break;
                 case 101:
 
@@ -136,7 +140,7 @@ final class CReader
                         return true;
                     elseif ('*' === $c);
                     else
-                        $state --;
+                        $state--;
                     break;
             }
         }
@@ -161,18 +165,13 @@ final class CReader
 
             if ($c === '/') {
 
-                if (! $this->skipComment())
+                if (!$this->skipComment())
                     $this->fungetc();
                 else
                     $skipped = true;
             } else
                 $this->fungetc();
         } while ($skipped);
-    }
-
-    private function skipSimpleDelimitedText(string $endDelimiter): void
-    {
-        $this->nav->getCharsUntil($endDelimiter);
     }
 
     private function getDelimitedText(string $delimiters = self::C_DELIMITERS): string|false
@@ -192,18 +191,18 @@ final class CReader
                 $skip = true;
             elseif ($c == '/') {
                 if ($this->skipComment())
-                    $buff = \substr($buff, 0, - 1);
-            } elseif ($c === $endDelimiter && ! $skip) {
+                    $buff = \substr($buff, 0, -1);
+            } elseif ($c === $endDelimiter && !$skip) {
                 $endDelimiter = \array_pop($endDelimiters);
 
-                if (! isset($endDelimiter))
+                if (!isset($endDelimiter))
                     return $buff;
             } else {
 
                 if ($skip)
                     $skip = false;
 
-                $end = FIO::isDelimitation($c, $delimiters);
+                $end = CharPredicates::isDelimitation($c, $delimiters);
                 if (null !== $end) {
                     \array_push($endDelimiters, $endDelimiter);
                     $endDelimiter = $end;
@@ -215,8 +214,8 @@ final class CReader
     // ========================================================================
     private function nextWord(?\Closure $pred = null): ?string
     {
-        if (! isset($pred)) {
-            $pred = fn ($c) => //
+        if (!isset($pred)) {
+            $pred = fn ($c) =>
             ctype_alnum($c) || $c === '_';
         }
         $this->skipUselessText();
@@ -236,17 +235,6 @@ final class CReader
         return $c;
     }
 
-    private function nextIdentifier(): ?string
-    {
-        $c = $this->nextChar();
-
-        if (! ($c === '_' || \ctype_alpha($c))) {
-            $this->fungetc();
-            return null;
-        }
-        return $c . $this->nextWord();
-    }
-
     private function getPossibleSpecifiers(): array
     {
         $ret = [];
@@ -255,7 +243,7 @@ final class CReader
             $this->skipUselessText();
             $text = $this->nextWord();
 
-            if ($text === null) {
+            if (0 === \strlen($text)) {
                 return $ret;
             } else {
                 $ret[] = $text;
@@ -277,7 +265,7 @@ final class CReader
             while (true) {
                 $text = $this->nextWord();
 
-                if (null === $text)
+                if (0 === \strlen($text))
                     return $ret;
 
                 $ret[] = $text;
@@ -288,8 +276,6 @@ final class CReader
     // ========================================================================
     private array $states;
 
-    private array $fileStates;
-
     private const zeroData = [
         'e' => []
     ];
@@ -298,16 +284,6 @@ final class CReader
     {
         $this->states = [];
         $this->pushState(CReaderState::start, self::zeroData);
-    }
-
-    private function pushFileState(): void
-    {
-        $this->fileStates[] = \ftell($this->fp);
-    }
-
-    private function popFileState(): void
-    {
-        \fseek(SEEK_SET, \array_pop($this->fileStates));
     }
 
     private function pushState(CReaderState $s, $data = null): void
@@ -326,7 +302,7 @@ final class CReader
                 null
             ];
 
-        list ($state, $data) = \array_pop($this->states);
+        list($state, $data) = \array_pop($this->states);
 
         return [
             $state,
@@ -336,7 +312,7 @@ final class CReader
 
     private function forgetState(CReaderState $s): void
     {
-        list ($state, ,) = \array_pop($this->states);
+        list($state,,) = \array_pop($this->states);
 
         if ($state !== $s)
             throw new \Exception(__class__ . " waiting to forget $s->name but have $state->name");
@@ -365,7 +341,7 @@ final class CReader
 
     private static function elementSet(array &$element, string $name, $v): void
     {
-        if (! isset($element[$name]) && isset($v))
+        if (!isset($element[$name]) && isset($v))
             $element[$name] = $v;
     }
 
@@ -387,17 +363,17 @@ final class CReader
 
     private static function makeElementIdentifier(array &$element): void
     {
-        if (! array_key_exists('identifier', $element)) {
+        if (!array_key_exists('identifier', $element)) {
             $i = \count($element['items']) - 1;
 
-            if ($i == - 1)
+            if ($i == -1)
                 return;
             $id = $element['items'][$i];
 
             // Abstract declarator
-            if ((\strlen($id) > 0 && ! \ctype_alpha($id[0])) || CMatching::isSpecifier($id)) {
+            if ((\strlen($id) > 0 && !\ctype_alpha($id[0])) || CMatching::isSpecifier($id)) {
                 $element['items'][] = null;
-                $i ++;
+                $i++;
             }
             self::setElementIdentifier($element, $i);
         }
@@ -510,7 +486,7 @@ final class CReader
                         return null;
                     break;
 
-                // ======================================================
+                    // ======================================================
 
                 case CReaderState::cpp_directive:
                     $directive = $this->nextWord();
@@ -554,7 +530,7 @@ final class CReader
         $retElements = [];
 
         while (true) {
-            list ($state, $data) = $this->popState();
+            list($state, $data) = $this->popState();
             $element = &$data['e'];
 
             if (self::debug) {
@@ -605,14 +581,14 @@ final class CReader
                     }
                     return CDeclaration::fromReaderElements($retElements[0]);
 
-                // ======================================================
+                    // ======================================================
 
                 case CReaderState::declaration:
                     $this->pushState(CReaderState::declarator, $data);
                     $this->pushState(CReaderState::declaration_specifiers, $data);
                     break;
 
-                // specifiers declarator
+                    // specifiers declarator
                 case CReaderState::declaration_specifiers:
                     $specifiers = $this->getPossibleSpecifiers();
                     $element['infos']['specifiers.nb'] = \count($specifiers);
@@ -641,7 +617,7 @@ final class CReader
                     }
                     break;
 
-                // Well state for an unrecognized declaration
+                    // Well state for an unrecognized declaration
                 case CReaderState::wait_end_declaration:
 
                     while (true) {
@@ -657,9 +633,9 @@ final class CReader
                     }
                     break;
 
-                // ======================================================
+                    // ======================================================
 
-                // pointer direct_declarator
+                    // pointer direct_declarator
                 case CReaderState::declarator:
                     // Pointer
                     $pointers = $this->getPointers();
@@ -692,7 +668,7 @@ final class CReader
                     }
                     break;
 
-                /*
+                    /*
                  * data['n']: the sub declaration
                  */
                 case CReaderState::subdeclarator:
@@ -795,14 +771,14 @@ final class CReader
                     }
                     break;
 
-                /*
+                    /*
                  * The element is a recursive declarator
                  */
                 case CReaderState::subdeclarator_end:
                     $c = $this->fgetc();
 
                     if ($c === ')') {
-                        $declarator_level --;
+                        $declarator_level--;
                         $subDeclaration = $data['n'];
 
                         self::mergeElements($element, $subDeclaration);
@@ -864,7 +840,7 @@ final class CReader
                     $this->pushState(CReaderState::parameter, $data);
                     break;
 
-                // ======================================================
+                    // ======================================================
 
                 case CReaderState::parameter:
                     $newElement = $this->newElement();
@@ -894,9 +870,9 @@ final class CReader
                         if (\count($params) === 1 && self::elementIsEmpty($params[0]))
                             $element['parameters'] = [];
                         else {
-                            $empty = \array_filter($params, 'self::elementIsEmpty');
+                            $empty = \array_filter($params, self::elementIsEmpty(...));
 
-                            if (! empty($empty)) {
+                            if (!empty($empty)) {
                                 $this->pushState(CReaderState::wait_end_declaration);
                                 break;
                             }

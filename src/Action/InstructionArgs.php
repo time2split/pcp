@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action;
 
 use Time2Split\Help\IO;
@@ -33,7 +34,7 @@ final class InstructionArgs
         for (;;) {
             switch ($state) {
 
-                // start
+                    // start
                 case 0:
                     $c = $this->nextChar();
 
@@ -51,7 +52,7 @@ final class InstructionArgs
                         throw new \Exception("Invalid '$c' char");
                     break;
 
-                // Bool
+                    // Bool
                 case 5:
                     $c = $this->nextChar();
 
@@ -62,7 +63,7 @@ final class InstructionArgs
                         throw new \Exception("Invalid '$c' char");
                     break;
 
-                // A key is set
+                    // A key is set
                 case 10:
                     $c = $this->nextChar();
 
@@ -80,7 +81,7 @@ final class InstructionArgs
                     }
                     break;
 
-                // Waiting value
+                    // Waiting value
                 case 20:
                     $c = $this->nextChar();
 
@@ -91,7 +92,7 @@ final class InstructionArgs
                         throw new \Exception();
                     break;
 
-                // Check value list
+                    // Check value list
                 case 21:
                     $c = $this->nextChar();
 
@@ -136,7 +137,7 @@ final class InstructionArgs
     private function nextElement($c): ?string
     {
         if ($c === '"')
-            return $this->fnav->getCharsUntil('"');
+            return $this->fnav->getCharsUntil(fn ($c) => $c === '"');
 
         return $c . $this->nextWord();
     }
@@ -149,7 +150,7 @@ final class InstructionArgs
 
     private static function ctype_word(string $c)
     {
-        return ! \ctype_space($c) && \strpos(':=,', $c) === false;
+        return !\ctype_space($c) && \strpos(':=,', $c) === false;
     }
 
     private function nextWord()
