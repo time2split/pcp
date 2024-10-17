@@ -7,7 +7,6 @@ namespace Time2Split\PCP\C\Element;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Help\Streams;
-use Time2Split\Help\Traversables;
 use Time2Split\PCP\Expression\Expressions;
 use Time2Split\PCP\File\Section;
 
@@ -69,14 +68,5 @@ final class PCPPragma extends CPPDirective
     public function copy(Configuration $arguments = null): self
     {
         return new self($this->getDirective(), $this->getText(), $this->getFileSection(), $this->cmd, $this->textArgs, $arguments ?? clone $this->arguments);
-    }
-
-    public function shiftArguments(): self
-    {
-        list($cmd,) = Traversables::firstKeyValue($this->arguments);
-        $args = Configurations::of($this->arguments);
-        unset($args[$cmd]);
-
-        return new self($this->getDirective(), $this->getText(), $this->getFileSection(), $cmd, $this->textArgs, $args);
     }
 }

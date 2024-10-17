@@ -1,5 +1,7 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\Action\PCP\Generate\Instruction;
 
 use Time2Split\Config\Configuration;
@@ -12,8 +14,7 @@ use Time2Split\PCP\C\Element\CDeclaration;
 final class Factory
 {
 
-    public function __construct(private ReadingOneFile $readingFile)
-    {}
+    public function __construct(private ReadingOneFile $readingFile) {}
 
     public function create(CDeclaration $subject, Configuration $instruction): Instruction
     {

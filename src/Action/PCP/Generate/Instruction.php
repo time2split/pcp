@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action\PCP\Generate;
 
 use Time2Split\Config\Configuration;
@@ -12,7 +13,6 @@ abstract class Instruction
     public abstract function getTargets(): array;
 
     // ========================================================================
-    private array $targets;
 
     private CElement $subject;
 
@@ -25,10 +25,14 @@ abstract class Instruction
         $this->subject = $subject;
 
         $i = clone $arguments;
-        $stype = $subject->getElementType();
-
         $tags = (array) ($arguments['tags'] ?? null);
-        $tags[] = $stype->value;
+
+        // Add the subject types as tags
+        $stypes = $subject->getElementType();
+        foreach ($stypes as $t)
+            $tags[] = $t->value;
+
+
         \sort($tags);
         $this->tags = $tags;
         unset($i['tags']);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Time2Split\PCP\C;
 
 use Time2Split\Help\Classes\NotInstanciable;
+use Time2Split\Help\Set;
 use Time2Split\PCP\App;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CElementType;
@@ -37,10 +38,9 @@ final class CElements
     {
         return self::$null ??= new class() implements CElement
         {
-
-            public function getElementType(): CElementType
+            public function getElementType(): Set
             {
-                return CElementType::None;
+                return CElementType::of();
             }
         };
     }

@@ -21,15 +21,12 @@ final class Prototype extends Instruction
     public function generate(): string
     {
         $subject = $this->getSubject();
+        $etypes = $subject->getElementType();
 
-        switch ($subject->getElementType()) {
-            case CElementType::Prototype:
-            case CElementType::Function:
-                return $this->generatePrototype($subject, $this->getArguments()) . ';';
-                break;
-            default:
-                throw new \Exception("Cannot generate a prototype from a {$subject->getElementType()} element");
-        }
+        if ($etypes[CElementType::Function])
+            return $this->generatePrototype($subject, $this->getArguments()) . ';';
+
+        throw new \Exception("Cannot generate a prototype from a {$subject->getElementType()} element");
     }
 
     public function getTargets(): array

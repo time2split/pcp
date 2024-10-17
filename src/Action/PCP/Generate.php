@@ -19,13 +19,12 @@ use Time2Split\PCP\Action\PCP\Generate\InstructionStorage;
 use Time2Split\PCP\Action\PCP\Generate\TargetsCode;
 use Time2Split\PCP\Action\PCP\Generate\Instruction\Factory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
-use Time2Split\PCP\C\CDeclarationGroup;
-use Time2Split\PCP\C\CDeclarationType;
 use Time2Split\PCP\C\CElement;
 use Time2Split\PCP\C\CElements;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\File\Section;
@@ -139,21 +138,14 @@ final class Generate extends BaseAction
 
     private function processCDeclaration(CDeclaration $declaration)
     {
-        if (! $declaration->getType() === CDeclarationType::tfunction)
+        if (! $declaration->getElementType()[CElementType::Function])
             return;
 
-        if ( //
-            $declaration->getGroup() === CDeclarationGroup::definition || //
-            ($declaration->getGroup() === CDeclarationGroup::declaration && //
-                $declaration->getType() === CDeclarationType::tfunction)
-        ) {
-
-            foreach ($this->instructions as $pcpPragma) {
-                $i = $this->makeInstruction($pcpPragma->getArguments());
-                $this->istorage->put($this->ifactory->create($declaration, $i));
-            }
-            $this->instructions = [];
+        foreach ($this->instructions as $pcpPragma) {
+            $i = $this->makeInstruction($pcpPragma->getArguments());
+            $this->istorage->put($this->ifactory->create($declaration, $i));
         }
+        $this->instructions = [];
     }
 
     public function onPhase(Phase $phase, $data = null): void
@@ -272,30 +264,6 @@ final class Generate extends BaseAction
     }
 
     // ========================================================================
-    /*
-    private function skipGenerated($stream): int
-    {
-        $pos = \ftell($stream);
-        $reader = CReader::fromStream($stream, false);
-        $reader->setCPPDirectiveFactory(CPPDirectives::factory($this->config));
-
-        $cppDirective = $reader->nextCPPDirective();
-
-        if (! isset($cppDirective) || ! CContainer::of($cppDirective)->isPCPPragma() || $cppDirective->getCommand() !== 'begin')
-            goto noBegin;
-
-        while (true) {
-            $cppDirective = $reader->nextCPPDirective();
-
-            if (isset($cppDirective) && CContainer::of($cppDirective)->isPCPPragma() && $cppDirective->getCommand() === 'end')
-                break;
-        }
-        return \ftell($stream) - $pos;
-        noBegin:
-        $reader->close();
-        return 0;
-    }
-    //*/
 
     private static function includeSource(string $file): TargetsCode
     {

@@ -1,40 +1,96 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\C\Element;
 
-use Time2Split\PCP\C\CDeclarationGroup;
-use Time2Split\PCP\C\CReaderElement;
-use Time2Split\PCP\C\CElements;
+use Time2Split\Help\Set;
+use Time2Split\Help\Sets;
 
-enum CElementType: string
+enum CElementType: int
 {
 
-    case None = '@none';
+    case CPP = 512;
 
-    case Prototype = 'prototype';
+    case Function = 256;
 
-    case Function = 'function';
+    case Variable = 128;
 
-    case CPPMacro = 'cpp.macro';
+    case Declaration = 1;
 
-    case CPPDirective = 'cpp.directive';
+    case Definition = 2;
 
-    public static function of(CReaderElement $element): self
+    public static function ofVariableDeclaration(): Set
     {
-        if ($element instanceof CPPDefine)
-            return self::CPPMacro;
-        if ($element instanceof CPPDirective)
-            return self::CPPDirective;
-        if ($element instanceof CDeclaration) {
+        return self::of(self::Variable, self::Declaration);
+    }
 
-            if ($element->getGroup() === CDeclarationGroup::definition)
-                return self::Function;
+    public static function ofFunctionDeclaration(): Set
+    {
+        return self::of(self::Function, self::Declaration);
+    }
 
-            return self::Prototype;
+    public static function ofFunctionDefinition(): Set
+    {
+        return self::of(self::Function, self::Definition);
+    }
+
+    // ========================================================================
+
+    private const AllowedTypes = [
+        [],
+        [self::CPP],
+        [self::CPP, self::Definition],
+        [self::Variable, self::Declaration],
+        [self::Function, self::Declaration],
+        [self::Function, self::Definition],
+    ];
+
+    private static function getCacheIndex(self ...$types): int
+    {
+        $i = 0;
+
+        foreach ($types as $t)
+            $i |= $t->value;
+
+        return $i;
+    }
+
+    private static function createSet(self ...$types): Set
+    {
+        return (Sets::ofBackedEnum(self::class))
+            ->setMore(...$types);
+    }
+
+    // ========================================================================
+
+    /**
+     * @throws \InvalidArgumentException
+     * @return Set<CElementType> An unmodifiable set of types.
+     * The obtained set is comparable to previous returned sets with ===.
+     */
+    public static function of(self ...$types): Set
+    {
+        if (!\in_array($types, self::AllowedTypes, true)) {
+            $types = \implode(',', \array_map(fn($t) => $t->name, $types));
+            throw new \InvalidArgumentException(__METHOD__ . "Unknown combinainon of " . self::class . "($types)");
         }
-        if ($element === CElements::null())
-            return self::None;
+        static $cache = [];
+        $pos = self::getCacheIndex(...$types);
 
-        throw new \Error(__METHOD__ . "Unknown element type");
+        if (isset($cache[$pos]))
+            return $cache[$pos];
+
+        return $cache[$pos] = Sets::unmodifiable(self::createSet(...$types));
+    }
+
+    public static function stringOf(Set $type)
+    {
+        $ret = [];
+
+        foreach ($type as $t)
+            $ret[] = $t->name;
+
+        return \implode(',', $ret);;
     }
 }

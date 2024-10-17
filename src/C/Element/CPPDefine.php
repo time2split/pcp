@@ -2,15 +2,12 @@
 
 namespace Time2Split\PCP\C\Element;
 
-use Time2Split\Config\Configuration;
-use Time2Split\Config\Configurations;
+use Time2Split\Help\Set;
 use Time2Split\PCP\C\CReader;
-use Time2Split\PCP\Expression\Expressions;
 use Time2Split\PCP\File\Section;
 
 final class CPPDefine extends CPPDirective
 {
-
     private function __construct(
         string $definitionText,
         Section $cursors,
@@ -32,13 +29,9 @@ final class CPPDefine extends CPPDirective
         return new self($definitionText, $cursors, $element['name'], $element['params'], $element['text']);
     }
 
-    private static function parseArguments(string $text): Configuration
+    public function getElementType(): Set
     {
-        $config = Configurations::empty();
-        $parser = Expressions::arguments();
-        $result = $parser->tryString($text)->output();
-        $result->get($config); // Do the assignation
-        return $config;
+        return CElementType::of(CElementType::CPP, CElementType::Definition);
     }
 
     public function isFunction(): bool
@@ -46,7 +39,7 @@ final class CPPDefine extends CPPDirective
         return empty($this->parameters);
     }
 
-    public function getMacroParameters(): Configuration
+    public function getMacroParameters(): array
     {
         return $this->parameters;
     }

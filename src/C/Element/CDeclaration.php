@@ -5,15 +5,12 @@ declare(strict_types=1);
 namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Help\Arrays;
-use Time2Split\PCP\C\CDeclarationGroup;
-use Time2Split\PCP\C\CDeclarationType;
+use Time2Split\Help\Iterables;
 use Time2Split\PCP\C\CMatching;
 use Time2Split\PCP\C\CReaderElement;
 
 final class CDeclaration extends CReaderElement
 {
-    use CElementTypeTrait;
-
     private array $uinfos;
 
     private function __construct(array $elements)
@@ -27,16 +24,6 @@ final class CDeclaration extends CReaderElement
         return new CDeclaration($element);
     }
 
-    public function getGroup(): CDeclarationGroup
-    {
-        return $this['group'];
-    }
-
-    public function getType(): CDeclarationType
-    {
-        return $this['type'];
-    }
-
     /**
      * Get the specifiers of a function.
      *
@@ -45,8 +32,8 @@ final class CDeclaration extends CReaderElement
      */
     public function getSpecifiers(): array
     {
-        if ($this->getType() !== CDeclarationType::tfunction)
-            throw new \DomainException();
+        if (!$this->getElementType()[CElementType::Function])
+            throw new \DomainException('Cannot get the specifiers of ' . CElementType::stringOf($this->getElementType()));
 
         $ret = [];
         $nb = (int) $this['infos']['specifiers.nb'];
@@ -73,7 +60,7 @@ final class CDeclaration extends CReaderElement
 
     // ========================================================================
 
-    /* 
+    // /* 
     public function getUnknownInfos(): array
     {
         if (!empty($this->uinfos))
@@ -81,7 +68,7 @@ final class CDeclaration extends CReaderElement
 
         return $this->uinfos = self::makeUnknownInfos($this->getArrayCopy());
     }
-    */
+    // */
 
     // ========================================================================
     public static function makeUnknownInfos(array $element): array
@@ -122,6 +109,7 @@ final class CDeclaration extends CReaderElement
 
     public function __toString()
     {
-        return "CDeclaration:{$this->getType()}";
+        $type = Iterables::mapValue($this->getElementType(), fn($t) => $t->name);
+        return "CDeclaration:$type";
     }
 }

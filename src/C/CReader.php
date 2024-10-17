@@ -7,6 +7,7 @@ namespace Time2Split\PCP\C;
 use Time2Split\Help\CharPredicates;
 use Time2Split\Help\Streams;
 use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\File\CursorPosition;
 use Time2Split\PCP\File\Navigator;
@@ -113,7 +114,7 @@ final class CReader
 
     private const C_DELIMITERS = '""\'\'(){}[]';
 
-    /*
+    /**
      * A '/' as been read
      */
     private function skipComment(): bool
@@ -328,8 +329,7 @@ final class CReader
     private function newElement(): array
     {
         return [
-            'group' => CDeclarationGroup::declaration,
-            'type' => CDeclarationType::tvariable,
+            'type' => CElementType::ofVariableDeclaration(),
             'cursor' => $this->fnav->getCursorPosition(),
             'items' => [],
             'infos' => []
@@ -593,7 +593,7 @@ final class CReader
 
                 case CReaderState::declaration_end:
 
-                    if ($element['group'] === CDeclarationGroup::definition && $element['type'] == CDeclarationType::tfunction)
+                    if ($element['type'] === CElementType::of(CElementType::Function, CElementType::Definition))
                         $retElements[] = $element;
                     else {
                         $c = $this->nextChar();
@@ -661,15 +661,15 @@ final class CReader
                     }
                     break;
 
-                    /*
-                 * data['n']: the sub declaration
-                 */
+                    /**
+                     * data['n']: the sub declaration
+                     */
                 case CReaderState::subdeclarator:
                     $c = $this->silentChar();
 
                     // List of parameters
                     if ($c === ',') {
-                        $element['type'] = CDeclarationType::tfunction;
+                        $element['type'] = CElementType::ofFunctionDeclaration();
                         $this->pushState(CReaderState::opt_function_definition, $data);
                         $this->pushState(CReaderState::parameter_list, $data);
                     } elseif ($c === ')') {
@@ -677,7 +677,7 @@ final class CReader
                         $uinfos = CDeclaration::makeUnknownInfos($subDeclaration);
 
                         if (self::elementIsEmpty($subDeclaration) || self::elementIsParameter($uinfos)) {
-                            $element['type'] = CDeclarationType::tfunction;
+                            $element['type'] = CElementType::ofFunctionDeclaration();
                             $this->pushState(CReaderState::opt_function_definition, $data);
                             $this->pushState(CReaderState::parameter_list, $data);
                         } elseif (self::elementIsNotParameter($uinfos)) {
@@ -708,7 +708,7 @@ final class CReader
                     $c = $this->silentChar();
 
                     // The subdeclarator is followed by a function|array declarator
-                    if (($isfun = ($type2 === CDeclarationType::tfunction)) || $type2 === CDeclarationType::tarray) {
+                    if (($isfun = ($type2[CElementType::Function]))) {
 
                         // Merge the sub declarator with the main declarator
                         $element['items'][] = '(';
@@ -740,8 +740,7 @@ final class CReader
                             self::elementAddItems($element, $after['items']);
                         }
                     } elseif ($c === '{') {
-                        $element['group'] = CDeclarationGroup::definition;
-                        $element['type'] = CDeclarationType::tfunction;
+                        $element['type'] = CElementType::ofFunctionDefinition();
                         self::elementSet($element, 'parameters', [
                             $data['n']
                         ]);
@@ -755,7 +754,7 @@ final class CReader
                         self::mergeElements($element, $data['n']);
                         $element['items'][] = ')';
 
-                        if ($n['type'] == CDeclarationType::tfunction) {
+                        if ($n['type'][CElementType::Function]) {
                             self::elementSet($element, 'parameters', $n['parameters']);
                         } else {
                             // Arbitrary set the element to be a recursive declaration
@@ -764,9 +763,9 @@ final class CReader
                     }
                     break;
 
-                    /*
-                 * The element is a recursive declarator
-                 */
+                    /** 
+                     *  is a recursive declarator
+                     */
                 case CReaderState::subdeclarator_end:
                     $c = $this->fgetc();
 
@@ -812,7 +811,7 @@ final class CReader
 
                     if ($c === '{') {
                         $cstatement = $this->getDelimitedText();
-                        $element['group'] = CDeclarationGroup::definition;
+                        $element['type'] = CElementType::ofFunctionDefinition();
                         $element['cstatement'] = $cstatement;
                     }
                     break;
@@ -824,7 +823,7 @@ final class CReader
                     break;
 
                 case CReaderState::direct_declarator_function:
-                    $element['type'] = CDeclarationType::tfunction;
+                    $element['type'] = CElementType::ofFunctionDeclaration();
                     $this->pushState(CReaderState::opt_function_definition, $data);
                     $this->pushState(CReaderState::parameter, $data);
                     break;

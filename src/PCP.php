@@ -265,11 +265,11 @@ class PCP extends BasePublisher
                     if (!isset($this->monopolyFor) || !$this->monopolyFor->noExpandAtConfig())
                         $element = $this->expandAtConfig($element, $fileConfig);
                 } {
+                    $ctypes = $element->getElementType($element);
                     // Set C informations
-                    $ctype = $element->getElementType($element);
-                    $fileConfig['C.type'] = $ctype->value;
+                    // $fileConfig['C.types'] = $ctypes;
 
-                    if ($ctype === CElementType::Function) {
+                    if ($ctypes[CElementType::Function]) {
                         $fileConfig['C.specifiers'] = $element->getSpecifiers();
                         $fileConfig['C.identifier'] = $element->getIdentifier();
                     }

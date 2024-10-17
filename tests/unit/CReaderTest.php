@@ -14,6 +14,7 @@ use Time2Split\PCP\C\CDeclarationGroup;
 use Time2Split\PCP\C\CDeclarationType;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\File\Section;
@@ -143,8 +144,7 @@ END
         $array = [
             ...self::CElementsForOneExpectation(
                 [
-                    'group' => CDeclarationGroup::declaration,
-                    'type' => CDeclarationType::tvariable,
+                    'type' => CElementType::ofVariableDeclaration(),
                 ],
                 ['var', 'int a;'],
                 ['c var', 'const int a;'],
@@ -158,8 +158,7 @@ END
             ),
             ...self::CElementsForOneExpectation(
                 [
-                    'group' => CDeclarationGroup::declaration,
-                    'type' => CDeclarationType::tfunction,
+                    'type' => CElementType::ofFunctionDeclaration(),
                 ],
                 ['f()', 'int f();'],
                 ['f(a)', 'int f(int a);'],
@@ -168,8 +167,7 @@ END
             ),
             ...self::CElementsForOneExpectation(
                 [
-                    'group' => CDeclarationGroup::definition,
-                    'type' => CDeclarationType::tfunction,
+                    'type' => CElementType::ofFunctionDefinition(),
                 ],
                 ['f(){}', 'int f(){ return 0; }'],
                 ['f(a){}', 'int f(int a){ return a ;}'],
@@ -188,6 +186,7 @@ END
 
         $carray = $celement->getArrayCopy();
         $carray = \array_intersect_key($carray, $expect);
+        $carray['type'] = $celement->getElementType();
         $this->assertEquals($expect, $carray);
     }
 
