@@ -1,0 +1,12 @@
+void fpempty();
+void fpvoid(void);
+void fpint(int a);
+void fpiint(int a, int b);
+inline int finline();
+int inline finline();
+int finline();
+int finline();
+
+int pref_name();
+int name_suff();
+int pref_name_suff();

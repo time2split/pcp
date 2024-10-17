@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action\PCP;
 
 use Time2Split\PCP\Action\BaseAction;
@@ -13,10 +14,11 @@ class EchoAction extends BaseAction
         error_dump(__class__ . " onSubscribe()");
     }
 
-    public function onMessage(CContainer $msg): void
+    public function onMessage(CContainer $msg): array
     {
         error_dump(__class__ . " onMessage()");
         error_dump($msg);
+        return [];
     }
 
     public function onPhase(Phase $phase, $data = null): void

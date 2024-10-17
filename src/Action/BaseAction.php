@@ -1,5 +1,7 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\Action;
 
 use Time2Split\Config\Configuration;
@@ -42,7 +44,13 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         if (\strlen($subDir) > 0 && $subDir[0] !== '/')
             $subDir = "/$subDir";
 
-        IO::wdPush($this->config['pcp.dir'] . $subDir);
+        $dir = $this->config['pcp.dir'];
+        $wd = $dir . $subDir;
+
+        if (0 === \strlen($wd))
+            $wd = '.';
+
+        IO::wdPush($wd);
     }
 
     protected final function outWorkingDir(): void
@@ -55,6 +63,5 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         return [];
     }
 
-    public function onPhase(Phase $phase, $data = null): void
-    {}
+    public function onPhase(Phase $phase, $data = null): void {}
 }

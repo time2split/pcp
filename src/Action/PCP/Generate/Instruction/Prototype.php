@@ -1,5 +1,7 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\Action\PCP\Generate\Instruction;
 
 use Time2Split\Config\Configuration;
@@ -25,8 +27,8 @@ final class Prototype extends Instruction
             case CElementType::Function:
                 return $this->generatePrototype($subject, $this->getArguments()) . ';';
                 break;
-            case CElementType::Macro:
-                throw new \Exception("Cannot generate a prototype from a Macro element");
+            default:
+                throw new \Exception("Cannot generate a prototype from a {$subject->getElementType()} element");
         }
     }
 
@@ -53,11 +55,11 @@ final class Prototype extends Instruction
         $drop = (array) $arguments['drop'];
         $drop = \array_combine($drop, \array_fill(0, \count($drop), true));
 
-        for ($i = 0, $c = (int) $subject['infos']['specifiers.nb']; $i < $c; $i ++) {
+        for ($i = 0, $c = (int) $subject['infos']['specifiers.nb']; $i < $c; $i++) {
             $s = &$subject['items'][$i];
 
             if (isset($drop[$s]))
-                $s = null;
+                $s = (string)null;
         }
         unset($s);
         return self::prototypeToString($subject);

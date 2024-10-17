@@ -378,7 +378,7 @@ final class CReader
 
             // Abstract declarator
             if ((\strlen($id) > 0 && !\ctype_alpha($id[0])) || CMatching::isSpecifier($id)) {
-                $element['items'][] = null;
+                $element['items'][] = (string)null;
                 $i++;
             }
             self::setElementIdentifier($element, $i);
@@ -856,9 +856,11 @@ final class CReader
                         $params = $element['_parameters'];
                         unset($element['_parameters']);
 
-                        if (\count($params) === 1 && self::elementIsEmpty($params[0]))
+                        if (\count($params) === 1 && self::elementIsEmpty($params[0])) {
                             $element['parameters'] = [];
-                        else {
+                            $element['items'][] = '(';
+                            $element['items'][] = ')';
+                        } else {
                             $empty = \array_filter($params, self::elementIsEmpty(...));
 
                             if (!empty($empty)) {

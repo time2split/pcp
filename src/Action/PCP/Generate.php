@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\Action\PCP;
 
 use Time2Split\Config\Configuration;
@@ -61,18 +64,28 @@ final class Generate extends BaseAction
 
     private ReadingOneFile $oneFileData;
 
-    public function __construct(Configuration $config)
+    public function setConfig($config)
     {
-        parent::__construct($config);
-        $this->config = Configurations::emptyChild($this->config);
+        $this->config = Configurations::hierarchy(
+            App::configuration(self::DefaultConfig),
+            $config,
+            App::emptyConfiguration()
+        );
     }
 
-    public static function isPCPGenerate(CElement $element, ?string $firstArg = null): bool
+    private static function isPCPGenerate(CElement|CContainer $element, ?string $firstArg = null): bool
     {
+        if ($element instanceof CContainer) {
+
+            if (!$element->isPCPPragma())
+                return false;
+
+            $element = $element->getCppDirective();
+        }
         return CElements::isPCPCommand($element, 'generate', $firstArg);
     }
 
-    public static function PCPIsGenerate(PCPPragma $element, ?string $firstArg = null): bool
+    private static function PCPIsGenerate(PCPPragma $element, ?string $firstArg = null): bool
     {
         return CElements::PCPIsCommand($element, 'generate', $firstArg);
     }
@@ -90,7 +103,7 @@ final class Generate extends BaseAction
         if ($ccontainer->isPCPPragma()) {
             $pragma = $ccontainer->getPCPPragma();
 
-            if ($pragma->getCommand() === 'generate') {
+            if ($this->PCPIsGenerate($pragma)) {
                 $args = $pragma->getArguments();
 
                 if ($this->waitingForEnd) {
@@ -115,7 +128,6 @@ final class Generate extends BaseAction
         // The order of the $instruction arguments is important
         $first = $instruction;
         $secnd = $this->config->subTreeCopy('generate');
-
         return Configurations::hierarchy($secnd, $first);
     }
 
@@ -131,9 +143,10 @@ final class Generate extends BaseAction
             return;
 
         if ( //
-        $declaration->getGroup() === CDeclarationGroup::definition || //
-        ($declaration->getGroup() === CDeclarationGroup::declaration && //
-        $declaration->getType() === CDeclarationType::tfunction)) {
+            $declaration->getGroup() === CDeclarationGroup::definition || //
+            ($declaration->getGroup() === CDeclarationGroup::declaration && //
+                $declaration->getType() === CDeclarationType::tfunction)
+        ) {
 
             foreach ($this->instructions as $pcpPragma) {
                 $i = $this->makeInstruction($pcpPragma->getArguments());
@@ -168,7 +181,9 @@ final class Generate extends BaseAction
 
                     $this->outWorkingDir();
                 } elseif (PhaseState::Stop == $phase->state) {
+                    $this->goWorkingDir(self::wd);
                     $this->generate();
+                    $this->outWorkingDir();
                 }
                 break;
 
@@ -183,7 +198,6 @@ final class Generate extends BaseAction
 
                 if (PhaseState::Start == $phase->state) {
                     $this->oneFileData = $data;
-                    $this->oneFileMTime = $data->fileInfo->getMTime();
                     $this->ifactory = new Factory($data);
                     $this->istorage = new InstructionStorage($data);
                     $this->resetConfig();
@@ -197,13 +211,7 @@ final class Generate extends BaseAction
 
     private function resetConfig(): void
     {
-        $default = App::configuration(self::DefaultConfig);
-        foreach ($default as $k => $v) {
-            if (isset($this->config[$k]))
-                return;
-        }
-        $this->config->mergeTree(self::DefaultConfig);
-        unset($v);
+        $this->config->clear();
     }
 
     // ========================================================================
@@ -215,7 +223,7 @@ final class Generate extends BaseAction
             $this->instructions[] = $inst;
         } else {
             // Update the configuration
-            $args = Arrays::map_key(fn ($k) => "generate.$k", $args->toArray());
+            $args = Arrays::arrayMapKey(fn($k) => "generate.$k", $args->toArray());
             $this->config->merge($args);
         }
     }
@@ -236,22 +244,23 @@ final class Generate extends BaseAction
     {
         $codes = $this->istorage->getTargetsCode();
         $finfo = $this->oneFileData->fileInfo;
-        $fileDir = "{$finfo->getPathInfo()}/";
-
-        if (! \is_dir($fileDir))
-            \mkdir($fileDir, 0777, true);
-
-        $filePath = "$fileDir/{$finfo->getFileName()}.gen.php";
+        $filePath = "$finfo.gen.php";
 
         if ($codes->isEmpty()) {
             // Clean existing files
             if (\is_file($filePath))
                 \unlink($filePath);
         } else {
+            $path = $finfo->getPath();
+
+            if (\strlen($path) !== 0 && ! \is_dir($path))
+                \mkdir($path, recursive: true);
+
             $export = $codes->array_encode();
 
             if ($export !== @include $filePath)
-                IO::printPHPFile($filePath, $export);
+                if (false === $i = IO::printPHPFile($filePath, $export))
+                    throw new \Exception("Unable to write " . getcwd() . "/$filePath");
         }
     }
 
@@ -263,6 +272,7 @@ final class Generate extends BaseAction
     }
 
     // ========================================================================
+    /*
     private function skipGenerated($stream): int
     {
         $pos = \ftell($stream);
@@ -285,6 +295,7 @@ final class Generate extends BaseAction
         $reader->close();
         return 0;
     }
+    //*/
 
     private static function includeSource(string $file): TargetsCode
     {
@@ -293,20 +304,20 @@ final class Generate extends BaseAction
 
     private function areaWriter(\SplFileInfo $srcFileInfo, \SplFileInfo $targetFileInfo, array $genCodes)
     {
-        $writer = App::fileInsertion($targetFileInfo, self::tmpFile);
+        $writer = App::fileInsertion((string)$targetFileInfo, self::tmpFile);
         $srcTime = $srcFileInfo->getMTime();
-        $srcFile = \substr($srcFileInfo, 1 + \strlen($this->workingDir));
+        $srcFile = \substr((string)$srcFileInfo, 1 + \strlen($this->workingDir));
 
         return new class($writer, $srcTime, $genCodes, $srcFile) {
 
             private string $srcTimeFormat;
 
             function __construct( //
-            private StreamInsertion $writer, //
-            private int $srcTime, //
-            private array $genCodes, //
-            private string $srcFile)
-            {
+                private StreamInsertion $writer, //
+                private int $srcTime, //
+                private array $genCodes, //
+                private string $srcFile
+            ) {
                 $this->srcTimeFormat = \date(DATE_ATOM, $srcTime);
 
                 foreach ($genCodes as $code)
@@ -396,6 +407,10 @@ final class Generate extends BaseAction
                     $writer->seekSet($section->begin->pos);
                     $writer->seekSkip($section->end->pos);
 
+                    // Must add a eol char
+                    if ($section->begin->line === $section->end->line)
+                        $writer->write("\n");
+
                     if (! empty($selectedCodes)) {
                         $writer->write("#pragma pcp generate begin mtime=$this->srcTime src=\"$this->srcFile\"\n// $this->srcTimeFormat\n");
                         foreach ($selectedCodes as $code)
@@ -422,12 +437,9 @@ final class Generate extends BaseAction
 
     private function generate(): void
     {
-        $sourcesPath = \getcwd();
-        $this->workingDir = $sourcesPath;
-        $this->goWorkingDir(self::wd);
+        $sourcesPath = $this->config['dir.root'];
+        $this->workingDir = $this->config['pcp.dir'];
 
-        // $cppNames = (array) $this->config['pcp.name'];
-        // $cppName = Arrays::first($cppNames);
         $sourceCache = [];
 
         $dirIterator = new \RecursiveDirectoryIterator('.', \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::KEY_AS_PATHNAME);
@@ -438,9 +450,9 @@ final class Generate extends BaseAction
 
         foreach ($dirIterator as $genFilePath) {
             // Skip the './' prefix
-            $genFilePath = \substr($genFilePath, 2);
+            $genFilePath = \substr((string)$genFilePath, 2);
 
-            $srcFile = \substr($genFilePath, 0, - 8);
+            $srcFile = \substr($genFilePath, 0, -8);
             $srcFilePath = "$sourcesPath/$srcFile";
 
             // The source file has been deleted
@@ -453,7 +465,7 @@ final class Generate extends BaseAction
             $targetsCode = $sourceCache[$genFilePath] ??= self::includeSource($genFilePath);
 
             foreach ($targetsCode as $target => $genCodes) {
-                $targetFilePath = "$sourcesPath/{$target->getFileInfo()}";
+                $targetFilePath = (string)$target->getFileInfo();
 
                 // The target file has been deleted
                 if (! \is_file($targetFilePath))
@@ -483,9 +495,6 @@ final class Generate extends BaseAction
                 \clearstatcache(filename: $targetFilePath);
             }
         }
-        $this->outWorkingDir();
-        return;
-        unset($sourceCache);
     }
 
     private function nextArea(string $targetFilePath, string $srcFile, int $srcMTime): \Iterator
@@ -507,6 +516,10 @@ final class Generate extends BaseAction
             if (! Generate::isPCPGenerate($area, 'area'))
                 continue;
 
+            /**
+             * @var \Time2Split\PCP\C\CPPDirective $area
+             */
+
             $arguments = App::configShift($area->getArguments());
             $sectionsArguments = new \SplObjectStorage();
 
@@ -515,6 +528,9 @@ final class Generate extends BaseAction
 
             if (! isset($cppElement));
             else if (self::isPCPGenerate($cppElement, 'begin')) {
+                /**
+                 * @var \Time2Split\PCP\C\CPPDirective $cppElement
+                 */
 
                 while (true) {
                     $end = $creader->next();
@@ -525,6 +541,9 @@ final class Generate extends BaseAction
                     $isPCPEnd = self::isPCPGenerate($end, 'end');
 
                     if ($isPCPEnd || self::isPCPGenerate($end, 'begin')) {
+                        /**
+                         * @var \Time2Split\PCP\C\CPPDirective $end
+                         */
                         $section = new Section($cppElement->getFileSection()->begin, $end->getFileSection()->begin);
                         $sectionsArguments->attach($section, $cppElement->getArguments());
                         $sections[] = $section;
@@ -537,6 +556,9 @@ final class Generate extends BaseAction
                 if (! isset($isPCPEnd))
                     throw new \Exception("$targetFilePath: waiting 'end' pcp pragma from $cppElement; reached the end of the file");
 
+                /**
+                 * @var \Time2Split\PCP\C\CPPDirective $end
+                 */
                 if (isset($end))
                     $sections[] = $end->getFileSection();
             } else

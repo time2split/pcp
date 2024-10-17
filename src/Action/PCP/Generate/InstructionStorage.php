@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action\PCP\Generate;
 
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
@@ -6,16 +7,12 @@ use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
 final class InstructionStorage
 {
 
-    private int $groupId;
-
     private array $storage;
 
     private ReadingOneFile $sourceFileData;
 
     public function __construct(ReadingOneFile $sourceFileData)
     {
-        $this->groupId = 0;
-        $this->targets = new TargetStorage();
         $this->storage = [];
         $this->sourceFileData = $sourceFileData;
     }
@@ -23,10 +20,6 @@ final class InstructionStorage
     public function put(Instruction $instruction): void
     {
         $this->storage[] = $instruction;
-
-        foreach ($instruction->getTargets() as $t) {
-            $t = self::makeTarget($t, $this->sourceFileData);
-        }
     }
 
     public function getTargetsCode(): TargetsCode
@@ -54,8 +47,10 @@ final class InstructionStorage
     {
         if ($targetPath === '.')
             return (string) $fileData->fileInfo;
-        elseif (false === \strpos('/', $targetPath) || \str_starts_with('./', $targetPath))
-            return "{$fileData->fileInfo->getPath()}/$targetPath";
+        if (\str_starts_with($targetPath, '/'))
+            return $targetPath;
+        if (false === \strpos('/', $targetPath) || \str_starts_with('./', $targetPath))
+            return "$fileData->fileInfo/$targetPath";
 
         return $targetPath;
     }

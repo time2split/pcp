@@ -68,7 +68,7 @@ final class CDeclaration extends CReaderElement
         if (!isset($this['identifier']))
             throw new \DomainException();
 
-        return $this['items'][$this['identifier']['pos']];
+        return (string)$this['items'][$this['identifier']['pos']];
     }
 
     // ========================================================================
@@ -89,14 +89,14 @@ final class CDeclaration extends CReaderElement
         $nbSpecifiers = $element['infos']['specifiers.nb'];
 
         $specifiers = \array_slice($element['items'], 0, $nbSpecifiers);
-        $unknown = \array_filter($specifiers, fn ($n) => !CMatching::isSpecifier($n));
-        $typeSpecifiers = \array_filter($specifiers, fn ($n) => CMatching::isTypeSpecifier($n));
+        $unknown = \array_filter($specifiers, fn($n) => !CMatching::isSpecifier($n));
+        $typeSpecifiers = \array_filter($specifiers, fn($n) => CMatching::isTypeSpecifier($n));
 
         $pointers = \array_slice($element['items'], $nbSpecifiers);
         $pointers = \array_filter($pointers); // Avoid null value (generated identifier)
         list(, $punknown) = Arrays::arrayPartition(
             $pointers,
-            fn ($n) => $n === '*' || CMatching::isTypeQualifier($n)
+            fn($n) => $n === '*' || CMatching::isTypeQualifier($n)
         );
 
         return [

@@ -15,19 +15,50 @@ final class App
 {
     use NotInstanciable;
 
+    private static function makeDefaultConfig(): array
+    {
+        return [
+            'pcp' => [
+                'process' => [],
+                'dir.root' => null,
+                'dir' => 'pcp.wd',
+                'reading.dir.configFiles' => 'pcp.conf',
+                'name' => [
+                    'pcp'
+                ]
+            ],
+            'paths' => [
+                'src'
+            ]
+        ];
+    }
+
     public static function emptyConfiguration(): Configuration
     {
         return self::getConfigBuilder()->build();
     }
 
-    public static function configuration(array $config): Configuration
+    public static function defaultConfiguration(array $config = []): Configuration
+    {
+        return self::getDefaultConfigBuilder()->mergeTree($config)->build();
+    }
+
+    public static function configuration(array $config = []): Configuration
     {
         return self::getConfigBuilder()->mergeTree($config)->build();
     }
 
-    public static function getConfigBuilder(): TreeConfigurationBuilder
+    public static function getDefaultConfigBuilder(): TreeConfigurationBuilder
     {
-        return Configurations::builder()->setKeyDelimiter('.')->setInterpolator(Expressions::interpolator());
+        return self::getConfigBuilder()->mergeTree(self::makeDefaultConfig());
+    }
+
+    public static function getConfigBuilder(array $default = []): TreeConfigurationBuilder
+    {
+        return Configurations::builder()
+            ->setKeyDelimiter('.')
+            ->setInterpolator(Expressions::interpolator())
+            ->mergeTree($default);
     }
 
     public static function fileInsertion(string $file, string $buffFile): StreamInsertion

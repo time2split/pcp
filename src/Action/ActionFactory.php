@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action;
 
 use Time2Split\Config\Configuration;
@@ -18,13 +19,11 @@ final class ActionFactory
         return new self($config);
     }
 
-    public function getActions(): array
+    public function getActions(string $action): array
     {
-        $action = $this->config['action'] ?? 'process';
-
         return match ($action) {
             'process' => [
-                // new \Action\PCP\EchoAction($this->config),
+                // new PCP\EchoAction($this->config),
                 new PCP\Generate($this->config),
                 new PCP\ForAction($this->config),
                 new PCP\ConfigAction($this->config)
