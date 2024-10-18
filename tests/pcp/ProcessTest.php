@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Time2Split\Help\Tests;
 
 use FilesystemIterator;
+use PHPUnit\Framework\Attributes\Before;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
@@ -71,9 +72,6 @@ final class ProcessTest extends TestCase
 
     public static function processProvider(): \Traversable
     {
-        // Setup
-        if (!\is_dir(self::WDir))
-            \mkdir(self::WDir, recursive: true);
 
         return (function () {
             $it = new RecursiveDirectoryIterator(self::BaseDir, FilesystemIterator::SKIP_DOTS | FilesystemIterator::CURRENT_AS_PATHNAME);
@@ -93,14 +91,17 @@ final class ProcessTest extends TestCase
     #[DataProvider("processProvider")]
     public function testProcess(string $dir)
     {
-        \chdir(self::BaseDir);
-
         $pcp = new PCP();
-        $target = self::WDir . "/target";
+        $wdir = self::WDir . "/$dir";
+
+        if (!\is_dir($wdir))
+            \mkdir($wdir);
+
+        $target = "$wdir/target";
         $config = App::defaultConfiguration();
         $config->merge([
             'generate.targets' => $target,
-            'pcp.dir' => self::WDir,
+            'pcp.dir' => $wdir,
             'paths' => $dir,
         ]);
 
@@ -128,5 +129,14 @@ final class ProcessTest extends TestCase
             }
         }
         $this->assertEmpty($result, \print_r($result, true));
+    }
+
+    public static function setUpBeforeClass(): void
+    {
+        \chdir(self::BaseDir);
+
+        // Setup
+        if (!\is_dir(self::WDir))
+            \mkdir(self::WDir, recursive: true);
     }
 }
