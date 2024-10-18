@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace Time2Split\Help\Tests;
 
-use FilesystemIterator;
-use PHPUnit\Framework\Attributes\Before;
+use DirectoryIterator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
 use Time2Split\PCP\App;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CDeclaration;
@@ -19,10 +16,11 @@ final class ProcessTest extends TestCase
 {
     private const ResultFileName = 'result';
 
-    private static function isProcessTestDir(string $dir): bool
-    {
-        return \is_dir($dir) && \is_file("$dir/" . self::ResultFileName);
-    }
+    private const TargetFileName = 'target';
+
+    private const BaseDir =  __DIR__ . '/process';
+
+    private const WDir =  __DIR__ . '/pcp.wd';
 
     private static function getCElementsResult(string $filePath): array
     {
@@ -65,39 +63,66 @@ final class ProcessTest extends TestCase
         return true;
     }
 
+    // ========================================================================
 
-    private const BaseDir =  __DIR__ . '/process';
+    /**
+     * Found all files of the form "${prefix}result${suffix}".
+     * @return A pattern "${prefix}%s${suffix}" for each founded result file.
+     */
+    public static function getTestsOfADirectory(\SplFileInfo $directory)
+    {
+        $result = self::ResultFileName;
+        $files = new \DirectoryIterator($directory->getPathname());
 
-    private const WDir =  __DIR__ . '/pcp.wd';
+        foreach ($files as $file) {
+            $fname = $file->getFilename();
+
+            if (!\preg_match("/(.*)$result(.*)/", $fname, $matches))
+                continue;
+
+            yield "$matches[1]%s$matches[2]";
+        }
+    }
+
+    public static function getTests()
+    {
+        $it = new DirectoryIterator(self::BaseDir);
+
+        foreach ($it as $dir) {
+            if (!$dir->isDir()) continue;
+
+            foreach (self::getTestsOfADirectory($dir) as $testPattern) {
+                yield $dir->getFilename() => $testPattern;
+            }
+        }
+    }
 
     public static function processProvider(): \Traversable
     {
-
         return (function () {
-            $it = new RecursiveDirectoryIterator(self::BaseDir, FilesystemIterator::SKIP_DOTS | FilesystemIterator::CURRENT_AS_PATHNAME);
-            $it = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::SELF_FIRST);
+            $tests = self::getTests();
 
-            foreach ($it as $d) {
-
-                if (!self::isProcessTestDir($d))
-                    continue;
-
-                $d = \substr($d, \strlen(self::BaseDir) + 1);
-                yield [(string)$d, $d];
+            foreach ($tests as $dir => $pattern) {
+                $header = "$dir:$pattern";
+                yield $header => [$dir, $pattern];
             }
         })();
     }
 
+    // ========================================================================
+
     #[DataProvider("processProvider")]
-    public function testProcess(string $dir)
+    public function testProcess(string $dir, string $resultPattern)
     {
+        $resultFile = \sprintf($resultPattern, self::ResultFileName);
+        $targetFile = \sprintf($resultPattern, self::TargetFileName);
         $pcp = new PCP();
         $wdir = self::WDir . "/$dir";
 
         if (!\is_dir($wdir))
             \mkdir($wdir);
 
-        $target = "$wdir/target";
+        $target = "$wdir/$targetFile";
         $config = App::defaultConfiguration();
         $config->merge([
             'generate.targets' => $target,
@@ -105,7 +130,7 @@ final class ProcessTest extends TestCase
             'paths' => $dir,
         ]);
 
-        $targetContentsFile = "$dir/target";
+        $targetContentsFile = "$dir/$targetFile";
 
         if (\is_file($targetContentsFile))
             $targetContents = \file_get_contents($targetContentsFile);
@@ -116,7 +141,7 @@ final class ProcessTest extends TestCase
 
         $pcp->process('process', $config);
         $result = self::getCElementsResult($target);
-        $expect = self::getCElementsResult("$dir/" . self::ResultFileName);
+        $expect = self::getCElementsResult("$dir/$resultFile");
 
         foreach ($expect as $e) {
             $r = \array_shift($result);
@@ -126,9 +151,9 @@ final class ProcessTest extends TestCase
                 $mr = \print_r($r->getArrayCopy()['items'], true);
                 $msg = "Expecting $me but have $mr";
                 $this->fail($msg);
-            }
+            } else $this->assertTrue(true);
         }
-        $this->assertEmpty($result, \print_r($result, true));
+        $this->assertEmpty($result,  "End: The 'result' array is not empty");
     }
 
     public static function setUpBeforeClass(): void
