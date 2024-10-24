@@ -20,7 +20,7 @@ abstract class Instruction
 
     private array $tags;
 
-    protected function __construct(CElement $subject, Configuration $arguments, \SplFileInfo $sourceFile)
+    protected function __construct(CElement $subject, Configuration $arguments)
     {
         $this->subject = $subject;
 
@@ -30,7 +30,7 @@ abstract class Instruction
         // Add the subject types as tags
         $stypes = $subject->getElementType();
         foreach ($stypes as $t)
-            $tags[] = $t->value;
+            $tags[] = \strtolower($t->name);
 
 
         \sort($tags);

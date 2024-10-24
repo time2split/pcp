@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action\PCP\Generate;
 
 use Time2Split\Config\Configuration;
@@ -16,12 +17,12 @@ final class Areas
 
             private readonly array $cursors;
 
-            public function __construct( //
-            private PCPPragma $pragma, //
-            private Configuration $arguments, //
-            private \SplObjectStorage $sectionsArguments, //
-            private readonly array $sections)
-            {}
+            public function __construct(
+                private PCPPragma $pragma,
+                private Configuration $arguments,
+                private \SplObjectStorage $sectionsArguments,
+                private readonly array $sections
+            ) {}
 
             public function getPCPPragma(): PCPPragma
             {

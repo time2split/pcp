@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Expression;
 
 use Time2Split\Config\Configuration;
@@ -9,14 +10,12 @@ use Time2Split\PCP\Expression\Node\Node;
 use Parsica\Parsica\Parser;
 use Parsica\Parsica\ParseResult;
 use Parsica\Parsica\ParserHasFailed;
-use function Parsica\Parsica\ {
+use function Parsica\Parsica\{
     char,
     string,
     between,
     alphaChar,
     alphaNumChar,
-    controlChar,
-    printChar,
     nothing,
     keepSecond,
     skipHSpace,
@@ -34,13 +33,12 @@ use function Parsica\Parsica\ {
     anySingle,
     anySingleBut
 };
-use function Parsica\Parsica\Expression\ {
+use function Parsica\Parsica\Expression\{
     binaryOperator,
     unaryOperator,
     prefix,
     expression,
     leftAssoc,
-    rightAssoc,
     nonAssoc
 };
 use Time2Split\PCP\Expression\Node\BinaryNode;
@@ -58,8 +56,7 @@ final class Expressions
     {
         return new class($b) extends BoolNode {
 
-            function __construct(public readonly bool $b)
-            {}
+            function __construct(public readonly bool $b) {}
 
             public function get(Configuration $config): bool
             {
@@ -72,8 +69,7 @@ final class Expressions
     {
         return new class((string) $s) extends StringNode {
 
-            function __construct(public readonly string $text)
-            {}
+            function __construct(public readonly string $text) {}
 
             public function get(Configuration $config): string
             {
@@ -91,8 +87,7 @@ final class Expressions
     {
         return new class($key) extends ConfigValueNode {
 
-            function __construct(private readonly string $key)
-            {}
+            function __construct(private readonly string $key) {}
 
             public function get(Configuration $config): mixed
             {
@@ -176,25 +171,30 @@ final class Expressions
                 {
                     $key = $this->left->get($config);
                     $val = $this->right;
+                    $val = $this->dereferenceValue($config, $val);
                     $cval = $config[$key];
 
-                    if (\is_array($cval)) {
+                    if (!isset($config[$key]))
+                        $config[$key] = $val;
+                    else {
 
-                        if (\is_array($val)) {
+                        if (\is_array($cval)) {
 
-                            foreach ($val as $v)
-                                $cval[] = $v;
+                            if (\is_array($val)) {
+
+                                foreach ($val as $v)
+                                    $cval[] = $v;
+                            } else
+                                $cval[] = $val;
                         } else
-                            $cval[] = $val;
-                    } elseif (isset($cval))
-                        $cval = [
-                            $cval,
-                            $val
-                        ];
-                    else
-                        $cval = $val;
+                            $cval = [
+                                $cval,
+                                $val
+                            ];
 
-                    return $this->assign($config, $key, $cval);
+                        $config[$key] = $cval;
+                    }
+                    return $val;
                 }
             }
         };
@@ -204,8 +204,7 @@ final class Expressions
     {
         return new class($array) implements Node {
 
-            function __construct(private readonly array $array)
-            {}
+            function __construct(private readonly array $array) {}
 
             public function get(Configuration $config): mixed
             {
@@ -247,8 +246,7 @@ final class Expressions
     {
         return new class($array) implements Node {
 
-            function __construct(private readonly array $array)
-            {}
+            function __construct(private readonly array $array) {}
 
             public function get(Configuration $config): mixed
             {
@@ -289,13 +287,17 @@ final class Expressions
         if (isset($ret))
             return $ret;
 
-        $makeString = fn ($delim) => between(char($delim), char($delim), //
-        either( //
-        atLeastOne(either(keepSecond(char('\\'), anySingle()), anySingleBut($delim))), //
-        nothing()));
+        $makeString = fn($delim) => between(
+            char($delim),
+            char($delim), //
+            either( //
+                atLeastOne(either(keepSecond(char('\\'), anySingle()), anySingleBut($delim))), //
+                nothing()
+            )
+        );
 
         $string = choice($makeString('"'), $makeString("'"));
-        return $ret = $string->map(fn ($s) => self::stringNode((string) $s));
+        return $ret = $string->map(fn($s) => self::stringNode((string) $s));
     }
 
     private static function variable(): Parser
@@ -316,7 +318,7 @@ final class Expressions
             $firstkey->append($pathSequence),
             char('$')->sequence(optional(choice(...[
                 $oneKey->append($pathSequence),
-                self::string()->map(fn ($node) => $node->text)
+                self::string()->map(fn($node) => $node->text)
             ]))->map(\strval(...)))
         ];
         return $ret = either(...$path);
@@ -325,13 +327,13 @@ final class Expressions
     private static function binaryOperator(string $op)
     {
         $pop = \strlen($op) > 1 ? string($op) : char($op);
-        return binaryOperator(self::skipSpaces($pop), fn (Node $l, Node $r) => self::binaryNode($op, $l, $r));
+        return binaryOperator(self::skipSpaces($pop), fn(Node $l, Node $r) => self::binaryNode($op, $l, $r));
     }
 
     private static function unaryOperator(string $op)
     {
         $pop = \strlen($op) > 1 ? string($op) : char($op);
-        return unaryOperator(self::skipSpaces($pop), fn (Node $node) => self::unaryNode($op, $node));
+        return unaryOperator(self::skipSpaces($pop), fn(Node $node) => self::unaryNode($op, $node));
     }
 
     // ========================================================================
@@ -346,7 +348,7 @@ final class Expressions
         $makePrefix = self::unaryOperator(...);
 
         $expr = recursive();
-        $variable = self::variable()->map(fn ($k) => Expressions::configValueNode($k));
+        $variable = self::variable()->map(fn($k) => Expressions::configValueNode($k));
         $primary = choice(self::parenthesis($expr), self::string(), $variable);
         $primary = self::skipSpaces($primary);
         $expr->recurse(expression($primary, [
@@ -378,8 +380,8 @@ final class Expressions
         if (isset($ret))
             return $ret;
 
-        $makeOp = fn ($op) => self::skipSpaces(char($op));
-        $toArray = fn ($s) => [
+        $makeOp = fn($op) => self::skipSpaces(char($op));
+        $toArray = fn($s) => [
             $s
         ];
 
@@ -387,7 +389,7 @@ final class Expressions
         $string = self::inText();
         $value = [
             $expr,
-            self::string()->map(fn ($s) => $string->tryString($s->text)
+            self::string()->map(fn($s) => $string->tryString($s->text)
                 ->output())
                 ->map(self::arrayNodeOrString(...)),
             atLeastOne(satisfy(notPred(\ctype_space(...))))->map(self::stringNode(...))
@@ -398,13 +400,13 @@ final class Expressions
         $var = self::variable()->map(self::stringNode(...))->map($toArray);
         $var = self::skipSpaces($var);
 
-        $makeAssign = fn ($op) => $var->append($makeOp($op)->sequence($value))
-            ->map(fn ($res) => self::assignmentNode($op, $res[0], $res[1]));
+        $makeAssign = fn($op) => $var->append($makeOp($op)->sequence($value))
+            ->map(fn($res) => self::assignmentNode($op, $res[0], $res[1]));
 
         $assignment = [
             $makeAssign('='),
             $makeAssign(':'),
-            $var->map(fn ($res) => self::assignmentNode('=', $res[0], self::boolNode(true)))
+            $var->map(fn($res) => self::assignmentNode('=', $res[0], self::boolNode(true)))
         ];
         $assignment = choice(...$assignment);
         $assignment = self::skipSpaces($assignment);

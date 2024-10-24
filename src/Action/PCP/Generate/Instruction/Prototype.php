@@ -13,9 +13,9 @@ use Time2Split\PCP\C\Element\CElementType;
 final class Prototype extends Instruction
 {
 
-    public function __construct(CElement $subject, Configuration $instruction, \SplFileInfo $sourceFile)
+    public function __construct(CElement $subject, Configuration $instruction)
     {
-        parent::__construct($subject, $instruction, $sourceFile);
+        parent::__construct($subject, $instruction);
     }
 
     public function generate(): string

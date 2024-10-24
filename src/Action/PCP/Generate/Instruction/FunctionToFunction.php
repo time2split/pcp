@@ -11,16 +11,14 @@ use Time2Split\PCP\C\Element\CElementType;
 
 final class FunctionToFunction extends Instruction
 {
-
-    public function __construct(CElement $subject, Configuration $instruction, \SplFileInfo $sourceFile)
+    public function __construct(CElement $subject, Configuration $instruction)
     {
-        parent::__construct($subject, $instruction, $sourceFile);
+        parent::__construct($subject, $instruction);
+        $types = $subject->getElementType();
 
-        switch ($subject->getElementType()) {
-            case CElementType::Function:
-                break;
-            default:
-                throw new \Exception("Cannot generate a prototype from a {$subject->getElementType()->name} element");
+        if ($types[CElementType::Function]) {
+            $type = CElementType::stringOf($types);
+            throw new \Exception("Cannot generate a prototype from a $type element");
         }
     }
 
@@ -35,6 +33,4 @@ final class FunctionToFunction extends Instruction
         $iconfig = $this->getArguments();
         return (array) ($iconfig['targets.function'] ?? $iconfig['targets']);
     }
-
-    // ========================================================================
 }

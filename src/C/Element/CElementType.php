@@ -84,13 +84,18 @@ enum CElementType: int
         return $cache[$pos] = Sets::unmodifiable(self::createSet(...$types));
     }
 
-    public static function stringOf(Set $type)
+    public static function stringOf(Set $type): string
+    {
+        return \implode(',', self::namesOf($type));
+    }
+
+    public static function namesOf(Set $type): array
     {
         $ret = [];
 
         foreach ($type as $t)
             $ret[] = $t->name;
 
-        return \implode(',', $ret);;
+        return $ret;
     }
 }

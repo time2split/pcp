@@ -280,10 +280,10 @@ final class Generate extends BaseAction
 
             private string $srcTimeFormat;
 
-            function __construct( //
-                private StreamInsertion $writer, //
-                private int $srcTime, //
-                private array $genCodes, //
+            function __construct(
+                private StreamInsertion $writer,
+                private int $srcTime,
+                private array $genCodes,
                 private string $srcFile
             ) {
                 $this->srcTimeFormat = \date(DATE_ATOM, $srcTime);
@@ -305,6 +305,7 @@ final class Generate extends BaseAction
                 $areaSections = $area->getSections();
 
                 if (empty($areaSections)) {
+                    // No section of code has been already written
                     $writeEnd = true;
                     $sectionArgs = $this->makeSrcSectionArguments();
                     $srcSection = Section::createPoint($area->getPCPPragma()->getFileSection()->end);
@@ -312,6 +313,8 @@ final class Generate extends BaseAction
                 } else {
                     $writeEnd = false;
                     $lastSection = \array_pop($areaSections);
+
+                    // If there is a section (begin) then it must be an 'end' section right after
                     assert(! empty($areaSections));
 
                     foreach ($areaSections as $section) {
@@ -330,8 +333,56 @@ final class Generate extends BaseAction
                     }
                 }
                 $this->writeSection($area, $srcSection, $sectionArgs, $writeEnd);
-
                 $this->writer->seekSet($lastSection->end->pos);
+            }
+
+            /**
+             * Select the code to write for the area
+             */
+            private function selectCodeToWrite(Area $area): array
+            {
+                $areaConfig = Configurations::emptyChild(clone $area->getArguments());
+                $selectedCodes = [];
+
+                foreach ($this->genCodes as $code) {
+                    $areaConfig->clear();
+                    $check = $areaConfig['tags'] ?? true;
+
+                    if (!\is_bool($check)) {
+
+                        if (\is_string($check))
+                            $check = [$check];
+
+                        if (\is_array($check)) {
+                            // All the tags of '$check' must be a part of the instruction tags
+                            $tags = $code->getTags();
+                            $checks = $check;
+                            $check = true;
+
+                            foreach ($checks as $checkTheTag) {
+
+                                if (!\in_array(\strtolower($checkTheTag), $tags)) {
+                                    $check = false;
+                                    break;
+                                }
+                            }
+                        } else {
+                            // Set tags for interpolation
+                            foreach ($code->getTags() as $tag)
+                                $areaConfig[$tag] = true;
+
+                            // Interpolate
+                            $check = $areaConfig['tags'];
+                        }
+                    }
+
+                    if ($check) {
+                        // Remove 'remaining' tag
+                        $code->moreTags()->exchangeArray([]);
+                        $selectedCodes[] = $code;
+                    }
+                }
+                return $selectedCodes;
             }
 
             private function writeSection(Area $area, Section $section, Configuration $sectionArguments, bool $writeEnd): void
@@ -344,32 +395,7 @@ final class Generate extends BaseAction
                 else
                     $writer = $this->writer;
 
-                $areaConfig = Configurations::emptyChild(clone $area->getArguments());
-                $selectedCodes = [];
-
-                foreach ($this->genCodes as $code) {
-                    $areaConfig->clear();
-                    $check = $areaConfig['tags'] ?? true;
-
-                    if (\is_bool($check));
-                    elseif (\is_string($check)) {
-                        $check = \in_array($check, $code->getTags());
-                    } else {
-
-                        // Set tags for interpolation
-                        foreach ($code->getTags() as $tag)
-                            $areaConfig[$tag] = true;
-
-                        // Interpolate
-                        $check = $areaConfig['tags'];
-                    }
-
-                    if ($check) {
-                        // Remove 'remaining' tag
-                        $code->moreTags()->exchangeArray([]);
-                        $selectedCodes[] = $code;
-                    }
-                }
+                $selectedCodes = $this->selectCodeToWrite($area);
 
                 if (isset($writer)) {
                     $writer->seekSet($section->begin->pos);

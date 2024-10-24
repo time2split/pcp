@@ -13,10 +13,10 @@ final class Code extends Instruction
 
     private string $code;
 
-    public function __construct(Configuration $instruction, \SplFileInfo $sourceFile)
+    public function __construct(Configuration $instruction)
     {
         $noSubject = CElements::null();
-        parent::__construct($noSubject, $instruction, $sourceFile);
+        parent::__construct($noSubject, $instruction);
         $this->code = $instruction['code'];
     }
 

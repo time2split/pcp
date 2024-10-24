@@ -8,8 +8,8 @@ use Time2Split\Config\Configuration;
 use Time2Split\PCP\App;
 use Time2Split\PCP\Action\PCP\Generate\Instruction;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
-use Time2Split\PCP\C\CDeclarationType;
 use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CElementType;
 
 final class Factory
 {
@@ -23,14 +23,14 @@ final class Factory
 
         if ($kfirst === 'prototype') {
             unset($i['prototype']);
-            return new Prototype($subject, $i, $this->readingFile->fileInfo);
+            return new Prototype($subject, $i);
         } elseif ($kfirst === 'function') {
             unset($i['function']);
 
-            if ($subject->getType() === CDeclarationType::tfunction)
-                return new FunctionToFunction($subject, $i, $this->readingFile->fileInfo);
+            if ($subject->getElementType()[CElementType::Function])
+                return new FunctionToFunction($subject, $i);
 
-            throw new \Exception(sprintf("generate 'function': invalid C declaration subject '%s'", $subject->getType()->name));
+            throw new \Exception(sprintf("generate 'function': invalid C declaration subject '%s'", CElementType::stringOf($subject->getElementType())));
         }
         throw new \Exception("Invalid action '$kfirst': " . \print_r($instruction->toArray(), true));
     }
