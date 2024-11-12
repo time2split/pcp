@@ -2,6 +2,11 @@
 void fpempty();
 
 #pragma pcp generate prototype
+void fdefempty(){
+    return;
+}
+
+#pragma pcp generate prototype
 void fpvoid(void);
 
 #pragma pcp generate prototype

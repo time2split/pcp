@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use Time2Split\PCP\App;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\Help\HelpSets;
 use Time2Split\PCP\PCP;
 
 final class ProcessTest extends TestCase
@@ -42,10 +43,13 @@ final class ProcessTest extends TestCase
         $c = \count($aitems);
 
         if (
-            $a->getElementType() !== $b->getElementType()
+            !HelpSets::equals($a->getElementType(), $b->getElementType())
             || $a->getIdentifier() !== $b->getIdentifier()
             || ($c) !== \count($bitems)
         )
+            return false;
+
+        if (isset($a['cstatement']) && $a['cstatement'] !== $b['cstatement'])
             return false;
 
         for ($i = 0; $i < $c; $i++) {
@@ -55,12 +59,34 @@ final class ProcessTest extends TestCase
             if (
                 $a instanceof CDeclaration
                 && $b instanceof CDeclaration
-                && self::CDeclarationEquals($a, $b)
-            );
-            elseif ($a === $b);
-            else return false;
+            ) {
+                if (! self::CDeclarationEquals($a, $b))
+                    return false;
+            } elseif ($a === $b);
+            else
+                return false;
         }
         return true;
+    }
+    private static function CDeclaration_toString(CDeclaration $a): string
+    {
+        $aitems = $a['items'];
+        $c = \count($aitems);
+        $ret = '';
+
+        for ($i = 0; $i < $c; $i++) {
+            $item = $aitems[$i];
+
+            if ($i > 0)
+                $ret .= ' ';
+
+            if ($item instanceof CDeclaration)
+                $ret .= self::CDeclaration_toString($item);
+            else
+                $ret .= $item;
+        }
+        $ret .= ($a['cstatement'] ?? '');
+        return $ret;
     }
 
     // ========================================================================
@@ -147,8 +173,8 @@ final class ProcessTest extends TestCase
             $r = \array_shift($result);
 
             if (!self::CDeclarationEquals($e, $r)) {
-                $me = \print_r($e->getArrayCopy()['items'], true);
-                $mr = \print_r($r->getArrayCopy()['items'], true);
+                $me = self::CDeclaration_toString($e);
+                $mr = self::CDeclaration_toString($r);
                 $msg = "Expecting $me but have $mr";
                 $this->fail($msg);
             } else $this->assertTrue(true);

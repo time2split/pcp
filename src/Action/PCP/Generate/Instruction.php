@@ -18,7 +18,7 @@ abstract class Instruction
 
     private Configuration $arguments;
 
-    private array $tags;
+    protected array $tags;
 
     protected function __construct(CElement $subject, Configuration $arguments)
     {
@@ -30,7 +30,7 @@ abstract class Instruction
         // Add the subject types as tags
         $stypes = $subject->getElementType();
         foreach ($stypes as $t)
-            $tags[] = \strtolower($t->name);
+            $tags[] = 'from.' . \strtolower($t->name);
 
 
         \sort($tags);

@@ -1,0 +1,4 @@
+int fdefint(void)
+{
+    return 0;
+}

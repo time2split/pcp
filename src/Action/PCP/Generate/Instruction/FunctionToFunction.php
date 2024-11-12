@@ -14,11 +14,12 @@ final class FunctionToFunction extends Instruction
     public function __construct(CElement $subject, Configuration $instruction)
     {
         parent::__construct($subject, $instruction);
+        $this->tags[] = 'function';
         $types = $subject->getElementType();
 
-        if ($types[CElementType::Function]) {
+        if (!$types[CElementType::Function] || !$types[CElementType::Definition]) {
             $type = CElementType::stringOf($types);
-            throw new \Exception("Cannot generate a prototype from a $type element");
+            throw new \Exception("Cannot generate a function from a $type element");
         }
     }
 

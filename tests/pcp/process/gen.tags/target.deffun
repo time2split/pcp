@@ -1,1 +1,1 @@
-#pragma pcp generate area tags:definition tags:function
+#pragma pcp generate area tags:from.definition tags:from.function

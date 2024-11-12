@@ -1,4 +1,5 @@
 void fpempty();
+void fdefempty();
 void fpvoid(void);
 void fpint(int a);
 void fpiint(int a, int b);
