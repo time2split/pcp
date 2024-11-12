@@ -27,6 +27,9 @@ inline int finline();
 #pragma pcp generate prototype drop=inline
 int inline finline();
 
+#pragma pcp generate prototype add=inline
+int fnoinline();
+
 // ============================================================================
 
 #pragma pcp generate prototype name.prefix=pref_

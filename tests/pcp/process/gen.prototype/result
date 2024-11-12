@@ -7,6 +7,7 @@ inline int finline();
 int inline finline();
 int finline();
 int finline();
+inline int fnoinline();
 
 int pref_name();
 int name_suff();

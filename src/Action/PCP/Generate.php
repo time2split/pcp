@@ -39,6 +39,7 @@ final class Generate extends BaseAction
 
     private const DefaultConfig = [
         'generate' => [
+            'add' => null,
             'drop' => null,
             'tags' => null,
             'targets' => '.',

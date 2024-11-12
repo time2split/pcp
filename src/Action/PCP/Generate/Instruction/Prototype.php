@@ -60,6 +60,21 @@ final class Prototype extends Instruction
                 $s = (string)null;
         }
         unset($s);
+
+        // Add some specifiers
+        $add = (array)$arguments['add'];
+        $addList = [];
+
+        foreach ($add as $v) {
+
+            if (!\array_search($v, $subject['items']))
+                $addList[] = $v;
+        }
+        $items = &$subject['items'];
+
+        $items = \array_merge($addList, $items);
+        unset($items);
+
         return self::prototypeToString($subject);
     }
 
