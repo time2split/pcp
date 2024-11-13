@@ -1,30 +1,29 @@
 <?php
+
 namespace Time2Split\PCP\Action\PCP\Generate;
 
+use Time2Split\Help\Set;
+use Time2Split\Help\Sets;
 use Time2Split\PCP\Help\ArrayCodec;
 
 final class GeneratedCode implements ArrayCodec
 {
 
-    private \ArrayObject $moreTags;
-
     private function __construct( //
-    private readonly string $text, //
-    private readonly array $tags)
-    {
-        $this->moreTags = new \ArrayObject();
-    }
+        private readonly string $text, //
+        private readonly Set $tags,
+    ) {}
 
     public static function create(string $text, string ...$tags)
     {
-        return new self($text, $tags);
+        return new self($text, (Sets::arrayKeys())->setMore(...$tags));
     }
 
     public function array_encode(): array
     {
         return [
             'text' => $this->text,
-            'tags' => $this->tags
+            'tags' => \iterator_to_array($this->tags),
         ];
     }
 
@@ -38,13 +37,8 @@ final class GeneratedCode implements ArrayCodec
         return $this->text;
     }
 
-    public function getTags(): array
+    public function getTags(): Set
     {
-        return \array_merge($this->tags, $this->moreTags->getArrayCopy());
-    }
-
-    public function moreTags(): \ArrayObject
-    {
-        return $this->moreTags;
+        return $this->tags;
     }
 }

@@ -12,3 +12,5 @@ inline int fnoinline();
 int pref_name();
 int name_suff();
 int pref_name_suff();
+
+#pragma pcp test remains.empty

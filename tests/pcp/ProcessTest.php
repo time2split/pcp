@@ -2,14 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Time2Split\Help\Tests;
-
-use DirectoryIterator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Time2Split\Config\Configuration;
+use Time2Split\Config\Configurations;
 use Time2Split\PCP\App;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CPPDirectives;
+use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\Help\HelpSets;
 use Time2Split\PCP\PCP;
 
@@ -23,15 +24,18 @@ final class ProcessTest extends TestCase
 
     private const WDir =  __DIR__ . '/pcp.wd';
 
-    private static function getCElementsResult(string $filePath): array
+    private static function getCElementsResult(string $filePath, array &$remains = []): array
     {
         $result = [];
         $creader = CReader::fromFile($filePath);
+        $creader->setCPPDirectiveFactory(CPPDirectives::factory(App::defaultConfiguration()));
 
         while (null !== ($celement = $creader->next())) {
 
             if ($celement instanceof CDeclaration)
                 $result[] = $celement;
+            else
+                $remains[] = $celement;
         }
         return $result;
     }
@@ -68,6 +72,7 @@ final class ProcessTest extends TestCase
         }
         return true;
     }
+
     private static function CDeclaration_toString(CDeclaration $a): string
     {
         $aitems = $a['items'];
@@ -112,7 +117,7 @@ final class ProcessTest extends TestCase
 
     private static function getTests()
     {
-        $it = new DirectoryIterator(self::BaseDir);
+        $it = new \DirectoryIterator(self::BaseDir);
 
         foreach ($it as $dir) {
             if (!$dir->isDir()) continue;
@@ -133,6 +138,19 @@ final class ProcessTest extends TestCase
                 yield $header => [$dir, $pattern];
             }
         })();
+    }
+
+    private static function getExpectConfiguration(array &$expect): Configuration
+    {
+        $config = Configurations::ofTree();
+
+        for ($i = 0, $c = \count($expect); $i < $c; $i++) {
+            $e = $expect[$i];
+
+            if ($e instanceof PCPPragma)
+                $config->merge($e->getArguments());
+        }
+        return $config;
     }
 
     // ========================================================================
@@ -165,9 +183,14 @@ final class ProcessTest extends TestCase
 
         \file_put_contents($target, $targetContents);
 
+
         $pcp->process('process', $config);
         $result = self::getCElementsResult($target);
-        $expect = self::getCElementsResult("$dir/$resultFile");
+        $expectPragmas = [];
+        $expect = self::getCElementsResult("$dir/$resultFile", $expectPragmas);
+
+        $testConfig = self::getExpectConfiguration($expectPragmas);
+
 
         foreach ($expect as $e) {
             $r = \array_shift($result);
@@ -179,7 +202,19 @@ final class ProcessTest extends TestCase
                 $this->fail($msg);
             } else $this->assertTrue(true);
         }
-        // $this->assertEmpty($result,  "End: The 'result' array is not empty");
+
+        if ($testConfig['remains.empty']) {
+
+            if (!empty($result)) {
+                $lines = \array_map(self::CDeclaration_toString(...), $result);
+                $lines = implode("\n", $lines);
+                $this->assertNotEmpty($result,  "End: Target has unexpected remains:\n$lines");
+            }
+        } else {
+
+            if (empty($result))
+                $this->assertEmpty($result,  "End: Target must have some remains");
+        }
     }
 
     public static function setUpBeforeClass(): void

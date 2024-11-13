@@ -1,0 +1,7 @@
+#pragma pcp test remains.empty
+
+void fdefa();
+void fdefb();
+
+void fdecla();
+void fdeclb();

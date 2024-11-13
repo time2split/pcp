@@ -32,6 +32,7 @@ use Time2Split\PCP\File\StreamInsertion;
 
 final class Generate extends BaseAction
 {
+    public const tag_remains = 'generate.remains';
 
     private const wd = 'generate';
 
@@ -290,7 +291,7 @@ final class Generate extends BaseAction
                 $this->srcTimeFormat = \date(DATE_ATOM, $srcTime);
 
                 foreach ($genCodes as $code)
-                    $code->moreTags()[] = 'remaining';
+                    $code->getTags()[Generate::tag_remains] = true;
             }
 
             private function makeSrcSectionArguments(): Configuration
@@ -362,7 +363,7 @@ final class Generate extends BaseAction
 
                             foreach ($checks as $checkTheTag) {
 
-                                if (!\in_array(\strtolower($checkTheTag), $tags)) {
+                                if (!$tags[\strtolower($checkTheTag)]) {
                                     $check = false;
                                     break;
                                 }
@@ -379,7 +380,7 @@ final class Generate extends BaseAction
 
                     if ($check) {
                         // Remove 'remaining' tag
-                        $code->moreTags()->exchangeArray([]);
+                        $code->getTags()[Generate::tag_remains] = false;
                         $selectedCodes[] = $code;
                     }
                 }
