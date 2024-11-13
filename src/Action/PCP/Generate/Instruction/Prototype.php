@@ -16,7 +16,7 @@ final class Prototype extends Instruction
     public function __construct(CElement $subject, Configuration $instruction)
     {
         parent::__construct($subject, $instruction);
-        $this->tags[] = 'prototype';
+        $this->tags['prototype'] = true;
     }
 
     public function generate(): string

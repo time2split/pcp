@@ -3,6 +3,8 @@
 namespace Time2Split\PCP\Action\PCP\Generate;
 
 use Time2Split\Config\Configuration;
+use Time2Split\Help\Set;
+use Time2Split\Help\Sets;
 use Time2Split\PCP\C\CElement;
 
 abstract class Instruction
@@ -18,7 +20,7 @@ abstract class Instruction
 
     private Configuration $arguments;
 
-    protected array $tags;
+    protected Set $tags;
 
     protected function __construct(CElement $subject, Configuration $arguments)
     {
@@ -32,9 +34,9 @@ abstract class Instruction
         foreach ($stypes as $t)
             $tags[] = 'from.' . \strtolower($t->name);
 
-
         \sort($tags);
-        $this->tags = $tags;
+        $this->tags = Sets::arrayKeys();
+        $this->tags->setMore(...$tags);
         unset($i['tags']);
 
         $this->arguments = $i;
@@ -50,7 +52,7 @@ abstract class Instruction
         return $this->arguments;
     }
 
-    public function getTags(): array
+    public function getTags(): Set
     {
         return $this->tags;
     }

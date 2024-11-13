@@ -14,7 +14,7 @@ final class FunctionToFunction extends Instruction
     public function __construct(CElement $subject, Configuration $instruction)
     {
         parent::__construct($subject, $instruction);
-        $this->tags[] = 'function';
+        $this->tags['function'] = true;
         $types = $subject->getElementType();
 
         if (!$types[CElementType::Function] || !$types[CElementType::Definition]) {

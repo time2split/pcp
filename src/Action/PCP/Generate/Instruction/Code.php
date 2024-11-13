@@ -18,7 +18,7 @@ final class Code extends Instruction
         $noSubject = CElements::null();
         parent::__construct($noSubject, $instruction);
         $this->code = $instruction['code'];
-        $this->tags[] = 'code';
+        $this->tags['code'] = true;
     }
 
     public function generate(): string
