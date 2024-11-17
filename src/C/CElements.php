@@ -6,6 +6,7 @@ namespace Time2Split\PCP\C;
 
 use Time2Split\Help\Classes\NotInstanciable;
 use Time2Split\Help\Set;
+use Time2Split\Help\Sets;
 use Time2Split\PCP\App;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CElementType;
@@ -30,6 +31,20 @@ final class CElements
         return
             $pcpPragma->getCommand() === $cmd &&
             (!isset($firstArg) || $firstArg === App::configFirstKey($pcpPragma->getArguments()));
+    }
+
+    public static function tagsOf(CElement $element): Set
+    {
+        $tags = [];
+
+        // Add the subject types as tags
+        foreach ($element->getElementType() as $t)
+            $tags[] = 'from.' . \strtolower($t->name);
+
+        \sort($tags);
+        $ret = Sets::arrayKeys();
+        $ret->setMore(...$tags);
+        return $ret;
     }
 
     private static CElement $null;

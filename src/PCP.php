@@ -17,7 +17,6 @@ use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
-use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\DataFlow\BasePublisher;
@@ -111,7 +110,6 @@ class PCP extends BasePublisher
 
         foreach ((array)$config['paths'] as $dir)
             $this->processDir($dir, $config);
-
 
         $this->updatePhase(
             PhaseName::ProcessingFiles,
@@ -264,15 +262,6 @@ class PCP extends BasePublisher
 
                     if (!isset($this->monopolyFor) || !$this->monopolyFor->noExpandAtConfig())
                         $element = $this->expandAtConfig($element, $fileConfig);
-                } {
-                    $ctypes = $element->getElementType($element);
-                    // Set C informations
-                    // $fileConfig['C.types'] = $ctypes;
-
-                    if ($ctypes[CElementType::Function]) {
-                        $fileConfig['C.specifiers'] = $element->getSpecifiers();
-                        $fileConfig['C.identifier'] = $element->getIdentifier();
-                    }
                 }
 
                 $resElements = $this->deliverMessage(CContainer::of($element));

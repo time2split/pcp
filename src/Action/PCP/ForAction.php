@@ -1,5 +1,7 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\Action\PCP;
 
 use Time2Split\PCP\Action\BaseAction;
@@ -10,7 +12,9 @@ use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\Action\PCP\For\Cond;
 use Time2Split\Config\Interpolation;
-use Time2Split\Config\Configurations;
+use Time2Split\Config\Entry\ReadingMode;
+use Time2Split\PCP\Action\CActionSubject;
+use Time2Split\PCP\C\CElement;
 
 final class ForAction extends BaseAction
 {
@@ -47,18 +51,22 @@ final class ForAction extends BaseAction
         if ($this->waitingFor)
             throw new \Exception("Waiting for 'for' cpp pragma actions, has '{$ccontainer->getCElement()}'");
 
-        return $this->checkForConditions($ccontainer);
+        return $this->checkForConditions(new class($ccontainer->getCElement()) extends CActionSubject {
+            public function __construct(CElement $subject)
+            {
+                parent::__construct($subject);
+            }
+        });
     }
 
-    private function checkForConditions(CContainer $ccontainer): array
+    private function checkForConditions(CActionSubject $subject): array
     {
         foreach ($this->forInstructions as $condStorage) {
-            $config = $condStorage->config;
-            $upperConfig = Configurations::hierarchy($this->config, $config);
+            $upperConfig = $subject->getConfiguration();
             $cond = $condStorage->condition;
 
             if ($cond instanceof Interpolation) {
-                $intp = $config->getInterpolator();
+                $intp = $this->config->getInterpolator();
                 $check = $intp->execute($cond->compilation, $upperConfig);
             } else
                 $check = $cond;
@@ -89,6 +97,10 @@ final class ForAction extends BaseAction
 
                     if ($this->waitingFor)
                         throw new \Exception("Waiting for 'end' of 'for' block; reached end of file");
+
+                    /**
+                     * Reading a configuration file
+                     */
                     if ($this->readingDirPhase === PhaseState::Start)
                         $this->config['action.for'] = $this->forInstructions;
                 }
@@ -112,15 +124,16 @@ final class ForAction extends BaseAction
 
                 if (empty($this->forInstructions[$this->id]->instructions))
                     unset($this->forInstructions[$this->id]);
-            } else
+            } else {
                 $this->storeInstruction($pcpPragma);
+            }
         } elseif (isset($args['clear']))
-            $this->config['for.instructions'] = //
-            $this->forInstructions = [];
+            $this->config['for.instructions'] =
+                $this->forInstructions = [];
         else {
             // == Create the new 'for' block ==
 
-            $cond = $args->getOptional('cond', false);
+            $cond = $args->getOptional('cond', ReadingMode::RawValue);
 
             if (! $cond->isPresent())
                 throw new \Exception('A \'for\' action must have a \'cond\' value set');
@@ -134,7 +147,7 @@ final class ForAction extends BaseAction
             $id = $args['id'] ?? null;
 
             if (! isset($id))
-                $id = $this->idGen ++;
+                $id = $this->idGen++;
 
             $this->id = (string) $id;
             $this->forInstructions[$id] = new Cond($pcpPragma->getArguments(), $cond);

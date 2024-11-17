@@ -10,6 +10,10 @@ use Time2Split\PCP\Expression\Node\Node;
 use Parsica\Parsica\Parser;
 use Parsica\Parsica\ParseResult;
 use Parsica\Parsica\ParserHasFailed;
+use Time2Split\Help\Arrays;
+use Time2Split\Help\Set;
+use Time2Split\Help\Sets;
+
 use function Parsica\Parsica\{
     char,
     string,
@@ -28,7 +32,6 @@ use function Parsica\Parsica\{
     many,
     satisfy,
     notPred,
-    append,
     optional,
     anySingle,
     anySingleBut
@@ -47,6 +50,7 @@ use Time2Split\PCP\Expression\Node\ConfigValueNode;
 use Time2Split\PCP\Expression\Node\StringNode;
 use Time2Split\PCP\Expression\Node\BoolNode;
 use Time2Split\PCP\Expression\Node\AssignmentNode;
+use Time2Split\PCP\Help\HelpSets;
 
 final class Expressions
 {
@@ -145,13 +149,20 @@ final class Expressions
                     $l = $this->left->get($config);
                     $r = $this->right->get($config);
 
-                    if (\is_array($l))
-                        return \in_array($r, $l);
-
-                    return $l == $r;
+                    $l = Expressions::ensureSet($l);
+                    $r = Expressions::ensureSet($r);
+                    return HelpSets::includedIn($r, $l);
                 }
             }
         };
+    }
+
+    public static function ensureSet($v): Set
+    {
+        if ($v instanceof Set)
+            return $v;
+        else
+            return Sets::arrayKeys()->setMore(...Arrays::ensureArray($v));
     }
 
     private static function assignmentNode(string $op, Node $left, Node $right): BinaryNode

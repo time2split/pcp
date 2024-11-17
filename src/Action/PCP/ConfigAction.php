@@ -1,5 +1,7 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
+
 namespace Time2Split\PCP\Action\PCP;
 
 use Time2Split\PCP\App;
@@ -84,39 +86,31 @@ final class ConfigAction extends BaseAction
                 if (isset($args['end'])) {
                     $this->config[$this->id] = Configurations::unmodifiable($this->instructions);
                     $this->waitingForInstructions = false;
-                } else
+                } else {
                     $this->storeInstruction($pcpPragma);
-            } else
+                }
+            } else {
                 throw new \Exception("Waiting for a config pragma, has $pcpPragma");
-        } else {
-            $id = $args->getOptional('id');
-
-            if ($id->isPresent()) {
-
-                if ($this->readingDirPhase !== PhaseState::Start)
-                    throw new \Exception("'config' action definition can only be set on a directory config file");
-
-                $this->id = "@config.{$id->get()}";
-                $this->waitingForInstructions = true;
-                $this->instructions = App::emptyConfiguration();
-                return;
             }
-            $include = $args->getOptional('include');
+        } elseif (($id = $args->getOptional('id'))->isPresent()) {
 
-            if ($include->isPresent()) {
-                $id = (string) $include->get();
+            if ($this->readingDirPhase !== PhaseState::Start)
+                throw new \Exception("'config' action definition can only be set on a directory config file");
 
-                // expand the commands
-                $iconfig = $this->config["@config.$id"] ?? null;
+            $this->id = "@config.{$id->get()}";
+            $this->waitingForInstructions = true;
+            $this->instructions = App::emptyConfiguration();
+        } elseif (($include = $args->getOptional('include'))->isPresent()) {
+            $id = (string) $include->get();
 
-                if (isset($iconfig))
-                    // TODO: make it unmodifiable
-                    $this->config['@config'] = $iconfig;
+            // expand the commands
+            $iconfig = $this->config["@config.$id"] ?? null;
 
-                return;
-            }
+            if (isset($iconfig))
+                // TODO: make it unmodifiable
+                $this->config['@config'] = $iconfig;
+        } else
             $this->config['@config'] = Configurations::unmodifiable($pcpPragma->getArguments());
-        }
     }
 
     private function storeInstruction(PCPPragma $pcpPragma): void
