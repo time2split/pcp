@@ -14,7 +14,6 @@ use Time2Split\PCP\Action\PCP\For\Cond;
 use Time2Split\Config\Entry\ReadingMode;
 use Time2Split\Help\Arrays;
 use Time2Split\PCP\Action\CActionSubject;
-use Time2Split\PCP\C\CElement;
 
 final class ForAction extends BaseAction
 {
@@ -51,12 +50,7 @@ final class ForAction extends BaseAction
         if ($this->waitingFor)
             throw new \Exception("Waiting for 'for' cpp pragma actions, has '{$ccontainer->getCElement()}'");
 
-        return $this->checkForConditions(new class($ccontainer->getCElement()) extends CActionSubject {
-            public function __construct(CElement $subject)
-            {
-                parent::__construct($subject);
-            }
-        });
+        return $this->checkForConditions(CActionSubject::of($ccontainer->getCElement()));
     }
 
     private function checkForConditions(CActionSubject $subject): array
