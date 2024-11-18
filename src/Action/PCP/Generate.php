@@ -6,8 +6,10 @@ namespace Time2Split\PCP\Action\PCP;
 
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
+use Time2Split\Config\Entry\ReadingMode;
 use Time2Split\Help\Arrays;
 use Time2Split\Help\IO;
+use Time2Split\PCP\Action\Actions;
 use Time2Split\PCP\App;
 use Time2Split\PCP\Action\BaseAction;
 use Time2Split\PCP\Action\Phase;
@@ -278,7 +280,7 @@ final class Generate extends BaseAction
         $srcTime = $srcFileInfo->getMTime();
         $srcFile = \substr((string)$srcFileInfo, 1 + \strlen($this->workingDir));
 
-        return new class($writer, $srcTime, $genCodes, $srcFile) {
+        return new class($writer, $srcTime, $genCodes, $srcFile, $this->config) {
 
             private string $srcTimeFormat;
 
@@ -286,7 +288,8 @@ final class Generate extends BaseAction
                 private StreamInsertion $writer,
                 private int $srcTime,
                 private array $genCodes,
-                private string $srcFile
+                private string $srcFile,
+                private Configuration $config
             ) {
                 $this->srcTimeFormat = \date(DATE_ATOM, $srcTime);
 
@@ -348,34 +351,14 @@ final class Generate extends BaseAction
 
                 foreach ($this->genCodes as $code) {
                     $areaConfig->clear();
-                    $check = $areaConfig['tags'] ?? true;
+                    $conditions = $areaConfig->getOptional('@expr', ReadingMode::RawValue);
 
-                    if (!\is_bool($check)) {
-
-                        if (\is_string($check))
-                            $check = [$check];
-
-                        if (\is_array($check)) {
-                            // All the tags of '$check' must be a part of the instruction tags
-                            $tags = $code->getTags();
-                            $checks = $check;
-                            $check = true;
-
-                            foreach ($checks as $checkTheTag) {
-
-                                if (!$tags[\strtolower($checkTheTag)]) {
-                                    $check = false;
-                                    break;
-                                }
-                            }
-                        } else {
-                            // Set tags for interpolation
-                            foreach ($code->getTags() as $tag)
-                                $areaConfig[$tag] = true;
-
-                            // Interpolate
-                            $check = $areaConfig['tags'];
-                        }
+                    if (!$conditions->isPresent())
+                        $check = true;
+                    else {
+                        $conditions = Arrays::ensureArray($conditions->get());
+                        $codeConfig = Configurations::emptyTreeCopyOf($this->config)->merge(['tags' => $code->getTags()]);
+                        $check = Actions::checkInterpolations($codeConfig, null, ...$conditions);
                     }
 
                     if ($check) {

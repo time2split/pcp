@@ -1,2 +1,2 @@
-#pragma pcp generate area tags=["from.function", "from.definition"]
-#pragma pcp generate area tags="generate.remains"
+#pragma pcp generate area (tags:["from.function", "from.definition"])
+#pragma pcp generate area (tags:"generate.remains")

@@ -1,1 +1,1 @@
-#pragma pcp generate area tags="code"
+#pragma pcp generate area (tags:"code")

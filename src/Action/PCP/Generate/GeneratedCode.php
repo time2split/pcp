@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Time2Split\PCP\Action\PCP\Generate;
 
 use Time2Split\Help\Set;

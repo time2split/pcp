@@ -8,7 +8,7 @@ use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Config\Entry\ReadingMode;
 use Time2Split\Help\IO;
-use Time2Split\PCP\Action\ActionFactory;
+use Time2Split\PCP\Action\Actions;
 use Time2Split\PCP\Action\IAction;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
@@ -89,7 +89,7 @@ class PCP extends BasePublisher
     {
         $config['dir.root'] = \getcwd();
 
-        $actions = ActionFactory::get($config)->getActions($action);
+        $actions = Actions::factory($config)->getActions($action);
         \array_walk($actions, $this->subscribe(...));
 
         // Init and check phase

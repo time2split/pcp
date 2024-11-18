@@ -11,8 +11,8 @@ use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\Action\PCP\For\Cond;
-use Time2Split\Config\Interpolation;
 use Time2Split\Config\Entry\ReadingMode;
+use Time2Split\Help\Arrays;
 use Time2Split\PCP\Action\CActionSubject;
 use Time2Split\PCP\C\CElement;
 
@@ -63,13 +63,7 @@ final class ForAction extends BaseAction
     {
         foreach ($this->forInstructions as $condStorage) {
             $upperConfig = $subject->getConfiguration();
-            $cond = $condStorage->condition;
-
-            if ($cond instanceof Interpolation) {
-                $intp = $this->config->getInterpolator();
-                $check = $intp->execute($cond->compilation, $upperConfig);
-            } else
-                $check = $cond;
+            $check = $condStorage->check($upperConfig, $this->config->getInterpolator());
 
             if ($check)
                 return $condStorage->instructions;
@@ -133,24 +127,23 @@ final class ForAction extends BaseAction
         else {
             // == Create the new 'for' block ==
 
-            $cond = $args->getOptional('cond', ReadingMode::RawValue);
+            $cond = $args->getOptional('@expr', ReadingMode::RawValue);
 
             if (! $cond->isPresent())
-                throw new \Exception('A \'for\' action must have a \'cond\' value set');
+                throw new \Exception('A \'for\' action must have a condition');
 
-            $cond = $cond->get();
-
-            if (! ($cond instanceof Interpolation))
-                throw new \Exception("A 'for' condition must be a valid dynamic expression");
+            $cond = Arrays::ensureArray($cond->get());
 
             $this->waitingFor = true;
+
             $id = $args['id'] ?? null;
 
             if (! isset($id))
                 $id = $this->idGen++;
 
             $this->id = (string) $id;
-            $this->forInstructions[$id] = new Cond($pcpPragma->getArguments(), $cond);
+
+            $this->forInstructions[$id] = new Cond($pcpPragma->getArguments(), ...$cond);
         }
     }
 
