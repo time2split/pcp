@@ -1,7 +1,7 @@
 #pragma pcp generate prototype
 void fdecla();
 
-#pragma pcp generate prototype
+#pragma pcp generate prototype tags="local"
 void fdefa(){
     return;
 }
