@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Time2Split\PCP\Action\PCP\Generate;
 
 use Time2Split\Config\Configuration;
@@ -11,8 +13,12 @@ final class Areas
 {
     use NotInstanciable;
 
-    public static function create(PCPPragma $pragma, Configuration $arguments, \SplObjectStorage $sectionsArguments, Section ...$sections): Area
-    {
+    public static function create(
+        PCPPragma $pragma,
+        Configuration $arguments,
+        \SplObjectStorage $sectionsArguments,
+        Section ...$sections
+    ): Area {
         return new class($pragma, $arguments, $sectionsArguments, $sections) implements Area {
 
             private readonly array $cursors;
