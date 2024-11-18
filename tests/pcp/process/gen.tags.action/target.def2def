@@ -1,1 +1,1 @@
-#pragma pcp generate area tags:function tags:from.function tags:from.definition
+#pragma pcp generate area tags=["function", "from.function", "from.definition"]

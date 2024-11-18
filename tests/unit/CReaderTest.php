@@ -2,16 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Time2Split\Help\Tests;
-
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Help\Tests\DataProvider\Provided;
 use Time2Split\PCP\App;
-use Time2Split\PCP\C\CDeclarationGroup;
-use Time2Split\PCP\C\CDeclarationType;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CElementType;

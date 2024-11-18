@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Time2Split\PCP\Expression;
 
 use Time2Split\Config\Configuration;
@@ -8,7 +10,6 @@ use Time2Split\Help\Classes\NotInstanciable;
 use Time2Split\Help\Optional;
 use Time2Split\PCP\Expression\Node\Node;
 use Parsica\Parsica\Parser;
-use Parsica\Parsica\ParseResult;
 use Parsica\Parsica\ParserHasFailed;
 use Time2Split\Help\Arrays;
 use Time2Split\Help\Set;
@@ -30,11 +31,12 @@ use function Parsica\Parsica\{
     either,
     some,
     many,
-    satisfy,
-    notPred,
     optional,
     anySingle,
-    anySingleBut
+    anySingleBut,
+    assemble,
+    digitChar,
+    noneOf,
 };
 use function Parsica\Parsica\Expression\{
     binaryOperator,
@@ -50,6 +52,9 @@ use Time2Split\PCP\Expression\Node\ConfigValueNode;
 use Time2Split\PCP\Expression\Node\StringNode;
 use Time2Split\PCP\Expression\Node\BoolNode;
 use Time2Split\PCP\Expression\Node\AssignmentNode;
+use Time2Split\PCP\Expression\Node\ConstArrayNode;
+use Time2Split\PCP\Expression\Node\ConstNode;
+use Time2Split\PCP\Expression\Node\IntegerNode;
 use Time2Split\PCP\Help\HelpSets;
 
 final class Expressions
@@ -62,7 +67,7 @@ final class Expressions
 
             function __construct(public readonly bool $b) {}
 
-            public function get(Configuration $config): bool
+            public function getValue(): bool
             {
                 return $this->b;
             }
@@ -75,17 +80,40 @@ final class Expressions
 
             function __construct(public readonly string $text) {}
 
-            public function get(Configuration $config): string
-            {
-                return $this->text;
-            }
-
-            public function __toString()
+            public function getValue(): string
             {
                 return $this->text;
             }
         };
     }
+
+    private static function integerNode(int $s): IntegerNode
+    {
+        return new class($s) extends IntegerNode {
+
+            function __construct(public readonly int $val) {}
+
+            public function getValue(): int
+            {
+                return $this->val;
+            }
+        };
+    }
+
+    private static function constArrayNode(array $s): ConstArrayNode
+    {
+        return new class($s) extends ConstArrayNode {
+
+            function __construct(public readonly array $val) {}
+
+            public function getValue(): array
+            {
+                return $this->val;
+            }
+        };
+    }
+
+    // ========================================================================
 
     private static function configValueNode(string $key): ConfigValueNode
     {
@@ -100,13 +128,43 @@ final class Expressions
 
             public function __toString()
             {
-                return $this->key;
+                return "\${{$this->key}}";
             }
         };
     }
 
-    private static function unaryNode(string $op, Node $node): UnaryNode
+    /**
+     * @internal
+     */
+    public static function wrapNode(Node $node, callable $fget, string $op = 'wrap:')
     {
+        return new class($node, $fget, $op) extends UnaryNode
+        {
+            private $fget;
+
+            public function __construct(Node $node, callable $fget, string $op)
+            {
+                parent::__construct($op, $node);
+                $this->fget = $fget;
+            }
+
+            public function get(Configuration $config): mixed
+            {
+                return ($this->fget)($this->node, $config);
+            }
+        };
+    }
+
+    private static function unaryNode(string $op, Node $node): UnaryNode|ConstNode
+    {
+        if ($node instanceof ConstNode) {
+            $b = (bool) $node->getValue();
+
+            return match ($op) {
+                '!!' => self::boolNode($b),
+                '!' => self::boolNode(!$b),
+            };
+        }
         return match ($op) {
             '!!' => new class($op, $node) extends UnaryNode {
 
@@ -125,8 +183,20 @@ final class Expressions
         };
     }
 
-    private static function binaryNode(string $op, Node $left, Node $right): BinaryNode
+    private static function binaryNode(string $op, Node $left, Node $right): BinaryNode|ConstNode
     {
+        if ($left instanceof ConstNode && $right instanceof ConstNode) {
+            $left = $left->getValue();
+            $right = $right->getValue();
+
+            return self::boolNode(
+                match ($op) {
+                    '&&' => $left && $right,
+                    '||' => $left || $right,
+                    ':' => self::_op_in($left, $right),
+                }
+            );
+        }
         return match ($op) {
             '&&' => new class($op, $left, $right) extends BinaryNode {
 
@@ -146,18 +216,26 @@ final class Expressions
 
                 public function get(Configuration $config): bool
                 {
-                    $l = $this->left->get($config);
-                    $r = $this->right->get($config);
-
-                    $l = Expressions::ensureSet($l);
-                    $r = Expressions::ensureSet($r);
-                    return HelpSets::includedIn($r, $l);
+                    return Expressions::_op_in($this->left->get($config), $this->right->get($config));
                 }
             }
         };
     }
 
-    public static function ensureSet($v): Set
+    /**
+     *  @internal
+     */
+    public static function _op_in($left, $right): bool
+    {
+        $left = Expressions::_ensureSet($left);
+        $right = Expressions::_ensureSet($right);
+        return HelpSets::includedIn($right, $left);
+    }
+
+    /**
+     *  @internal
+     */
+    public static function _ensureSet($v): Set
     {
         if ($v instanceof Set)
             return $v;
@@ -172,7 +250,9 @@ final class Expressions
 
                 public function get(Configuration $config): mixed
                 {
-                    return $this->assign($config, $this->left->get($config), $this->right);
+                    $key = $this->left->get($config);
+                    $val = $this->dereferenceValue($config, $this->right);
+                    return $config[$key] = $val;
                 }
             },
             // append
@@ -188,22 +268,15 @@ final class Expressions
                     if (!isset($config[$key]))
                         $config[$key] = $val;
                     else {
+                        if (!\is_array($cval))
+                            $cval = [$cval];
+                        if (!\is_array($val))
+                            $val = (array)$val;
 
-                        if (\is_array($cval)) {
-
-                            if (\is_array($val)) {
-
-                                foreach ($val as $v)
-                                    $cval[] = $v;
-                            } else
-                                $cval[] = $val;
-                        } else
-                            $cval = [
-                                $cval,
-                                $val
-                            ];
-
-                        $config[$key] = $cval;
+                        $config[$key] = [
+                            ...$cval,
+                            ...$val
+                        ];
                     }
                     return $val;
                 }
@@ -211,7 +284,33 @@ final class Expressions
         };
     }
 
-    static function arrayNode(array $array): Node
+    /**
+     * @internal
+     */
+    public static function arrayNode(?array $array): Node
+    {
+        $array ??= [];
+        $isConst = true;
+
+        foreach ($array as &$v) {
+
+            if ($v instanceof ConstNode)
+                $v = $v->getValue();
+            else
+                $isConst = false;
+        }
+        unset($v);
+
+        if ($isConst)
+            return self::constArrayNode($array);
+        else
+            return self::noConstArrayNode($array);
+    }
+
+    /**
+     * @internal
+     */
+    public static function noConstArrayNode(array $array)
     {
         return new class($array) implements Node {
 
@@ -227,7 +326,7 @@ final class Expressions
                     else
                         $ret[] = $v;
                 }
-                return \implode('', $ret);
+                return $ret;
             }
 
             public function __toString()
@@ -236,16 +335,16 @@ final class Expressions
 
                 foreach ($this->array as $v) {
                     if ($v instanceof Node)
-                        $ret[] = "\${ $v  }";
+                        $ret[] = "\${ $v }";
                     else
-                        $ret[] = (string) $v;
+                        $ret[] =  $v;
                 }
-                return \implode('', $ret);
+                return print_r($ret, true);
             }
         };
     }
 
-    static function arrayNodeOrString(array $array): Node
+    private static function arrayNodeOrString(array $array): Node
     {
         if (\count($array) === 1 && \is_string($array[0]))
             return self::stringNode($array[0]);
@@ -253,7 +352,7 @@ final class Expressions
         return self::arrayNode($array);
     }
 
-    static function assignmentsNode(array $array): Node
+    private static function assignmentsNode(array $array): Node
     {
         return new class($array) implements Node {
 
@@ -286,30 +385,144 @@ final class Expressions
         return keepSecond(skipHSpace(), $parser);
     }
 
+    private static function delimiter(string $delim): Parser
+    {
+        return self::skipSpaces(
+            \strlen($delim) > 1 ? string($delim) : char($delim)
+        );
+    }
+
     private static function parenthesis(Parser $parser): Parser
     {
-        return between(self::skipSpaces(char('(')), self::skipSpaces(char(')')), $parser);
+        return self::between('(', ')', $parser);
+    }
+
+    private static function between(string $chara, string $charb, Parser $parser): Parser
+    {
+        return between(
+            self::delimiter($chara),
+            self::delimiter($charb),
+            $parser
+        );
+    }
+    // ========================================================================
+
+    private static function array(Parser $expression): Parser
+    {
+        $expression = $expression->map(Arrays::ensureArray(...));
+        $exprList = assemble(
+            $expression,
+            self::zeroOrMore(
+                keepSecond(self::delimiter(','), $expression)
+            )->map(function ($s) {
+                return $s === null ?
+                    [] : $s;
+            })
+        );
+
+        return self::between('[', ']', choice(
+            $exprList,
+            nothing(),
+        ))->map(fn($s) => self::arrayNode($s));
+    }
+
+    private static function stringEscape(): Parser
+    {
+        return keepSecond(char('\\'), anySingle());
+    }
+
+    private static function stringContents(string $delim): Parser
+    {
+        $string = fn($delim) => atLeastOne(
+            either(self::stringEscape(), anySingleBut($delim))
+        );
+        return $string($delim);
     }
 
     private static function string(): Parser
     {
-        static $ret;
-
-        if (isset($ret))
-            return $ret;
-
         $makeString = fn($delim) => between(
             char($delim),
-            char($delim), //
-            either( //
-                atLeastOne(either(keepSecond(char('\\'), anySingle()), anySingleBut($delim))), //
-                nothing()
-            )
+            char($delim),
+            either(self::stringContents($delim), nothing())
         );
-
-        $string = choice($makeString('"'), $makeString("'"));
-        return $ret = $string->map(fn($s) => self::stringNode((string) $s));
+        return choice(
+            $makeString('"'),
+            $makeString("'")
+        )->map(fn($s) => self::stringNode((string) $s));
     }
+
+    private static function integer(): Parser
+    {
+        return atLeastOne(digitChar())
+            ->map((fn($s) => self::integerNode((int)$s)));
+    }
+
+    private static function stringChar(Parser ...$parsers)
+    {
+        if (empty($parsers))
+            $parsers = [anySingle()];
+
+        return choice(self::stringEscape(), ...$parsers);
+    }
+
+    /**
+     * @internal
+     */
+    public static function stringWithInterpolationContents(Parser $expr, string ...$delims): Parser
+    {
+        $inlineExpr = self::between('${', '}', $expr);
+        $char = atLeastOne(self::stringChar(noneOf([...$delims, '$'])));
+        return some(choice(
+            atLeastOne($char),
+            $inlineExpr,
+            char('$')->append(atLeastOne($char)),
+        ));
+    }
+    private static function stringWithInterpolation(Parser $expr): Parser
+    {
+        $makeString = fn($delim) => between(
+            char($delim),
+            char($delim),
+            either(self::stringWithInterpolationContents($expr, $delim), nothing())
+        );
+        return choice(
+            $makeString('"'),
+            $makeString("'"),
+        )
+            ->map(fn($e) => (array)$e)
+            ->map(self::stringWithInterpolationResult(...))
+        ;
+    }
+
+    /**
+     * @internal
+     */
+    public static function stringWithInterpolationResult(array $res): Node
+    {
+        $c = \count($res);
+
+        if (0 === $c)
+            return self::stringNode("");
+        if (1 === $c) {
+            $res = $res[0];
+
+            if (\is_string($res))
+                return self::stringNode($res);
+            else
+                return $res;
+        } else {
+            $res = Expressions::arrayNode($res);
+
+            if ($res instanceof ConstNode)
+                return self::stringNode(implode($res->getValue()));
+
+            return self::wrapNode($res, fn(Node $s, Configuration $config) => \implode($s->get($config)));
+        }
+    }
+
+
+    // ========================================================================
 
     private static function variable(): Parser
     {
@@ -325,30 +538,29 @@ final class Expressions
         $pathSequence = self::zeroOrMore(char('.')->append($oneKey));
         $firstkey = $firstCharKey->append(optional($oneKey));
 
-        $path = [
-            $firstkey->append($pathSequence),
-            char('$')->sequence(optional(choice(...[
-                $oneKey->append($pathSequence),
-                self::string()->map(fn($node) => $node->text)
-            ]))->map(\strval(...)))
-        ];
-        return $ret = either(...$path);
+        return $firstkey->append($pathSequence);
     }
 
     private static function binaryOperator(string $op)
     {
         $pop = \strlen($op) > 1 ? string($op) : char($op);
-        return binaryOperator(self::skipSpaces($pop), fn(Node $l, Node $r) => self::binaryNode($op, $l, $r));
+        return binaryOperator(
+            self::skipSpaces($pop),
+            fn(Node $l, Node $r) => self::binaryNode($op, $l, $r)
+        );
     }
 
     private static function unaryOperator(string $op)
     {
         $pop = \strlen($op) > 1 ? string($op) : char($op);
-        return unaryOperator(self::skipSpaces($pop), fn(Node $node) => self::unaryNode($op, $node));
+        return unaryOperator(
+            self::skipSpaces($pop),
+            fn(Node $node) => self::unaryNode($op, $node)
+        );
     }
 
     // ========================================================================
-    private static function expression(): Parser
+    public static function expression(): Parser
     {
         static $ret;
 
@@ -359,29 +571,27 @@ final class Expressions
         $makePrefix = self::unaryOperator(...);
 
         $expr = recursive();
-        $variable = self::variable()->map(fn($k) => Expressions::configValueNode($k));
-        $primary = choice(self::parenthesis($expr), self::string(), $variable);
+        $variable = self::variable()
+            ->map(Expressions::configValueNode(...));
+        $primary = choice(
+            self::parenthesis($expr),
+            self::array($expr),
+            self::stringWithInterpolation($expr),
+            $variable,
+            self::integer(),
+        );
         $primary = self::skipSpaces($primary);
-        $expr->recurse(expression($primary, [
-            prefix($makePrefix('!!')),
-            prefix($makePrefix('!')),
-            nonAssoc($makeBin(':')),
-            leftAssoc($makeBin('&&')),
-            leftAssoc($makeBin('||'))
-        ]));
+
+        $expr->recurse(
+            expression($primary, [
+                prefix($makePrefix('!')),
+                prefix($makePrefix('!!')),
+                nonAssoc($makeBin(':')),
+                leftAssoc($makeBin('&&')),
+                leftAssoc($makeBin('||'))
+            ])
+        );
         return $ret = $expr;
-    }
-
-    public static function inText(): Parser
-    {
-        static $ret;
-
-        if (isset($ret))
-            return $ret;
-
-        $expr = between(string('${'), self::skipSpaces(char('}')), self::expression());
-        $text = atLeastOne(anySingleBut('$'));
-        return $ret = some(choice($expr, $text));
     }
 
     public static function arguments(): Parser
@@ -391,32 +601,25 @@ final class Expressions
         if (isset($ret))
             return $ret;
 
-        $makeOp = fn($op) => self::skipSpaces(char($op));
-        $toArray = fn($s) => [
-            $s
-        ];
+        $toArray = fn($s) => [$s];
 
-        $expr = between(string('${'), self::skipSpaces(char('}')), self::expression());
-        $string = self::inText();
-        $value = [
-            $expr,
-            self::string()->map(fn($s) => $string->tryString($s->text)
-                ->output())
-                ->map(self::arrayNodeOrString(...)),
-            atLeastOne(satisfy(notPred(\ctype_space(...))))->map(self::stringNode(...))
-        ];
-        $value = choice(...$value)->map($toArray);
-        $value = self::skipSpaces($value);
+        $expr = self::expression();
+        $value = self::skipSpaces($expr)
+            ->map($toArray);
 
         $var = self::variable()->map(self::stringNode(...))->map($toArray);
         $var = self::skipSpaces($var);
 
-        $makeAssign = fn($op) => $var->append($makeOp($op)->sequence($value))
+        $makeAssign = fn($op) => $var
+            ->append(self::delimiter($op)->sequence($value))
             ->map(fn($res) => self::assignmentNode($op, $res[0], $res[1]));
 
         $assignment = [
             $makeAssign('='),
             $makeAssign(':'),
+            self::parenthesis($expr)
+                ->map($toArray)
+                ->map(fn($res) => self::assignmentNode(':', Expressions::stringNode('@expr'), $res[0])),
             $var->map(fn($res) => self::assignmentNode('=', $res[0], self::boolNode(true)))
         ];
         $assignment = choice(...$assignment);
@@ -428,6 +631,22 @@ final class Expressions
     }
 
     // ========================================================================
+
+    /**
+     * @internal
+     */
+    public static function _configValue(): Parser
+    {
+        static $ret;
+
+        if (isset($ret))
+            return $ret;
+
+        $inlineExpr = self::between('${', '}', self::expression());
+        $parser = some(either($inlineExpr, atLeastOne(anySingleBut('$'))));
+        return $ret = $parser;
+    }
+
     public static function interpolator(): Interpolator
     {
         return new class() implements Interpolator {
@@ -437,35 +656,19 @@ final class Expressions
                 // Set directly a compiled node
                 if ($value instanceof Node)
                     return Optional::of($value);
-
                 if (! is_string($value))
                     return Optional::empty();
 
-                $parser = Expressions::inText();
+                $parser = Expressions::stringWithInterpolationContents(Expressions::expression());
 
                 try {
                     $res = $parser->tryString($value);
                 } catch (ParserHasFailed $e) {
                     return Optional::empty();
                 }
-                return self::makeInTextResult($res, $value);
-            }
-
-            private static function makeInTextResult(ParseResult $res, string $text): Optional
-            {
-                $res = $res->output();
-
-                if (1 === \count($res)) {
-
-                    // The parsed result is the input
-                    if ($text === $res[0])
-                        return Optional::empty();
-
-                    $res = $res[0];
-                } else {
-                    $res = Expressions::arrayNode($res);
-                }
-                return Optional::of($res);
+                return Optional::of(
+                    Expressions::stringWithInterpolationResult($res->output())
+                );
             }
 
             public function execute($compilation, Configuration $config): mixed

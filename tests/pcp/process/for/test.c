@@ -3,7 +3,7 @@ void fdefempty0()
     return;
 }
 
-#pragma pcp for cond=${tags:"from.function"}
+#pragma pcp for cond=(tags:"from.function")
 #pragma pcp generate prototype
 #pragma pcp for end
 
