@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action\PCP;
 
 use Time2Split\PCP\App;
@@ -10,6 +11,7 @@ use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CPPDirectives;
+use Time2Split\PCP\C\Element\PCPPragma;
 
 final class GenerateClean extends BaseAction
 {
@@ -22,8 +24,9 @@ final class GenerateClean extends BaseAction
 
             case PhaseName::OpeningDirectory:
 
-                if ($phase->state === PhaseState::Start)
+                if ($phase->state === PhaseState::Start) {
                     $this->processDirectory($data);
+                }
                 break;
         }
     }
@@ -41,7 +44,7 @@ final class GenerateClean extends BaseAction
 
     private function processFile(\SplFileInfo $finfo): void
     {
-        if (! \in_array(\substr($finfo, - 2), [
+        if (! \in_array(\substr($finfo, -2), [
             '.h',
             '.c'
         ]))
@@ -58,6 +61,9 @@ final class GenerateClean extends BaseAction
             if (! $ccontainer->isPCPPragma())
                 continue;
 
+            /**
+             * @var PCPPragma $element
+             */
             $section = $element->getFileSection();
 
             if (! $waitForEnd) {
@@ -88,5 +94,6 @@ final class GenerateClean extends BaseAction
             $insert->seekSkip(\array_pop($fpos));
         }
         $insert->close();
+        \unlink($this->tmpFile);
     }
 }

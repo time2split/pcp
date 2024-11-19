@@ -67,6 +67,9 @@ final class Generator
             foreach ($targetsCode as $target => $genCodes) {
                 $targetFilePath = (string)$target->getFileInfo();
 
+                if (!\str_starts_with($targetFilePath, '/'))
+                    $targetFilePath = "$sourcesPath/$targetFilePath";
+
                 // The target file has been deleted
                 if (! \is_file($targetFilePath))
                     continue;

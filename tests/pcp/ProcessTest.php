@@ -22,7 +22,7 @@ final class ProcessTest extends TestCase
 
     private const BaseDir =  __DIR__ . '/process';
 
-    private const WDir =  __DIR__ . '/pcp.wd';
+    private const WDir =  __DIR__ . '/../tests.wd/process';
 
     private static function getCElementsResult(string $filePath, array &$remains = []): array
     {

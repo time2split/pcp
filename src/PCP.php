@@ -121,6 +121,9 @@ class PCP extends BasePublisher
 
     private function processDir(\SplFileInfo|string $wdir, Configuration $parentConfig): void
     {
+        if (\is_string($wdir))
+            $wdir = new \SplFileInfo($wdir);
+
         $phaseData = ReadingDirectory::fromPath($wdir);
 
         $this->updatePhase(
@@ -128,7 +131,6 @@ class PCP extends BasePublisher
             PhaseState::Start,
             $phaseData
         );
-
         $searchConfigFiles = (array) $parentConfig['pcp.reading.dir.configFiles'];
         $dirConfig = Configurations::emptyChild($parentConfig);
         $this->setSubscribersConfig($dirConfig);
@@ -146,7 +148,7 @@ class PCP extends BasePublisher
             $phaseData
         );
 
-        $it = new \FileSystemIterator($wdir);
+        $it = new \FileSystemIterator($wdir->getPathname());
         $dirs = [];
 
         $fileConfig = Configurations::emptyChild($dirConfig);

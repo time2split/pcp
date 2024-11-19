@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action\PhaseData;
 
 abstract class AbstractReadingFile
@@ -11,8 +12,11 @@ abstract class AbstractReadingFile
         $this->fileInfo = $f;
     }
 
-    public final static function fromPath(string $path): static
+    public final static function fromPath(string|\SplFileInfo $path): static
     {
+        if (\is_string($path))
+            $path = new \SplFileInfo($path);
+
         return new static(new \SplFileInfo($path));
     }
 }

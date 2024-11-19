@@ -120,16 +120,24 @@ final class AreaWriter
             $writer->seekSet($section->begin->pos);
             $writer->seekSkip($section->end->pos);
 
+            $areaSection = $area->getPCPPragma()->getFileSection();
+
             // Must add a eol char
-            if ($section->begin->line === $section->end->line)
+            $eof = $areaSection->begin->line === $areaSection->end->line;
+            if ($eof)
                 $writer->write("\n");
 
             if (! empty($selectedCodes)) {
                 $writer->write("#pragma pcp generate begin mtime=$this->srcTime src=\"$this->srcFile\"\n// $this->srcTimeFormat\n");
                 foreach ($selectedCodes as $code)
                     $writer->write("{$code->getText()}\n");
-                if ($writeEnd)
-                    $this->writer->write("#pragma pcp generate end\n");
+
+                if ($writeEnd) {
+                    $this->writer->write("#pragma pcp generate end");
+
+                    if (!$eof)
+                        $this->writer->write("\n");
+                }
             }
         }
     }
