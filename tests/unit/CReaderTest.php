@@ -20,7 +20,7 @@ final class CReaderTest extends TestCase
 
     private static function  pcpConfig(): Configuration
     {
-        return App::configuration(['pcp.name' => 'pcp']);
+        return App::emptyConfiguration();
     }
 
     private static function arrayOfCReaderFactory(): array

@@ -7,9 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\PCP\App;
-use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CDeclaration;
-use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\Help\HelpSets;
 use Time2Split\PCP\PCP;
@@ -24,11 +22,10 @@ final class ProcessTest extends TestCase
 
     private const WDir =  __DIR__ . '/../tests.wd/process';
 
-    private static function getCElementsResult(string $filePath, array &$remains = []): array
+    private static function getCElementsResult(PCP $pcp, string $filePath, array &$remains = []): array
     {
         $result = [];
-        $creader = CReader::fromFile($filePath);
-        $creader->setCPPDirectiveFactory(CPPDirectives::factory(App::defaultConfiguration()));
+        $creader = $pcp->creaderOf($filePath);
 
         while (null !== ($celement = $creader->next())) {
 
@@ -160,19 +157,20 @@ final class ProcessTest extends TestCase
     {
         $resultFile = \sprintf($resultPattern, self::ResultFileName);
         $targetFile = \sprintf($resultPattern, self::TargetFileName);
-        $pcp = new PCP();
         $wdir = self::WDir . "/$dir";
 
         if (!\is_dir($wdir))
             \mkdir($wdir);
 
         $target = "$wdir/$targetFile";
-        $config = App::defaultConfiguration();
+        $config = App::emptyConfiguration();
         $config->merge([
             'generate.targets' => $target,
             'pcp.dir' => $wdir,
-            'paths' => $dir,
+            'pcp.action' => 'process',
+            'pcp.paths' => $dir,
         ]);
+        $pcp = new PCP($config);
 
         $targetContentsFile = "$dir/$targetFile";
 
@@ -183,11 +181,10 @@ final class ProcessTest extends TestCase
 
         \file_put_contents($target, $targetContents);
 
-
-        $pcp->process('process', $config);
-        $result = self::getCElementsResult($target);
+        $pcp->process();
+        $result = self::getCElementsResult($pcp, $target);
         $expectPragmas = [];
-        $expect = self::getCElementsResult("$dir/$resultFile", $expectPragmas);
+        $expect = self::getCElementsResult($pcp, "$dir/$resultFile", $expectPragmas);
 
         $testConfig = self::getExpectConfiguration($expectPragmas);
 

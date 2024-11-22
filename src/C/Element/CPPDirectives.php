@@ -20,7 +20,7 @@ final class CPPDirectives
 
         $stream = Streams::stringToStream($text);
         $first = Streams::streamGetCharsUntil($stream, \ctype_space(...));
-        $pcpNames = $pcpConfig['pcp.name'];
+        $pcpNames = (array)$pcpConfig['pcp.pragma.names'];
 
         if (\in_array($first, $pcpNames))
             return PCPPragma::createPCPPragma($pcpConfig, $directive, $text, $cursors, $stream);
@@ -30,6 +30,6 @@ final class CPPDirectives
 
     public static function factory(Configuration $pcpConfig): \Closure
     {
-        return fn (string $directive, string $text, Section $cursors) => self::create($pcpConfig, $directive, $text, $cursors);
+        return fn(string $directive, string $text, Section $cursors) => self::create($pcpConfig, $directive, $text, $cursors);
     }
 }

@@ -29,7 +29,7 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         return false;
     }
 
-    public function setConfig($config)
+    public function setConfig(Configuration $config): void
     {
         $this->config = $config;
     }

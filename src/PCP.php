@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Time2Split\PCP;
 
+use SplFileInfo;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Config\Entry\ReadingMode;
@@ -29,11 +30,57 @@ use Time2Split\PCP\DataFlow\BasePublisher;
  */
 class PCP extends BasePublisher
 {
+    private const array DefaultConfig = [
+        'pcp' => [
+            'action' => null,
+            'dir.root' => null,
+            'dir' => 'pcp.wd',
+            'reading.dir.configFiles' => 'pcp.conf',
+            'pragma.names' => 'pcp',
+            'paths' => [
+                'src'
+            ],
+        ]
+    ];
 
-    public function __construct()
+    private Configuration $actionsConfig;
+
+    public function __construct(Configuration $appConfig)
     {
         parent::__construct();
+        $this->actionsConfig = self::makeActionsConfig($appConfig);
+
+        // Subscribe the actions
+        $actions = Actions::factory($this->actionsConfig)
+            ->getActions($appConfig['pcp.action']);
+
+        if (empty($actions))
+            throw new \Exception("Unknown action '{$appConfig['pcp.action']}'");
+
+        \array_walk($actions, $this->subscribe(...));
     }
+
+    private static function makeActionsConfig(Configuration $appConfig): Configuration
+    {
+        return Configurations::hierarchy(
+            App::emptyConfiguration()->mergeTree(self::DefaultConfig),
+            $appConfig,
+            App::emptyConfiguration()
+        );
+    }
+
+    public function creaderOf(string|SplFileInfo $file)
+    {
+        $creader = CReader::fromFile($file);
+        $creader->setCPPDirectiveFactory(
+            CPPDirectives::factory(
+                $this->actionsConfig
+            )
+        );
+        return $creader;
+    }
+
+    // ========================================================================
 
     private ?IAction $monopolyFor = null;
 
@@ -85,19 +132,17 @@ class PCP extends BasePublisher
     /**
      * Process the files inside the current working directory.
      */
-    public function process(string $action, Configuration $config): void
+    public function process(): void
     {
-        $config['dir.root'] = \getcwd();
-
-        $actions = Actions::factory($config)->getActions($action);
-        \array_walk($actions, $this->subscribe(...));
+        $this->actionsConfig->clear();
+        $this->actionsConfig['dir.root'] = \getcwd();
 
         // Init and check phase
         {
-            $wd = $config['pcp.dir'];
+            $wd = $this->actionsConfig['pcp.dir'];
 
             if (!is_dir($wd))
-                \mkdir($wd, 0777, true);
+                \mkdir($wd, recursive: true);
         }
 
         $this->updatePhase(
@@ -105,11 +150,11 @@ class PCP extends BasePublisher
             PhaseState::Start
         );
 
-        $config['dateTime'] = $date = new \DateTime();
-        $config['dateTime.format'] = $date->format(\DateTime::ATOM);
+        $this->actionsConfig['dateTime'] = $date = new \DateTime();
+        $this->actionsConfig['dateTime.format'] = $date->format(\DateTime::ATOM);
 
-        foreach ((array)$config['paths'] as $dir)
-            $this->processDir($dir, $config);
+        foreach ((array)$this->actionsConfig['pcp.paths'] as $dir)
+            $this->processDir($dir, $this->actionsConfig);
 
         $this->updatePhase(
             PhaseName::ProcessingFiles,
@@ -243,8 +288,7 @@ class PCP extends BasePublisher
             $phaseData
         );
 
-        $creader = CReader::fromFile($fname);
-        $creader->setCPPDirectiveFactory(CPPDirectives::factory($fileConfig));
+        $creader = $this->creaderOf($fname);
         $elements = [];
 
         try {

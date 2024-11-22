@@ -57,10 +57,10 @@ final class Generate extends BaseAction
 
     private ReadingOneFile $oneFileData;
 
-    public function setConfig($config)
+    public function setConfig(Configuration $config): void
     {
         parent::setConfig(Configurations::hierarchy(
-            App::configuration(self::DefaultConfig),
+            App::emptyConfiguration()->mergeTree(self::DefaultConfig),
             $config,
             App::emptyConfiguration()
         ));

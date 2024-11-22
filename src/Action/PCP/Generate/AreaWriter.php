@@ -33,10 +33,11 @@ final class AreaWriter
 
     private function makeSrcSectionArguments(): Configuration
     {
-        return App::configuration([
-            'src' => $this->srcFile,
-            'mtime' => $this->srcTime - 1
-        ]);
+        return App::emptyConfiguration()
+            ->mergeTree([
+                'src' => $this->srcFile,
+                'mtime' => $this->srcTime - 1
+            ]);
     }
 
     public function write(Area $area): void

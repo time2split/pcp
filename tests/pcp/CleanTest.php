@@ -97,14 +97,17 @@ final class CleanTest extends TestCase
         \chdir(self::BaseDir);
         self::copy($dir, $wd);
 
-        $config = App::defaultConfiguration();
-        $config->merge([
-            'pcp.dir' => $pcpdir,
-            'paths' => $dir,
-        ]);
+        $config = App::emptyConfiguration()
+            ->mergeTree([
+                'pcp' => [
+                    'dir' => $pcpdir,
+                    'action' => 'process',
+                    'paths' => $dir,
+                ]
+            ]);
 
         \chdir(self::WDir);
-        (new PCP())->process('process', $config);
+        (new PCP($config))->process();
 
         $changes = [];
         foreach (self::files($wd) as $file) {
@@ -117,7 +120,8 @@ final class CleanTest extends TestCase
         $this->assertNotEmpty($changes);
         \clearstatcache();
 
-        (new PCP())->process('clean', $config);
+        $config['pcp.action'] = 'clean';
+        (new PCP($config))->process();
 
         foreach ($changes as $file) {
             $src = \file_get_contents("$basedir/$file");

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Time2Split\PCP\C;
 
+use SplFileInfo;
 use Time2Split\Help\CharPredicates;
 use Time2Split\Help\Streams;
 use Time2Split\PCP\C\Element\CDeclaration;
@@ -57,7 +58,7 @@ final class CReader
         return new self($stream, $closeStream);
     }
 
-    public static function fromFile($filePath, bool $closeStream = true): self
+    public static function fromFile(string|SplFileInfo $filePath, bool $closeStream = true): self
     {
         return new self(\fopen((string) $filePath, 'r'), $closeStream);
     }
