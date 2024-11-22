@@ -1,5 +1,3 @@
-#pragma pcp test remains.empty
-
 void fdefa();
 void fdefb();
 

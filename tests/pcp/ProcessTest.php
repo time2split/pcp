@@ -200,17 +200,15 @@ final class ProcessTest extends TestCase
             } else $this->assertTrue(true);
         }
 
-        if ($testConfig['remains.empty']) {
+        if ($testConfig['remains.empty'] ?? true) {
 
             if (!empty($result)) {
                 $lines = \array_map(self::CDeclaration_toString(...), $result);
                 $lines = implode("\n", $lines);
-                $this->assertNotEmpty($result,  "End: Target has unexpected remains:\n$lines");
+                $this->assertEmpty($result,  "End: Target has unexpected remains:\n$lines");
             }
         } else {
-
-            if (empty($result))
-                $this->assertEmpty($result,  "End: Target must have some remains");
+            $this->assertNotEmpty($result,  "End: Target must have some remains");
         }
     }
 

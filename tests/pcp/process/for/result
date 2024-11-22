@@ -1,4 +1,2 @@
 void fempty();
 int fdefint(void);
-
-#pragma pcp test remains.empty
