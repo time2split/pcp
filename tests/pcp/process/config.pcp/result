@@ -1,0 +1,23 @@
+int nothing();
+int pref_f();
+int full_f();
+int bf();
+int bf();
+
+int np_c();
+int gnp_c();
+int XX();
+int direct_c();
+int direct_cc();
+int direct_cc();
+int direct_cc();
+
+//== ID ==//
+
+int nothing();
+int direct_f();
+int first_f();
+int first_f();
+int first_f();
+int first_f();
+int second_f();

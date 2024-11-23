@@ -531,8 +531,8 @@ final class Expressions
         if (isset($ret))
             return $ret;
 
-        $firstCharKey = choice(char('_'), char('@'), alphaChar());
-        $oneKeyChar = either(alphaNumChar(), char('_'));
+        $firstCharKey = choice(alphaChar(), char('_'), char('@'));
+        $oneKeyChar = choice(alphaNumChar(), char('_'), char('@'));
         $oneKey = atLeastOne($oneKeyChar);
 
         $pathSequence = self::zeroOrMore(char('.')->append($oneKey));

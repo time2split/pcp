@@ -21,6 +21,7 @@ use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\DataFlow\BasePublisher;
+use Time2Split\PCP\Help\HelpIterables;
 
 /**
  * PHP: C preprocessor
@@ -141,7 +142,7 @@ class PCP extends BasePublisher
         {
             $wd = $this->actionsConfig['pcp.dir'];
 
-            if (!is_dir($wd))
+            if (!\is_dir($wd))
                 \mkdir($wd, recursive: true);
         }
 
@@ -226,6 +227,8 @@ class PCP extends BasePublisher
         );
     }
 
+    // ========================================================================
+
     private function processOneFile(string $fname, Configuration $config): void
     {
         if (\str_ends_with($fname, '.php')) {
@@ -236,47 +239,80 @@ class PCP extends BasePublisher
                 \file_put_contents($newFile, IO::get_include_contents($fname));
 
             // A new file to consider is created
-            if ($notFile)
+            if ($notFile) {
                 $this->newFiles[] = new \SplFileInfo($newFile);
-        } elseif (\in_array(\substr($fname, -2), [
-            '.h',
-            '.c'
-        ]))
+            }
+        } elseif (\in_array(\substr($fname, -2), ['.h', '.c']))
             $this->processOneCFile($fname, $config);
     }
 
-    private function expandAtConfig(PCPPragma $pcpPragma, Configuration $fileConfig): PCPPragma
+    private static function makePCPPragmaConfig(PCPPragma $pcpPragma, Configuration $fileConfig): PCPPragma
     {
-        $updated = false;
         $pcpArguments = $pcpPragma->getArguments();
-        $newConfig = Configurations::emptyTreeCopyOf($pcpArguments);
+        $newConfig = self::expandAtConfigArguments($pcpArguments, $fileConfig);
 
-        foreach ($pcpArguments->getRawValueIterator() as $k => $v) {
+        if ($newConfig !== $pcpArguments)
+            $pcpPragma = $pcpPragma->copy($newConfig);
+
+        self::unwrapPrefixedPCPArguments($pcpPragma);
+        return $pcpPragma;
+    }
+
+    /**
+     * Expand any pragma argument qith a key $k of the form $k='@config.#id' with the content of $fileConfig[$k].
+     */
+    private static function expandAtConfigArguments(Configuration $pcpPragmaArguments, Configuration $fileConfig): Configuration
+    {
+        $noconfig = $pcpPragmaArguments->isPresent('@noconfig');
+
+        if (!$noconfig) {
+            $yesconfig =
+                $pcpPragmaArguments->isPresent('@config')
+                || $pcpPragmaArguments->isPresent('@config@');
+
+            if (!$yesconfig)
+                // Must prepend the general @config
+                $argsRawValues = HelpIterables::appends(
+                    ['@config' => true],
+                    $pcpPragmaArguments->getRawValueIterator()
+                );
+            else {
+                $argsRawValues = $pcpPragmaArguments;
+            }
+        } else {
+            $argsRawValues = $pcpPragmaArguments->toArray(ReadingMode::RawValue);
+            unset($argsRawValues['@noconfig']);
+        }
+        $newArguments = Configurations::emptyTreeCopyOf($pcpPragmaArguments);
+
+        foreach ($argsRawValues as $k => $v) {
 
             if (!\str_starts_with($k, '@config')) {
-                $newConfig[$k] = $v;
+                $newArguments[$k] = $v;
                 continue;
             }
-            $nextConfig = $fileConfig->getOptional($k, ReadingMode::RawValue);
+            $config = $fileConfig->getOptional($k);
 
-            if ($nextConfig->isPresent($k)) {
-
-                if (!$updated && $k === '@config')
-                    $updated = true;
-
-                $newConfig->merge($nextConfig->get()
-                    ->getRawValueIterator());
-            }
+            if ($config->isPresent())
+                $newArguments->merge($config->get()->getRawValueIterator());
         }
+        return $newArguments;
+    }
 
-        if (!$updated) {
-            $nextConfig = $fileConfig->getOptional('@config');
+    private static function unwrapPrefixedPCPArguments(PCPPragma $pcpPragma): void
+    {
+        $cmd = $pcpPragma->getCommand();
+        $pcpArguments  = $pcpPragma->getArguments();
 
-            if ($nextConfig->isPresent())
-                $newConfig->merge($nextConfig->get()
-                    ->getRawValueIterator());
-        }
-        return $pcpPragma->copy($newConfig);
+        if (!$pcpArguments->nodeIsPresent($cmd))
+            return;
+
+        $subTree = $pcpArguments->subTreeView($cmd);
+
+        $pcpArguments->removeNode($cmd);
+
+        foreach ($subTree->getRawValueIterator() as $k => $v)
+            $pcpArguments[$k] = $v;
     }
 
     private function processOneCFile(string $fname, Configuration $fileConfig): void
@@ -307,7 +343,7 @@ class PCP extends BasePublisher
                 if (CContainer::of($element)->isPCPPragma()) {
 
                     if (!isset($this->monopolyFor) || !$this->monopolyFor->noExpandAtConfig())
-                        $element = $this->expandAtConfig($element, $fileConfig);
+                        $element = self::makePCPPragmaConfig($element, $fileConfig);
                 }
 
                 $resElements = $this->deliverMessage(CContainer::of($element));
