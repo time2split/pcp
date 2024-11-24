@@ -10,6 +10,8 @@ use Time2Split\Help\Arrays;
 use Time2Split\Help\IO;
 use Time2Split\PCP\App;
 use Time2Split\PCP\Action\BaseAction;
+use Time2Split\PCP\Action\IMoreActions;
+use Time2Split\PCP\Action\MoreActions;
 use Time2Split\PCP\Action\PCP\Generate\Generator;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
@@ -91,7 +93,7 @@ final class Generate extends BaseAction
         return $this->waitingForEnd;
     }
 
-    public function onMessage(CContainer $ccontainer): array
+    public function onMessage(CContainer $ccontainer): IMoreActions
     {
         if ($ccontainer->isPCPPragma()) {
             $pragma = $ccontainer->getPCPPragma();
@@ -113,7 +115,7 @@ final class Generate extends BaseAction
             $this->currentCContainer = $ccontainer;
             $this->processCContainer($ccontainer);
         }
-        return [];
+        return MoreActions::empty();
     }
 
     private function makeInstruction(Configuration $instruction): Configuration

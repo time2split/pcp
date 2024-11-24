@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action;
 
 use Time2Split\Config\Configuration;
@@ -15,7 +16,7 @@ interface IAction extends ISubscriber
      *            The C element message
      * @return array An array that may contains some new PCPPragma instructions to send to each Action instances
      */
-    function onMessage(CContainer $msg): array;
+    function onMessage(CContainer $msg): IMoreActions;
 
     function onPhase(Phase $phase, $data = null): void;
 

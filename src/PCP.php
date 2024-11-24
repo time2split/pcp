@@ -99,8 +99,14 @@ class PCP extends BasePublisher
 
         foreach ($subscribers as $s) {
             $this->monopolyFor = null;
-            $resElements = \array_merge($resElements, $s->onMessage($container));
+            $moreActions = $s->onMessage($container);
 
+            if (!$moreActions->isEmpty()) {
+                $resElements = \array_merge(
+                    $resElements,
+                    $moreActions->getActions()
+                );
+            }
             if ($s->hasMonopoly())
                 $monopoly[] = $s;
         }

@@ -18,13 +18,19 @@ final class Factory
 
     public function create(CDeclaration $subject, Configuration $instruction): Instruction
     {
-        $i = clone $instruction;
-        $kfirst = App::configFirstKey($i);
+        $genPrototype = $instruction->isPresent('prototype');
+        $genFunction = $instruction->isPresent('function');
+        $genSomething = ($genPrototype xor $genFunction);
 
-        if ($kfirst === 'prototype') {
+        if (!$genSomething) {
+            throw new \Exception("Invalid Generate action: " . \print_r($instruction->toArray(), true));
+        }
+        $i = clone $instruction;
+
+        if ($genPrototype) {
             unset($i['prototype']);
             return new Prototype($subject, $i);
-        } elseif ($kfirst === 'function') {
+        } elseif ($genFunction) {
             unset($i['function']);
 
             if ($subject->getElementType()[CElementType::Function])
@@ -32,7 +38,6 @@ final class Factory
 
             throw new \Exception(sprintf("generate 'function': invalid C declaration subject '%s'", CElementType::stringOf($subject->getElementType())));
         }
-        throw new \Exception("Invalid action '$kfirst': " . \print_r($instruction->toArray(), true));
     }
 
     public function createWithoutSubject(Configuration $instruction): Instruction

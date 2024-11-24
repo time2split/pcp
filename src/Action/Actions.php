@@ -26,6 +26,7 @@ final class Actions
                         // new PCP\EchoAction($this->config),
                         new PCP\Generate($this->config),
                         new PCP\ForAction($this->config),
+                        new PCP\BlockAction($this->config),
                         new PCP\ConfigAction($this->config)
                     ],
                     'clean' => [

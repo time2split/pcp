@@ -188,14 +188,16 @@ final class ProcessTest extends TestCase
 
         $testConfig = self::getExpectConfiguration($expectPragmas);
 
+        $i = 0;
 
         foreach ($expect as $e) {
+            $i++;
             $r = \array_shift($result);
 
             if (!self::CDeclarationEquals($e, $r)) {
                 $me = self::CDeclaration_toString($e);
                 $mr = self::CDeclaration_toString($r);
-                $msg = "Expecting $me but have $mr";
+                $msg = "#$i Expecting $me but have $mr";
                 $this->fail($msg);
             } else $this->assertTrue(true);
         }

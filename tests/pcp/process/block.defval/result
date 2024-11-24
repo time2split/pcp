@@ -1,0 +1,8 @@
+int def_s();
+int pref_s();
+
+int conf_s();
+int def_s();
+int pref_s();
+int pref_s();
+int conf_s();

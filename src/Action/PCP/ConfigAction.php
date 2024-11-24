@@ -8,11 +8,13 @@ use Time2Split\PCP\Action\BaseAction;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\Config\Configurations;
+use Time2Split\PCP\Action\IMoreActions;
+use Time2Split\PCP\Action\MoreActions;
 
 final class ConfigAction extends BaseAction
 {
 
-    public function onMessage(CContainer $ccontainer): array
+    public function onMessage(CContainer $ccontainer): IMoreActions
     {
         if ($ccontainer->isPCPPragma()) {
             $pcpPragma = $ccontainer->getPCPPragma();
@@ -20,7 +22,7 @@ final class ConfigAction extends BaseAction
             if ($pcpPragma->getCommand() === 'config')
                 $this->doConfig($pcpPragma);
         }
-        return [];
+        return MoreActions::empty();
     }
 
     private function doConfig(PCPPragma $pcpPragma): void

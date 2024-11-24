@@ -14,6 +14,8 @@ use Time2Split\PCP\Action\PCP\For\Cond;
 use Time2Split\Config\Entry\ReadingMode;
 use Time2Split\Help\Arrays;
 use Time2Split\PCP\Action\CActionSubject;
+use Time2Split\PCP\Action\IMoreActions;
+use Time2Split\PCP\Action\MoreActions;
 
 final class ForAction extends BaseAction
 {
@@ -36,14 +38,14 @@ final class ForAction extends BaseAction
         return $this->waitingFor;
     }
 
-    public function onMessage(CContainer $ccontainer): array
+    public function onMessage(CContainer $ccontainer): IMoreActions
     {
         if ($ccontainer->isPCPPragma()) {
             $pcpPragma = $ccontainer->getPCPPragma();
 
             if ($pcpPragma->getCommand() === 'for' || $this->waitingFor) {
                 $this->doFor($pcpPragma);
-                return [];
+                return MoreActions::empty();
             }
         }
 
@@ -53,16 +55,16 @@ final class ForAction extends BaseAction
         return $this->checkForConditions(CActionSubject::of($ccontainer->getCElement()));
     }
 
-    private function checkForConditions(CActionSubject $subject): array
+    private function checkForConditions(CActionSubject $subject): IMoreActions
     {
         foreach ($this->forInstructions as $condStorage) {
             $upperConfig = $subject->getConfiguration();
             $check = $condStorage->check($upperConfig, $this->config->getInterpolator());
 
             if ($check)
-                return $condStorage->instructions;
+                return MoreActions::create($condStorage->instructions);
         }
-        return [];
+        return MoreActions::empty();
     }
 
     private PhaseState $readingDirPhase;
