@@ -315,7 +315,7 @@ class PCP extends BasePublisher
 
         $subTree = $pcpArguments->subTreeView($cmd);
 
-        $pcpArguments->removeNode($cmd);
+        $pcpArguments->unsetNode($cmd);
 
         foreach ($subTree->getRawValueIterator() as $k => $v)
             $pcpArguments[$k] = $v;

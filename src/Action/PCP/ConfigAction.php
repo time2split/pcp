@@ -32,7 +32,7 @@ final class ConfigAction extends BaseAction
         if ($args->isPresent('@expr')) {
             $id = $this->getExprIdentifier($pcpPragma, 'config');
             $args = clone $args;
-            $args->removeNode('@expr');
+            $args->unsetNode('@expr');
             $key = "@config.$id";
         } else {
             $key = [

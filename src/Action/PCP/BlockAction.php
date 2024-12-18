@@ -119,7 +119,7 @@ final class BlockAction extends BaseAction
             return MoreActions::empty();
 
         $includeConfig = $pcpPragma->getArguments();
-        $includeConfig->removeNode('@expr');
+        $includeConfig->unsetNode('@expr');
         return MoreActions::create(
             $blockMoreActions->getActions(),
             $includeConfig
@@ -134,7 +134,7 @@ final class BlockAction extends BaseAction
         $id = $this->getExprIdentifier($pcpPragma, 'block');
         $args = $pcpPragma->getArguments();
         $args = clone $args;
-        $args->removeNode('@expr');
+        $args->unsetNode('@expr');
         $this->currentBlock = self::blockStorage($id, $args);
     }
 }
