@@ -73,8 +73,10 @@ final class Generator
                     $targetFilePath = "$sourcesPath/$targetFilePath";
 
                 // The target file has been deleted
-                if (! \is_file($targetFilePath))
+                if (! \is_file($targetFilePath)) {
+                    \fputs(STDERR, "Warning! The target file '$targetFilePath' does not exists\n");
                     continue;
+                }
 
                 $areas = $this->nextArea($targetFilePath);
                 // Must read the file before its writing

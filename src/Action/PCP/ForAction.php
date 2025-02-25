@@ -19,6 +19,10 @@ use Time2Split\PCP\Action\MoreActions;
 
 final class ForAction extends BaseAction
 {
+    /**
+     * Sequence of for instructions per directory loaded from configuration files (pcp.conf)
+     */
+    private array $forInstructions_dirHierarchy = [[0, []]];
 
     private array $forInstructions;
 
@@ -67,32 +71,33 @@ final class ForAction extends BaseAction
         return MoreActions::empty();
     }
 
-    private PhaseState $readingDirPhase;
-
     public function onPhase(Phase $phase, $data = null): void
     {
         switch ($phase->name) {
 
             case PhaseName::OpeningDirectory:
-                $this->readingDirPhase = $phase->state;
+                /*
+                 * Each directory store its own set of instructions
+                 */
+                if ($phase->state === PhaseState::Start) {
+                    [$this->idGen, $this->forInstructions] = Arrays::lastValue($this->forInstructions_dirHierarchy);
+                } elseif ($phase->state === PhaseState::Run) {
+                    $this->forInstructions_dirHierarchy[] = [$this->idGen, $this->forInstructions];
+                } elseif ($phase->state === PhaseState::Stop) {
+                    // Clear the directory instructions
+                    \array_pop($this->forInstructions_dirHierarchy);
+                }
                 break;
 
             case PhaseName::ReadingOneFile:
 
                 if ($phase->state === PhaseState::Start) {
-                    $this->forInstructions = $this->config['action.for'] ?? [];
+                    [$this->idGen, $this->forInstructions] = Arrays::lastValue($this->forInstructions_dirHierarchy);
                     $this->waitingFor = false;
-                    $this->idGen = 0;
                 } elseif ($phase->state === PhaseState::Stop) {
 
                     if ($this->waitingFor)
                         throw new \Exception("Waiting for 'end' of 'for' block; reached end of file");
-
-                    /**
-                     * Reading a configuration file
-                     */
-                    if ($this->readingDirPhase === PhaseState::Start)
-                        $this->config['action.for'] = $this->forInstructions;
                 }
                 break;
         }
@@ -117,10 +122,10 @@ final class ForAction extends BaseAction
             } else {
                 $this->storeInstruction($pcpPragma);
             }
-        } elseif (isset($args['clear']))
-            $this->config['for.instructions'] =
-                $this->forInstructions = [];
-        else {
+        } elseif (isset($args['clear'])) {
+            $this->forInstructions = [];
+            $this->idGen = 0;
+        } else {
             // == Create the new 'for' block ==
 
             $cond = $args->getOptional('@expr', ReadingMode::RawValue);

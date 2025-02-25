@@ -194,6 +194,11 @@ final class ProcessTest extends TestCase
             $i++;
             $r = \array_shift($result);
 
+            if (null === $r) {
+                $me = self::CDeclaration_toString($e);
+                $this->fail("No result for the expectation $me");
+            }
+
             if (!self::CDeclarationEquals($e, $r)) {
                 $me = self::CDeclaration_toString($e);
                 $mr = self::CDeclaration_toString($r);

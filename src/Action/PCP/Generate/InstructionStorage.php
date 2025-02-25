@@ -3,6 +3,7 @@
 namespace Time2Split\PCP\Action\PCP\Generate;
 
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
+use Time2Split\PCP\Help\HelpFilePath;
 
 final class InstructionStorage
 {
@@ -47,11 +48,20 @@ final class InstructionStorage
     {
         if ($targetPath === '.')
             return (string) $fileData->fileInfo;
-        if (\str_starts_with($targetPath, '/'))
-            return $targetPath;
-        if (false === \strpos('/', $targetPath) || \str_starts_with('./', $targetPath))
-            return "$fileData->fileInfo/$targetPath";
 
-        return $targetPath;
+        if (false === \strstr($targetPath, '.'))
+            return $targetPath;
+
+        $canonical = HelpFilePath::canonical($targetPath);
+
+        if (!\str_starts_with($canonical, '../'))
+            return $canonical;
+
+        $canonical = HelpFilePath::canonical("{$fileData->fileInfo->getPath()}/$canonical");
+
+        if (\str_starts_with($canonical, '../'))
+            throw new \Exception("The result path go outside the base directory: $canonical");
+
+        return $canonical;
     }
 }
