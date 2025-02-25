@@ -30,7 +30,9 @@ final class Generator
     {
         $writer = App::fileInsertion((string)$targetFileInfo, self::tmpFile);
         $srcTime = $srcFileInfo->getMTime();
-        $srcFile = \substr((string)$srcFileInfo, 1 + \strlen($this->workingDir));
+
+        $sourcesRoot = $this->appConfig['dir.root'];
+        $srcFile = \substr((string)$srcFileInfo, 1 + \strlen($sourcesRoot));
 
         return new AreaWriter($writer, $srcTime, $genCodes, $srcFile, $this->appConfig);
     }
