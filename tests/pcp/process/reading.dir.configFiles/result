@@ -1,0 +1,4 @@
+int fsubdef(float a);
+void subcode();
+int fdef(float a);
+void code();

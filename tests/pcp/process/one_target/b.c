@@ -1,0 +1,1 @@
+#pragma pcp generate code="int b;" target="thetarget"
