@@ -1,0 +1,5 @@
+#pragma pcp generate code="#define FILE \"${@process.file}\""
+#pragma pcp generate code="#define FILE_NAME \"${@process.file.name}\""
+#pragma pcp generate code="#define FILE_SUFFIX \"${@process.file.suffix}\""
+#pragma pcp generate code="#define FILE_BASENAME \"${@process.file.basename}\""
+#pragma pcp generate code="#define FILE_DIR \"${@process.file.dir}\""

@@ -157,9 +157,6 @@ class PCP extends BasePublisher
             PhaseState::Start
         );
 
-        $this->actionsConfig['dateTime'] = $date = new \DateTime();
-        $this->actionsConfig['dateTime.format'] = $date->format(\DateTime::ATOM);
-
         foreach ((array)$this->actionsConfig['pcp.paths'] as $dir)
             $this->processDir($dir, $this->actionsConfig);
 
@@ -185,6 +182,7 @@ class PCP extends BasePublisher
         );
         $searchConfigFiles = (array) $parentConfig['pcp.reading.dir.configFiles'];
         $dirConfig = Configurations::emptyChild($parentConfig);
+        $dirConfig['@process.file.dir'] = (string) $wdir;
         $this->setSubscribersConfig($dirConfig);
 
         foreach ($searchConfigFiles as $searchForFile) {
@@ -213,7 +211,7 @@ class PCP extends BasePublisher
                 $dirs[] = $finfo;
             else {
                 $fileConfig->clear();
-                $this->processOneFile($finfo->getPathName(), $fileConfig);
+                $this->processOneFile($finfo, $fileConfig);
             }
         }
         // Iterate through new files
@@ -235,27 +233,36 @@ class PCP extends BasePublisher
 
     // ========================================================================
 
-    private function processOneFile(string $fname, Configuration $config): void
+    private function processOneFile(\SplFileInfo $file, Configuration $fileConfig): void
     {
+        $fname = $file->getFilename();
+        $fpath = $file->getPathname();
+
         if (\str_ends_with($fname, '.php')) {
             $newFile = \substr($fname, 0, -4);
             $notFile = !\is_file($newFile);
 
-            if ($notFile || IO::olderThan($newFile, $fname))
-                \file_put_contents($newFile, IO::get_include_contents($fname));
+            if ($notFile || IO::olderThan($newFile, $fpath))
+                \file_put_contents($newFile, IO::get_include_contents($fpath));
 
             // A new file to consider is created
             if ($notFile) {
                 $this->newFiles[] = new \SplFileInfo($newFile);
             }
-        } elseif (\in_array(\substr($fname, -2), ['.h', '.c']))
-            $this->processOneCFile($fname, $config);
+        } elseif (\in_array($ext = \substr($fname, -2), ['.h', '.c'])) {
+            $fileConfig['@process.file'] = $file->getPathname();
+            $fileConfig['@process.file.name'] = $fname;
+            $fileConfig['@process.file.suffix'] = $ext;
+            $fileConfig['@process.file.baseName'] = \substr($fname, 0, \strlen($fname) - 2);
+            $this->processOneCFile($file, $fileConfig);
+        }
     }
 
     private static function makePCPPragmaConfig(PCPPragma $pcpPragma, Configuration $fileConfig): PCPPragma
     {
         $pcpArguments = $pcpPragma->getArguments();
         $newConfig = self::expandAtConfigArguments($pcpArguments, $fileConfig);
+        $newConfig = self::addTopPublicConfig($newConfig, $fileConfig);
 
         if ($newConfig !== $pcpArguments)
             $pcpPragma = $pcpPragma->copy($newConfig);
@@ -264,8 +271,13 @@ class PCP extends BasePublisher
         return $pcpPragma;
     }
 
+    private static function addTopPublicConfig(Configuration $pcpPragmaArguments, Configuration $fileConfig): Configuration
+    {
+        return Configurations::hierarchy($fileConfig->copyBranches('@process'), $pcpPragmaArguments);
+    }
+
     /**
-     * Expand any pragma argument qith a key $k of the form $k='@config.#id' with the content of $fileConfig[$k].
+     * Expand any pragma argument with a key $k of the form $k='@config.#id' with the content of $fileConfig[$k].
      */
     private static function expandAtConfigArguments(Configuration $pcpPragmaArguments, Configuration $fileConfig): Configuration
     {
@@ -321,16 +333,16 @@ class PCP extends BasePublisher
             $pcpArguments[$k] = $v;
     }
 
-    private function processOneCFile(string $fname, Configuration $fileConfig): void
+    private function processOneCFile(\SplFileInfo|string $file, Configuration $fileConfig): void
     {
-        $phaseData = ReadingOneFile::fromPath($fname);
+        $phaseData = ReadingOneFile::fromPath($file);
         $this->updatePhase(
             PhaseName::ReadingOneFile,
             PhaseState::Start,
             $phaseData
         );
 
-        $creader = $this->creaderOf($fname);
+        $creader = $this->creaderOf($file);
         $elements = [];
 
         try {
@@ -351,7 +363,6 @@ class PCP extends BasePublisher
                     if (!isset($this->monopolyFor) || !$this->monopolyFor->noExpandAtConfig())
                         $element = self::makePCPPragmaConfig($element, $fileConfig);
                 }
-
                 $resElements = $this->deliverMessage(CContainer::of($element));
 
                 if (!empty($resElements)) {
@@ -360,7 +371,7 @@ class PCP extends BasePublisher
                 }
             }
         } catch (\Exception $e) {
-            throw new \Exception("File $fname position {$creader->getCursorPosition()}", previous: $e);
+            throw new \Exception("File $file position {$creader->getCursorPosition()}", previous: $e);
         }
         $creader->close();
         $this->updatePhase(
