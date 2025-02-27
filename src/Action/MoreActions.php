@@ -7,9 +7,20 @@ namespace Time2Split\PCP\Action;
 use Time2Split\Config\Configuration;
 use Time2Split\PCP\App;
 
-final class MoreActions extends AbstractMoreActions
+final class MoreActions
 {
-    public static function create(array $actions, Configuration $config = null): IMoreActions
+    private function __construct(
+        protected readonly array $actions,
+        protected readonly Configuration $config,
+    ) {
+        self::checkTypeOfActions(...$actions);
+    }
+
+    private static function checkTypeOfActions(ActionCommand ...$commands): void {}
+
+    // ========================================================================
+
+    public static function create(array $actions, Configuration $config = null): MoreActions
     {
         if (empty($actions))
             return self::empty();
@@ -19,7 +30,7 @@ final class MoreActions extends AbstractMoreActions
 
     private static self $emptyInstance;
 
-    public static function empty(): IMoreActions
+    public static function empty(): MoreActions
     {
         if (isset(self::$emptyInstance))
             return self::$emptyInstance;
@@ -29,8 +40,26 @@ final class MoreActions extends AbstractMoreActions
 
     // ========================================================================
 
+    public function getActions(): array
+    {
+        if (0 == $this->config->count())
+            return $this->actions;
+
+        $actions = [];
+        $config = $this->config;
+
+        foreach ($this->actions as $action) {
+            $arguments = (clone $action->getArguments())
+                ->merge($config->getRawValueIterator());
+
+            // $actions[] = $action->copy($actionConfig);
+            $actions[] = ActionCommand::create($action->getName(), $arguments);
+        }
+        return $actions;
+    }
+
     public function isEmpty(): bool
     {
-        return $this === self::empty();
+        return 0 === \count($this->actions);
     }
 }

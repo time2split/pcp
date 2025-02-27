@@ -8,7 +8,6 @@ use Time2Split\Config\Configuration;
 use Time2Split\Help\Arrays;
 use Time2Split\Help\IO;
 use Time2Split\PCP\C\Element\CContainer;
-use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\DataFlow\BaseSubscriber;
 
 abstract class BaseAction extends BaseSubscriber implements IAction
@@ -36,23 +35,18 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         $this->config = $config;
     }
 
-    public final function onNext($data): void
+    protected final function getExprIdentifier(ActionCommand $command, string $actionName): mixed
     {
-        $this->onMessage($data);
-    }
-
-    protected final function getExprIdentifier(PCPPragma $pcpPragma, string $actionName): mixed
-    {
-        $args = $pcpPragma->getArguments();
+        $args = $command->getArguments();
         $expr = $args->getOptional('@expr');
 
         if (!$expr->isPresent())
-            throw new \Exception("A '$actionName' action must have an identifier, have:\n$pcpPragma");
+            throw new \Exception("A '$actionName' action must have an identifier, have:\n$command");
 
         $expr = Arrays::ensureArray($expr->get());
 
         if (\count($expr) > 1)
-            throw new \Exception("A '$actionName' action can only have one identifier, have:\n$pcpPragma");
+            throw new \Exception("A '$actionName' action can only have one identifier, have:\n$command");
 
         return $expr[0];
     }
@@ -76,7 +70,12 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         IO::wdPop();
     }
 
-    public function onMessage(CContainer $msg): IMoreActions
+    public function onCommand(ActionCommand $command): MoreActions
+    {
+        return MoreActions::empty();
+    }
+
+    public function onMessage(CContainer $msg): MoreActions
     {
         return MoreActions::empty();
     }

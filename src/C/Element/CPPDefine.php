@@ -12,7 +12,7 @@ final class CPPDefine extends CPPDirective
         string $definitionText,
         Section $cursors,
         private string $name,
-        private array $parameters,
+        private array $arguments,
         private string $text
     ) {
         parent::__construct('define', $definitionText, $cursors);
@@ -36,12 +36,12 @@ final class CPPDefine extends CPPDirective
 
     public function isFunction(): bool
     {
-        return empty($this->parameters);
+        return empty($this->arguments);
     }
 
     public function getMacroParameters(): array
     {
-        return $this->parameters;
+        return $this->arguments;
     }
 
     public function getMacroContents()

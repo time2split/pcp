@@ -8,9 +8,9 @@ use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Help\Arrays;
 use Time2Split\Help\IO;
+use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\App;
 use Time2Split\PCP\Action\BaseAction;
-use Time2Split\PCP\Action\IMoreActions;
 use Time2Split\PCP\Action\MoreActions;
 use Time2Split\PCP\Action\PCP\Generate\Generator;
 use Time2Split\PCP\Action\Phase;
@@ -93,25 +93,29 @@ final class Generate extends BaseAction
         return $this->waitingForEnd;
     }
 
-    public function onMessage(CContainer $ccontainer): IMoreActions
+    public function onCommand(ActionCommand $command): MoreActions
     {
-        if ($ccontainer->isPCPPragma()) {
-            $pragma = $ccontainer->getPCPPragma();
+        if ($command->getName() !== 'generate')
+            return MoreActions::empty();
 
-            if ($this->PCPIsGenerate($pragma)) {
-                $args = $pragma->getArguments();
+        $arguments = $command->getArguments();
 
-                if ($this->waitingForEnd) {
+        if ($this->waitingForEnd) {
 
-                    if (isset($args['end'])) {
-                        $this->waitingForEnd = false;
-                    }
-                } elseif (isset($args['begin']))
-                    $this->waitingForEnd = true;
-                else
-                    $this->doInstruction($pragma);
+            if (isset($arguments['end'])) {
+                $this->waitingForEnd = false;
             }
-        } elseif ($ccontainer->isDeclaration()) {
+        } elseif (isset($arguments['begin']))
+            $this->waitingForEnd = true;
+        else
+            $this->doInstruction($command);
+
+        return MoreActions::empty();
+    }
+
+    public function onMessage(CContainer $ccontainer): MoreActions
+    {
+        if ($ccontainer->isDeclaration()) {
             $this->currentCContainer = $ccontainer;
             $this->processCContainer($ccontainer);
         }
@@ -137,8 +141,8 @@ final class Generate extends BaseAction
         if (! $declaration->getElementType()[CElementType::Function])
             return;
 
-        foreach ($this->instructions as $pcpPragma) {
-            $i = $this->makeInstruction($pcpPragma->getArguments());
+        foreach ($this->instructions as $actionCommand) {
+            $i = $this->makeInstruction($actionCommand->getArguments());
             $this->istorage->put($this->ifactory->create($declaration, $i));
         }
         $this->instructions = [];
@@ -203,15 +207,15 @@ final class Generate extends BaseAction
     }
 
     // ========================================================================
-    private function doInstruction(PCPPragma $inst): void
+    private function doInstruction(ActionCommand $actionCommand): void
     {
-        if ($this->instructionWithoutSubject($inst))
+        if ($this->instructionWithoutSubject($actionCommand))
             return;
 
-        $args = $inst->getArguments();
+        $args = $actionCommand->getArguments();
 
         if (isset($args['function']) || isset($args['prototype'])) {
-            $this->instructions[] = $inst;
+            $this->instructions[] = $actionCommand;
         } else {
             // Update the configuration
             $args = Arrays::arrayMapKey(fn($k) => "generate.$k", $args->toArray());
@@ -219,10 +223,10 @@ final class Generate extends BaseAction
         }
     }
 
-    private function instructionWithoutSubject(PCPPragma $pcpPragma): bool
+    private function instructionWithoutSubject(ActionCommand $actionCommand): bool
     {
         try {
-            $i = $this->makeInstruction($pcpPragma->getArguments());
+            $i = $this->makeInstruction($actionCommand->getArguments());
             $this->istorage->put($this->ifactory->createWithoutSubject($i));
             return true;
         } catch (\Exception $e) {
@@ -253,7 +257,7 @@ final class Generate extends BaseAction
 
             if ($export !== @include $filePath) {
 
-                if (false === $i = IO::printPHPFile($filePath, $export))
+                if (false === IO::printPHPFile($filePath, $export))
                     throw new \Exception("Unable to write " . getcwd() . "/$filePath");
             }
         }

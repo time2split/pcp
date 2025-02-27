@@ -9,10 +9,8 @@ use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\C\Element\CContainer;
-use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\Config\Configuration;
-use Time2Split\PCP\Action\AbstractMoreActions;
-use Time2Split\PCP\Action\IMoreActions;
+use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\MoreActions;
 
 final class BlockAction extends BaseAction
@@ -35,25 +33,23 @@ final class BlockAction extends BaseAction
         return null !== $this->currentBlock;
     }
 
-    public function onMessage(CContainer $ccontainer): IMoreActions
+    public function onCommand(ActionCommand $command): MoreActions
     {
-        if ($ccontainer->isPCPPragma()) {
-            $pcpPragma = $ccontainer->getPCPPragma();
-
-            if ($this->waitingForInstructions()) {
-                $this->doStoreInstruction($pcpPragma);
-                goto end;
-            } elseif ($pcpPragma->getCommand() === 'block') {
-                $this->doIt($pcpPragma);
-                goto end;
-            } elseif ($pcpPragma->getCommand() === 'include') {
-                return $this->doInclude($pcpPragma);
-            }
+        if ($this->waitingForInstructions()) {
+            $this->doStoreInstruction($command);
+        } elseif ($command->getName() === 'block') {
+            $this->doIt($command);;
+        } elseif ($command->getName() === 'include') {
+            return $this->doInclude($command);
         }
+        return MoreActions::empty();
+    }
+
+    public function onMessage(CContainer $ccontainer): MoreActions
+    {
         if ($this->waitingForInstructions())
             throw new \Exception("Waiting for some 'block' actions, has:\n'{$ccontainer->getCElement()}'");
 
-        end:
         return MoreActions::empty();
     }
 
@@ -74,51 +70,47 @@ final class BlockAction extends BaseAction
 
     // ========================================================================
 
-    private function doStoreInstruction(PCPPragma $pcpPragma): void
+    private function doStoreInstruction(ActionCommand $command): void
     {
-        if ($pcpPragma->getCommand() === 'block') {
-            $args = $pcpPragma->getArguments();
+        if ($command->getName() === 'block') {
+            $args = $command->getArguments();
 
             if (isset($args['end'])) {
-                $this->config["@block.{$this->currentBlock->id}"] = $this->currentBlock;
+                $this->config["@block.{$this->currentBlock->id}"] = MoreActions::create(
+                    $this->currentBlock->actions,
+                    $this->currentBlock->config,
+                );
                 $this->currentBlock = null;
             } else {
                 throw new \Exception("Nested 'block' are not allowed");
             }
         } else
-            $this->currentBlock->addAction($pcpPragma);
+            $this->currentBlock->actions[] = $command;
     }
 
-    private static function blockStorage(string $id, Configuration $args): IMoreActions
+    private static function makeCurrentBlock(string $id, Configuration $includeArguments): object
     {
-        return new class($id, $args) extends AbstractMoreActions {
+        return new class($id, $includeArguments) {
 
             public function __construct(
                 public readonly string $id,
-
-                public Configuration $config,
-            ) {
-                parent::__construct([], $config);
-            }
-
-            public function addAction(PCPPragma $action)
-            {
-                $this->actions[] = $action;
-            }
+                public readonly Configuration $config,
+                public array $actions = [],
+            ) {}
         };
     }
 
     // ========================================================================
 
-    private function doInclude(PCPPragma $pcpPragma): IMoreActions
+    private function doInclude(ActionCommand $command): MoreActions
     {
-        $id = $this->getExprIdentifier($pcpPragma, 'block');
+        $id = $this->getExprIdentifier($command, 'block');
         $blockMoreActions = $this->config["@block.$id"] ?? null;
 
         if (null === $blockMoreActions)
             return MoreActions::empty();
 
-        $includeConfig = $pcpPragma->getArguments();
+        $includeConfig = $command->getArguments();
         $includeConfig->unsetNode('@expr');
         return MoreActions::create(
             $blockMoreActions->getActions(),
@@ -129,12 +121,12 @@ final class BlockAction extends BaseAction
     // ========================================================================
 
 
-    private function doIt(PCPPragma $pcpPragma): void
+    private function doIt(ActionCommand $command): void
     {
-        $id = $this->getExprIdentifier($pcpPragma, 'block');
-        $args = $pcpPragma->getArguments();
+        $id = $this->getExprIdentifier($command, 'block');
+        $args = $command->getArguments();
         $args = clone $args;
         $args->unsetNode('@expr');
-        $this->currentBlock = self::blockStorage($id, $args);
+        $this->currentBlock = self::makeCurrentBlock($id, $args);
     }
 }

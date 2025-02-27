@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Time2Split\PCP;
 
-use SplFileInfo;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Config\Entry\ReadingMode;
 use Time2Split\Help\IO;
+use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\Actions;
 use Time2Split\PCP\Action\IAction;
 use Time2Split\PCP\Action\Phase;
@@ -70,7 +70,7 @@ class PCP extends BasePublisher
         );
     }
 
-    public function creaderOf(string|SplFileInfo $file)
+    public function creaderOf(string|\SplFileInfo $file)
     {
         $creader = CReader::fromFile($file);
         $creader->setCPPDirectiveFactory(
@@ -85,7 +85,7 @@ class PCP extends BasePublisher
 
     private ?IAction $monopolyFor = null;
 
-    private function deliverMessage(CContainer $container): array
+    private function deliverMessage(CContainer|ActionCommand $message): array
     {
         $resElements = [];
         $monopoly = [];
@@ -99,7 +99,13 @@ class PCP extends BasePublisher
 
         foreach ($subscribers as $s) {
             $this->monopolyFor = null;
-            $moreActions = $s->onMessage($container);
+
+            if ($message instanceof CContainer)
+                $deliver = $s->onMessage(...);
+            else
+                $deliver = $s->onCommand(...);
+
+            $moreActions = $deliver($message);
 
             if (!$moreActions->isEmpty()) {
                 $resElements = \array_merge(
@@ -258,17 +264,21 @@ class PCP extends BasePublisher
         }
     }
 
-    private static function makePCPPragmaConfig(PCPPragma $pcpPragma, Configuration $fileConfig): PCPPragma
+    private static function makeActionCommand(PCPPragma|ActionCommand $element, Configuration $fileConfig, bool $expandAtConfig): ActionCommand
     {
-        $pcpArguments = $pcpPragma->getArguments();
-        $newConfig = self::expandAtConfigArguments($pcpArguments, $fileConfig);
-        $newConfig = self::addTopPublicConfig($newConfig, $fileConfig);
-
-        if ($newConfig !== $pcpArguments)
-            $pcpPragma = $pcpPragma->copy($newConfig);
-
-        self::unwrapPrefixedPCPArguments($pcpPragma);
-        return $pcpPragma;
+        if ($element instanceof PCPPragma) {
+            $arguments = $element->getArguments();
+            $command = $element->getCommand();
+        } else {
+            $arguments = $element->getArguments();
+            $command = $element->getName();
+        }
+        if ($expandAtConfig) {
+            $arguments = self::expandAtConfigArguments($arguments, $fileConfig);
+            $arguments = self::addTopPublicConfig($arguments, $fileConfig);
+        }
+        self::unwrapCommandPrefixedArguments($command, $arguments);
+        return ActionCommand::create($command, $arguments);
     }
 
     private static function addTopPublicConfig(Configuration $pcpPragmaArguments, Configuration $fileConfig): Configuration
@@ -317,11 +327,8 @@ class PCP extends BasePublisher
         return $newArguments;
     }
 
-    private static function unwrapPrefixedPCPArguments(PCPPragma $pcpPragma): void
+    private static function unwrapCommandPrefixedArguments(string $cmd, Configuration $pcpArguments): void
     {
-        $cmd = $pcpPragma->getCommand();
-        $pcpArguments  = $pcpPragma->getArguments();
-
         if (!$pcpArguments->nodeIsPresent($cmd))
             return;
 
@@ -358,12 +365,17 @@ class PCP extends BasePublisher
                         break;
                 }
 
-                if (CContainer::of($element)->isPCPPragma()) {
+                if ($element instanceof PCPPragma || $element instanceof ActionCommand) {
+                    $expandAtConfig =
+                        !isset($this->monopolyFor)
+                        || !$this->monopolyFor->noExpandAtConfig();
 
-                    if (!isset($this->monopolyFor) || !$this->monopolyFor->noExpandAtConfig())
-                        $element = self::makePCPPragmaConfig($element, $fileConfig);
+                    $message = self::makeActionCommand($element, $fileConfig, $expandAtConfig);
+                } else {
+                    $message = CContainer::of($element);
                 }
-                $resElements = $this->deliverMessage(CContainer::of($element));
+                $resElements = $this->deliverMessage($message);
+                unset($message);
 
                 if (!empty($resElements)) {
                     // Reverse the order to allow to array_pop($elements) in the original order

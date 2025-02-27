@@ -9,12 +9,11 @@ use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\C\Element\CContainer;
-use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\Action\PCP\For\Cond;
 use Time2Split\Config\Entry\ReadingMode;
 use Time2Split\Help\Arrays;
+use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\CActionSubject;
-use Time2Split\PCP\Action\IMoreActions;
 use Time2Split\PCP\Action\MoreActions;
 
 final class ForAction extends BaseAction
@@ -42,24 +41,23 @@ final class ForAction extends BaseAction
         return $this->waitingFor;
     }
 
-    public function onMessage(CContainer $ccontainer): IMoreActions
+    public function onCommand(ActionCommand $command): MoreActions
     {
-        if ($ccontainer->isPCPPragma()) {
-            $pcpPragma = $ccontainer->getPCPPragma();
+        if ($command->getName() === 'for' || $this->waitingFor)
+            $this->doFor($command);
 
-            if ($pcpPragma->getCommand() === 'for' || $this->waitingFor) {
-                $this->doFor($pcpPragma);
-                return MoreActions::empty();
-            }
-        }
+        return MoreActions::empty();
+    }
 
+    public function onMessage(CContainer $ccontainer): MoreActions
+    {
         if ($this->waitingFor)
             throw new \Exception("Waiting for 'for' cpp pragma actions, has '{$ccontainer->getCElement()}'");
 
         return $this->checkForConditions(CActionSubject::of($ccontainer->getCElement()));
     }
 
-    private function checkForConditions(CActionSubject $subject): IMoreActions
+    private function checkForConditions(CActionSubject $subject): MoreActions
     {
         foreach ($this->forInstructions as $condStorage) {
             $upperConfig = $subject->getConfiguration();
@@ -103,14 +101,14 @@ final class ForAction extends BaseAction
         }
     }
 
-    private function doFor(PCPPragma $pcpPragma): void
+    private function doFor(ActionCommand $command): void
     {
-        $args = $pcpPragma->getArguments();
+        $args = $command->getArguments();
 
         if ($this->waitingFor) {
 
             // End of 'for' block
-            if ($pcpPragma->getCommand() === 'for') {
+            if ($command->getName() === 'for') {
 
                 if (! isset($args['end']))
                     throw new \Exception("Waiting for 'end' of 'for' block");
@@ -120,7 +118,7 @@ final class ForAction extends BaseAction
                 if (empty($this->forInstructions[$this->id]->instructions))
                     unset($this->forInstructions[$this->id]);
             } else {
-                $this->storeInstruction($pcpPragma);
+                $this->storeInstruction($command);
             }
         } elseif (isset($args['clear'])) {
             $this->forInstructions = [];
@@ -144,12 +142,12 @@ final class ForAction extends BaseAction
 
             $this->id = (string) $id;
 
-            $this->forInstructions[$id] = new Cond($pcpPragma->getArguments(), ...$cond);
+            $this->forInstructions[$id] = new Cond($command->getArguments(), ...$cond);
         }
     }
 
-    private function storeInstruction(PCPPragma $pcpPragma): void
+    private function storeInstruction(ActionCommand $command): void
     {
-        $this->forInstructions[$this->id]->instructions[] = $pcpPragma;
+        $this->forInstructions[$this->id]->instructions[] = $command;
     }
 }

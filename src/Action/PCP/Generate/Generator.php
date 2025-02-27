@@ -15,9 +15,6 @@ final class Generator
 {
     private const tmpFile = 'tmp';
 
-    private string $workingDir;
-
-
     public function __construct(private Configuration $appConfig) {}
 
 
@@ -40,8 +37,6 @@ final class Generator
     public function generate(): void
     {
         $sourcesPath = $this->appConfig['dir.root'];
-        $this->workingDir = $this->appConfig['pcp.dir'];
-
         $sourceCache = [];
 
         $dirIterator = new \RecursiveDirectoryIterator('.', \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::KEY_AS_PATHNAME);
