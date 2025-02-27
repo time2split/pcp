@@ -2,20 +2,18 @@
 
 namespace Time2Split\PCP\Action\PCP;
 
+use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\App;
 use Time2Split\PCP\Action\BaseAction;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
-use Time2Split\PCP\C\CReader;
-use Time2Split\PCP\C\Element\CContainer;
-use Time2Split\PCP\C\Element\CPPDirectives;
-use Time2Split\PCP\C\Element\PCPPragma;
+use Time2Split\PCP\File\HasFileSection;
+use Time2Split\PCP\PCP;
 
 final class GenerateClean extends BaseAction
 {
-
     private string $tmpFile;
 
     public function onPhase(Phase $phase, $data = null): void
@@ -50,35 +48,31 @@ final class GenerateClean extends BaseAction
         ]))
             return;
 
-        $creader = CReader::fromFile($finfo);
-        $creader->setCPPDirectiveFactory(CPPDirectives::factory($this->config));
+        $creader = PCP::creaderOf($finfo, $this->config);
         $waitForEnd = false;
         $fpos = [];
 
         while (null !== ($element = $creader->next())) {
-            $ccontainer = CContainer::of($element);
 
-            if (! $ccontainer->isPCPPragma())
+            if (! ($element instanceof ActionCommand))
                 continue;
 
             /**
-             * @var PCPPragma $element
+             * @var ActionCommand&HasFileSection $element
              */
             $section = $element->getFileSection();
 
             if (! $waitForEnd) {
 
-                if (Generate::PCPIsGenerate($element, 'begin')) {
+                if (Generate::checkActionCommand($element, 'begin')) {
                     $waitForEnd = true;
                     $fpos[] = $section->begin->pos;
-                } elseif (Generate::PCPIsGenerate($element, 'end'))
+                } elseif (Generate::checkActionCommand($element, 'end')) {
                     throw new \Exception("Malformed file ($finfo), unexpected '$element' at {{$section}}");
-            } else {
-
-                if (Generate::PCPIsGenerate($element, 'end')) {
-                    $waitForEnd = false;
-                    $fpos[] = $section->end->pos;
                 }
+            } elseif (Generate::checkActionCommand($element, 'end')) {
+                $waitForEnd = false;
+                $fpos[] = $section->end->pos;
             }
         }
         $creader->close();

@@ -2,14 +2,23 @@
 
 namespace Time2Split\PCP;
 
+use PHPUnit\Util\Filesystem;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Config\TreeConfigurationBuilder;
 use Time2Split\Help\Iterables;
 use Time2Split\Help\Classes\NotInstanciable;
+use Time2Split\Help\Streams;
+use Time2Split\PCP\Action\ActionCommand;
+use Time2Split\PCP\C\CReader;
+use Time2Split\PCP\C\Element\CContainer;
+use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\Expression\Expressions;
 use Time2Split\PCP\File\StreamInsertion;
 use Time2Split\PCP\File\_internal\StreamInsertionImpl;
+use Time2Split\PCP\File\HasFileSection;
+use Time2Split\PCP\File\ISection;
+use Time2Split\PCP\File\Section;
 
 final class App
 {
@@ -32,6 +41,83 @@ final class App
     {
         copy($file, $buffFile);
         return StreamInsertionImpl::fromFilePath($buffFile, $file);
+    }
+
+    public static function textToParameters($stream): Configuration
+    {
+        $parameters = self::emptyConfiguration();
+
+        if (is_resource($stream)) {
+            $text = \stream_get_contents($stream);
+        } else {
+            $text =  (string)$stream;
+        }
+        try {
+            Expressions::arguments()->tryString($text)
+                ->output()
+                ->get($parameters);
+        } catch (\Exception $e) {
+            //  {$cursors->begin})
+            throw new \Exception("Unable to parse the text as parameters: '$text' ; {$e->getMessage()}");
+        }
+        return $parameters;
+    }
+
+    public static function creaderOf(string|\SplFileInfo $file, array $pcpNames): object
+    {
+        $creader = CReader::fromFile($file);
+        return new class($creader, $pcpNames) {
+
+            public function __construct(
+                private CReader $reader,
+                private array $pcpNames,
+            ) {}
+
+            public function __destruct()
+            {
+                $this->close();
+            }
+
+            public function next(): mixed
+            {
+                $next = $this->reader->next();
+
+                if ($next instanceof CPPDirective && $next->getDirective() === 'pragma') {
+                    $stream = Streams::stringToStream($next->getText());
+                    $first = Streams::streamGetCharsUntil($stream, \ctype_space(...));
+
+                    if (\in_array($first, $this->pcpNames)) {
+                        Streams::streamSkipChars($stream, \ctype_space(...));
+                        $cmd = Streams::streamGetCharsUntil($stream, \ctype_space(...));
+                        $parameters = App::textToParameters($stream);
+
+                        return new class($cmd, $parameters, $next->getFileSection())
+                        extends ActionCommand
+                        implements HasFileSection
+                        {
+                            public function __construct(
+                                string $name,
+                                Configuration $arguments,
+                                private Section $section
+                            ) {
+                                parent::__construct($name, $arguments);
+                            }
+
+                            public  function getFileSection(): Section
+                            {
+                                return $this->section;
+                            }
+                        };
+                    }
+                }
+                return $next;
+            }
+
+            public function close(): void
+            {
+                $this->reader->close();
+            }
+        };
     }
 
     // ========================================================================

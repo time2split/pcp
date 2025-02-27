@@ -5,10 +5,7 @@ declare(strict_types=1);
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Time2Split\Config\Configuration;
-use Time2Split\Config\Configurations;
 use Time2Split\PCP\App;
-use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\PCP;
 
 final class CleanTest extends TestCase
@@ -35,19 +32,6 @@ final class CleanTest extends TestCase
             foreach (self::getTests() as $dir)
                 yield [$dir, [$dir]];
         })();
-    }
-
-    private static function getExpectConfiguration(array &$expect): Configuration
-    {
-        $config = Configurations::ofTree();
-
-        for ($i = 0, $c = \count($expect); $i < $c; $i++) {
-            $e = $expect[$i];
-
-            if ($e instanceof PCPPragma)
-                $config->merge($e->getArguments());
-        }
-        return $config;
     }
 
     // ========================================================================

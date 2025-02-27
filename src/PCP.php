@@ -16,10 +16,7 @@ use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
-use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CContainer;
-use Time2Split\PCP\C\Element\CPPDirectives;
-use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\DataFlow\BasePublisher;
 use Time2Split\PCP\Help\HelpIterables;
 
@@ -70,15 +67,14 @@ class PCP extends BasePublisher
         );
     }
 
-    public function creaderOf(string|\SplFileInfo $file)
+    public static function creaderOf(string|\SplFileInfo $file, Configuration $pcpCponfig): object
     {
-        $creader = CReader::fromFile($file);
-        $creader->setCPPDirectiveFactory(
-            CPPDirectives::factory(
-                $this->actionsConfig
-            )
-        );
-        return $creader;
+        return App::creaderOf($file, (array)$pcpCponfig['pcp.pragma.names']);
+    }
+
+    public function getCReaderOf(string|\SplFileInfo $file): object
+    {
+        return self::creaderOf($file, $this->actionsConfig);
     }
 
     // ========================================================================
@@ -264,15 +260,11 @@ class PCP extends BasePublisher
         }
     }
 
-    private static function makeActionCommand(PCPPragma|ActionCommand $element, Configuration $fileConfig, bool $expandAtConfig): ActionCommand
+    private static function makeActionCommand(ActionCommand $element, Configuration $fileConfig, bool $expandAtConfig): ActionCommand
     {
-        if ($element instanceof PCPPragma) {
-            $arguments = $element->getArguments();
-            $command = $element->getCommand();
-        } else {
-            $arguments = $element->getArguments();
-            $command = $element->getName();
-        }
+        $arguments = $element->getArguments();
+        $command = $element->getName();
+
         if ($expandAtConfig) {
             $arguments = self::expandAtConfigArguments($arguments, $fileConfig);
             $arguments = self::addTopPublicConfig($arguments, $fileConfig);
@@ -349,7 +341,7 @@ class PCP extends BasePublisher
             $phaseData
         );
 
-        $creader = $this->creaderOf($file);
+        $creader = $this->getCReaderOf($file);
         $elements = [];
 
         try {
@@ -365,7 +357,7 @@ class PCP extends BasePublisher
                         break;
                 }
 
-                if ($element instanceof PCPPragma || $element instanceof ActionCommand) {
+                if ($element instanceof ActionCommand) {
                     $expandAtConfig =
                         !isset($this->monopolyFor)
                         || !$this->monopolyFor->noExpandAtConfig();

@@ -44,11 +44,6 @@ final class CContainer
         return $this->isCPPDirective() && $this->getCppDirective() instanceof CPPDefine;
     }
 
-    public final function isPCPPragma(): bool
-    {
-        return $this->isCPPDirective() && $this->getCppDirective() instanceof PCPPragma;
-    }
-
     public final function isDeclaration(): bool
     {
         return $this->declaration->isPresent();
@@ -61,11 +56,6 @@ final class CContainer
     }
 
     public final function getMacroDefinition(): CPPDefine
-    {
-        return $this->cppDirective->get();
-    }
-
-    public final function getPCPPragma(): PCPPragma
     {
         return $this->cppDirective->get();
     }

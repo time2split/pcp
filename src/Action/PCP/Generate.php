@@ -19,12 +19,9 @@ use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PCP\Generate\InstructionStorage;
 use Time2Split\PCP\Action\PCP\Generate\Instruction\Factory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
-use Time2Split\PCP\C\CElement;
-use Time2Split\PCP\C\CElements;
 use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CElementType;
-use Time2Split\PCP\C\Element\PCPPragma;
 
 final class Generate extends BaseAction
 {
@@ -68,24 +65,13 @@ final class Generate extends BaseAction
         ));
     }
 
-    public static function isPCPGenerate(CElement|CContainer $element, ?string $firstArg = null): bool
+    public static function checkActionCommand(ActionCommand $command, ?string $firstArg = null): bool
     {
-        if ($element instanceof CContainer) {
-
-            if (!$element->isPCPPragma())
-                return false;
-
-            $element = $element->getCppDirective();
-        }
-        return CElements::isPCPCommand($element, 'generate', $firstArg);
-    }
-
-    public static function PCPIsGenerate(PCPPragma $element, ?string $firstArg = null): bool
-    {
-        return CElements::PCPIsCommand($element, 'generate', $firstArg);
+        return ActionCommand::checkType($command, 'generate', $firstArg);
     }
 
     // ========================================================================
+
     private bool $waitingForEnd = false;
 
     public function hasMonopoly(): bool

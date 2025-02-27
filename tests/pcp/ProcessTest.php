@@ -6,9 +6,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
+use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\App;
 use Time2Split\PCP\C\Element\CDeclaration;
-use Time2Split\PCP\C\Element\PCPPragma;
 use Time2Split\PCP\Help\HelpSets;
 use Time2Split\PCP\PCP;
 
@@ -25,7 +25,7 @@ final class ProcessTest extends TestCase
     private static function getCElementsResult(PCP $pcp, string $filePath, array &$remains = []): array
     {
         $result = [];
-        $creader = $pcp->creaderOf($filePath);
+        $creader = $pcp->getCReaderOf($filePath);
 
         while (null !== ($celement = $creader->next())) {
 
@@ -34,6 +34,7 @@ final class ProcessTest extends TestCase
             else
                 $remains[] = $celement;
         }
+        $creader->close();
         return $result;
     }
 
@@ -105,7 +106,7 @@ final class ProcessTest extends TestCase
         foreach ($files as $file) {
             $fname = $file->getFilename();
 
-            if (!\preg_match("/(.*)$result(.*)/", $fname, $matches))
+            if (!\preg_match("#([^/]*)$result([^/]*)#", $fname, $matches))
                 continue;
 
             yield "$matches[1]%s$matches[2]";
@@ -144,7 +145,7 @@ final class ProcessTest extends TestCase
         for ($i = 0, $c = \count($expect); $i < $c; $i++) {
             $e = $expect[$i];
 
-            if ($e instanceof PCPPragma)
+            if ($e instanceof ActionCommand)
                 $config->merge($e->getArguments());
         }
         return $config;
@@ -183,10 +184,10 @@ final class ProcessTest extends TestCase
 
         $pcp->process();
         $result = self::getCElementsResult($pcp, $target);
-        $expectPragmas = [];
-        $expect = self::getCElementsResult($pcp, "$dir/$resultFile", $expectPragmas);
+        $remains = [];
+        $expect = self::getCElementsResult($pcp, "$dir/$resultFile", $remains);
 
-        $testConfig = self::getExpectConfiguration($expectPragmas);
+        $testConfig = self::getExpectConfiguration($remains);
 
         $i = 0;
 

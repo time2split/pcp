@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Time2Split\PCP\Action;
 
 use Time2Split\Config\Configuration;
+use Time2Split\Help\Iterables;
 
-final class ActionCommand
+class ActionCommand
 {
     protected function __construct(
         private readonly string $name,
@@ -27,5 +28,18 @@ final class ActionCommand
     public function getArguments(): Configuration
     {
         return $this->arguments;
+    }
+
+    // ========================================================================
+
+    public static function checkType(ActionCommand $command, string $commandName, string $firstParam = null): bool
+    {
+        if ($command->getName() !== $commandName)
+            return false;
+
+        if (null === $firstParam)
+            return true;
+
+        return Iterables::firstKey($command->getArguments()) === $firstParam;
     }
 }

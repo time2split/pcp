@@ -48,7 +48,7 @@ final class AreaWriter
             // No section of code has been already written
             $writeEnd = true;
             $sectionArgs = $this->makeSrcSectionArguments();
-            $srcSection = Section::createPoint($area->getPCPPragma()->getFileSection()->end);
+            $srcSection = Section::createPoint($area->getActionCommand()->getFileSection()->end);
             $lastSection = $srcSection;
         } else {
             $writeEnd = false;
@@ -121,7 +121,7 @@ final class AreaWriter
             $writer->seekSet($section->begin->pos);
             $writer->seekSkip($section->end->pos);
 
-            $areaSection = $area->getPCPPragma()->getFileSection();
+            $areaSection = $area->getActionCommand()->getFileSection();
 
             // Must add a eol char
             $eof = $areaSection->begin->line === $areaSection->end->line;

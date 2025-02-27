@@ -12,7 +12,6 @@ use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\C\Element\CPPDirective;
-use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\File\Section;
 
 final class CReaderTest extends TestCase
@@ -28,8 +27,7 @@ final class CReaderTest extends TestCase
         return [
             new Provided("CReader", [fn(string $stream) => CReader::fromString($stream)]),
             new Provided("CPPDirectives", [function (string $stream) {
-                $reader =  CReader::fromString($stream);
-                $reader->setCPPDirectiveFactory(CPPDirectives::factory(self::pcpConfig()));
+                $reader =  CReader::fromString($stream, self::pcpConfig());
                 return $reader;
             }]),
         ];

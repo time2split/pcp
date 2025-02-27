@@ -14,7 +14,7 @@ interface IAction extends ISubscriber
      *
      * @param CContainer $msg
      *            The C element message
-     * @return array An array that may contains some new PCPPragma instructions to send to each Action instances
+     * @return array An array that may contains some new ActionCommand to send to each Action instances
      */
     public function onMessage(CContainer $msg): MoreActions;
 

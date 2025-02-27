@@ -6,7 +6,8 @@ namespace Time2Split\PCP\Action\PCP\Generate;
 
 use Time2Split\Config\Configuration;
 use Time2Split\Help\Classes\NotInstanciable;
-use Time2Split\PCP\C\Element\PCPPragma;
+use Time2Split\PCP\Action\ActionCommand;
+use Time2Split\PCP\File\HasFileSection;
 use Time2Split\PCP\File\Section;
 
 final class Areas
@@ -14,25 +15,25 @@ final class Areas
     use NotInstanciable;
 
     public static function create(
-        PCPPragma $pragma,
+        ActionCommand $command,
         Configuration $arguments,
         \SplObjectStorage $sectionsArguments,
         Section ...$sections
     ): Area {
-        return new class($pragma, $arguments, $sectionsArguments, $sections) implements Area {
+        return new class($command, $arguments, $sectionsArguments, $sections) implements Area {
 
             private readonly array $cursors;
 
             public function __construct(
-                private PCPPragma $pragma,
+                private ActionCommand $command,
                 private Configuration $arguments,
                 private \SplObjectStorage $sectionsArguments,
                 private readonly array $sections
             ) {}
 
-            public function getPCPPragma(): PCPPragma
+            public function getActionCommand(): ActionCommand&HasFileSection
             {
-                return $this->pragma;
+                return $this->command;
             }
 
             public function getSections(): array

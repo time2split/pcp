@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Time2Split\PCP\C;
 
-use SplFileInfo;
 use Time2Split\Help\CharPredicates;
 use Time2Split\Help\Streams;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\C\Element\CPPDirective;
+use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\File\CursorPosition;
 use Time2Split\PCP\File\Navigator;
 use Time2Split\PCP\File\Section;
@@ -21,8 +21,6 @@ final class CReader
 
     private ?Navigator $fnav;
 
-    private \Closure $cppDirectiveFactory;
-
     private function __construct($stream, bool $closeStream = true)
     {
         $mdata = \stream_get_meta_data($stream);
@@ -31,12 +29,6 @@ final class CReader
             throw new \Exception(__class__ . " The stream must be readable mode, the mode is {$mdata['mode']}");
 
         $this->fnav = Navigator::fromStream($stream, $closeStream);
-        $this->setCPPDirectiveFactory();
-    }
-
-    public function setCPPDirectiveFactory(?\Closure $pcpPragmaFactory = null): void
-    {
-        $this->cppDirectiveFactory = $pcpPragmaFactory ?? CPPDirective::create(...);
     }
 
     public function __destruct()
@@ -58,7 +50,7 @@ final class CReader
         return new self($stream, $closeStream);
     }
 
-    public static function fromFile(string|SplFileInfo $filePath, bool $closeStream = true): self
+    public static function fromFile(string|\SplFileInfo $filePath, bool $closeStream = true): self
     {
         return new self(\fopen((string) $filePath, 'r'), $closeStream);
     }
@@ -508,7 +500,7 @@ final class CReader
                         // TODO handle comments
                         if ($c === "\n" || $c === false) {
                             $cursors[] = $this->fnav->getCursorPosition();
-                            return ($this->cppDirectiveFactory)($directive, $buff, new Section(...$cursors));
+                            return CPPDirective::create($directive, $buff, new Section(...$cursors));
                         }
                     }
                     break;

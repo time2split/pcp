@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Time2Split\PCP\Action\PCP\Generate;
 
 use Time2Split\Config\Configuration;
+use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\PCP\Generate;
 use Time2Split\PCP\App;
-use Time2Split\PCP\C\CReader;
-use Time2Split\PCP\C\Element\CPPDirectives;
+use Time2Split\PCP\File\HasFileSection;
 use Time2Split\PCP\File\Section;
+use Time2Split\PCP\PCP;
 
 final class Generator
 {
@@ -99,13 +100,18 @@ final class Generator
         }
     }
 
+    private static function checkActionCommand($command, string $firstArg): bool
+    {
+        return $command instanceof ActionCommand
+            && Generate::checkActionCommand($command, $firstArg);
+    }
+
     /**
      * @return \Iterator<Area>
      */
     private function nextArea(string $targetFilePath): \Iterator
     {
-        $creader = CReader::fromFile($targetFilePath);
-        $creader->setCPPDirectiveFactory(CPPDirectives::factory($this->appConfig));
+        $creader = PCP::creaderOf($targetFilePath, $this->appConfig);
         $next = null;
 
         while (true) {
@@ -118,11 +124,11 @@ final class Generator
 
             if (! isset($area))
                 break;
-            if (! Generate::isPCPGenerate($area, 'area'))
+            if (! self::checkActionCommand($area, 'area'))
                 continue;
 
             /**
-             * @var \Time2Split\PCP\C\CPPDirective $area
+             * @var ActionCommand $area
              */
 
             $arguments = App::configShift($area->getArguments());
@@ -132,9 +138,9 @@ final class Generator
             $sections = [];
 
             if (! isset($cppElement));
-            elseif (Generate::isPCPGenerate($cppElement, 'begin')) {
+            elseif (self::checkActionCommand($cppElement, 'begin')) {
                 /**
-                 * @var \Time2Split\PCP\C\CPPDirective $cppElement
+                 * @var ActionCommand&HasFileSection $cppElement
                  */
 
                 while (true) {
@@ -143,11 +149,11 @@ final class Generator
                     if (! isset($end))
                         break;
 
-                    $isPCPEnd = Generate::isPCPGenerate($end, 'end');
+                    $isPCPEnd = self::checkActionCommand($end, 'end');
 
-                    if ($isPCPEnd || Generate::isPCPGenerate($end, 'begin')) {
+                    if ($isPCPEnd || self::checkActionCommand($end, 'begin')) {
                         /**
-                         * @var \Time2Split\PCP\C\CPPDirective $end
+                         * @var ActionCommand&HasFileSection $end
                          */
                         $section = new Section(
                             $cppElement->getFileSection()->begin,
