@@ -6,11 +6,15 @@ use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
+use Time2Split\Help\Set;
 use Time2Split\Help\Tests\DataProvider\Provided;
 use Time2Split\PCP\App;
+use Time2Split\PCP\C\CElements;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CElementType;
+use Time2Split\PCP\C\Element\CExpression;
+use Time2Split\PCP\C\Element\CPPDefine;
 use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\File\Section;
 
@@ -22,12 +26,17 @@ final class CReaderTest extends TestCase
         return App::emptyConfiguration();
     }
 
+    private static function creaderOfString(string $text): object
+    {
+        return App::creaderOfString($text, ['pcp']);
+    }
+
     private static function arrayOfCReaderFactory(): array
     {
         return [
-            new Provided("CReader", [fn(string $stream) => CReader::fromString($stream)]),
-            new Provided("CPPDirectives", [function (string $stream) {
-                $reader =  CReader::fromString($stream, self::pcpConfig());
+            new Provided("CReader", [fn(string $text) => self::creaderOfString($text)]),
+            new Provided("CPPDirectives", [function (string $text) {
+                $reader =  CReader::ofString($text, self::pcpConfig());
                 return $reader;
             }]),
         ];
@@ -70,9 +79,9 @@ final class CReaderTest extends TestCase
 
     // ========================================================================
 
-    private static function provideCPPDirective(string $directive, string $text, string $expectedText = null): array
+    private static function provideCPPDirective(string $directive, string $text, ?string $expectedText = null): array
     {
-        return ["#$directive $text", CPPDirective::create($directive, $expectedText ?? $text, Section::zero())];
+        return ["#$directive $text", CElements::cppDirectiveFromText($directive, $expectedText ?? $text, Section::zero())];
     }
 
     public static function readCPPDirectiveProvider(): iterable

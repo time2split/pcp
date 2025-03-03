@@ -7,7 +7,7 @@ namespace Time2Split\PCP\Action;
 use Time2Split\Config\Configuration;
 use Time2Split\Help\Arrays;
 use Time2Split\Help\IO;
-use Time2Split\PCP\C\Element\CContainer;
+use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\DataFlow\BaseSubscriber;
 
 abstract class BaseAction extends BaseSubscriber implements IAction
@@ -75,7 +75,7 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         return MoreActions::empty();
     }
 
-    public function onMessage(CContainer $msg): MoreActions
+    public function onMessage(CElement $msg): MoreActions
     {
         return MoreActions::empty();
     }

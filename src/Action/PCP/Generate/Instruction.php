@@ -6,7 +6,7 @@ namespace Time2Split\PCP\Action\PCP\Generate;
 
 use Time2Split\Config\Configuration;
 use Time2Split\PCP\Action\CActionSubject;
-use Time2Split\PCP\C\CElement;
+use Time2Split\PCP\C\Element\CElement;
 
 abstract class Instruction extends CActionSubject
 {

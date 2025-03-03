@@ -8,10 +8,10 @@ use Time2Split\PCP\Action\BaseAction;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
-use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\Config\Configuration;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\MoreActions;
+use Time2Split\PCP\C\Element\CElement;
 
 final class BlockAction extends BaseAction
 {
@@ -45,10 +45,10 @@ final class BlockAction extends BaseAction
         return MoreActions::empty();
     }
 
-    public function onMessage(CContainer $ccontainer): MoreActions
+    public function onMessage(CElement $element): MoreActions
     {
         if ($this->waitingForInstructions())
-            throw new \Exception("Waiting for some 'block' actions, has:\n'{$ccontainer->getCElement()}'");
+            throw new \Exception("Waiting for some 'block' actions, has:\n'{$element}'");
 
         return MoreActions::empty();
     }

@@ -8,13 +8,13 @@ use Time2Split\PCP\Action\BaseAction;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
-use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\Action\PCP\For\Cond;
 use Time2Split\Config\Entry\ReadingMode;
 use Time2Split\Help\Arrays;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\CActionSubject;
 use Time2Split\PCP\Action\MoreActions;
+use Time2Split\PCP\C\Element\CElement;
 
 final class ForAction extends BaseAction
 {
@@ -49,12 +49,12 @@ final class ForAction extends BaseAction
         return MoreActions::empty();
     }
 
-    public function onMessage(CContainer $ccontainer): MoreActions
+    public function onMessage(CElement $element): MoreActions
     {
         if ($this->waitingFor)
-            throw new \Exception("Waiting for 'for' cpp pragma actions, has '{$ccontainer->getCElement()}'");
+            throw new \Exception("Waiting for 'for' cpp pragma actions, has '{$element}'");
 
-        return $this->checkForConditions(CActionSubject::of($ccontainer->getCElement()));
+        return $this->checkForConditions(CActionSubject::of($element));
     }
 
     private function checkForConditions(CActionSubject $subject): MoreActions

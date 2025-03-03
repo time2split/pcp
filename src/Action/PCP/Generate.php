@@ -19,9 +19,10 @@ use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PCP\Generate\InstructionStorage;
 use Time2Split\PCP\Action\PCP\Generate\Instruction\Factory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
-use Time2Split\PCP\C\Element\CContainer;
 use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CElementType;
+use Time2Split\PCP\C\Element\CExpression;
 
 final class Generate extends BaseAction
 {
@@ -50,7 +51,7 @@ final class Generate extends BaseAction
 
     private InstructionStorage $istorage;
 
-    private ?CContainer $currentCContainer = null;
+    private ?CExpression $currentCExpression = null;
 
     private array $instructions;
 
@@ -99,11 +100,11 @@ final class Generate extends BaseAction
         return MoreActions::empty();
     }
 
-    public function onMessage(CContainer $ccontainer): MoreActions
+    public function onMessage(CElement $element): MoreActions
     {
-        if ($ccontainer->isDeclaration()) {
-            $this->currentCContainer = $ccontainer;
-            $this->processCContainer($ccontainer);
+        if ($element instanceof CDeclaration) {
+            $this->currentCExpression = $element;
+            $this->processCDeclaration($element);
         }
         return MoreActions::empty();
     }
@@ -116,10 +117,10 @@ final class Generate extends BaseAction
         return Configurations::hierarchy($secnd, $first);
     }
 
-    private function processCContainer(CContainer $ccontainer)
+    private function processCExpression(CExpression $expression)
     {
-        if ($ccontainer->isDeclaration())
-            $this->processCDeclaration($ccontainer->getDeclaration());
+        if ($expression instanceof CDeclaration)
+            $this->processCDeclaration($expression);
     }
 
     private function processCDeclaration(CDeclaration $declaration)
@@ -142,9 +143,9 @@ final class Generate extends BaseAction
 
                 if (PhaseState::Start == $phase->state) {
 
-                    if ($this->currentCContainer) {
-                        $this->processCContainer($this->currentCContainer);
-                        $this->currentCContainer = null;
+                    if ($this->currentCExpression) {
+                        $this->processCExpression($this->currentCExpression);
+                        $this->currentCExpression = null;
                     }
                 }
                 break;

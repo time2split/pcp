@@ -6,7 +6,7 @@ use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\BaseAction;
 use Time2Split\PCP\Action\MoreActions;
 use Time2Split\PCP\Action\Phase;
-use Time2Split\PCP\C\Element\CContainer;
+use Time2Split\PCP\C\Element\CElement;
 
 class EchoAction extends BaseAction
 {
@@ -23,7 +23,7 @@ class EchoAction extends BaseAction
         return MoreActions::empty();
     }
 
-    public function onMessage(CContainer $msg): MoreActions
+    public function onMessage(CElement $msg): MoreActions
     {
         error_dump(__class__ . " onMessage()");
         error_dump($msg);

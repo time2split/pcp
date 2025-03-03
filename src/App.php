@@ -2,7 +2,6 @@
 
 namespace Time2Split\PCP;
 
-use PHPUnit\Util\Filesystem;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Config\TreeConfigurationBuilder;
@@ -11,13 +10,13 @@ use Time2Split\Help\Classes\NotInstanciable;
 use Time2Split\Help\Streams;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\C\CReader;
-use Time2Split\PCP\C\Element\CContainer;
+use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CPPDirective;
+use Time2Split\PCP\C\PCPReader;
 use Time2Split\PCP\Expression\Expressions;
 use Time2Split\PCP\File\StreamInsertion;
 use Time2Split\PCP\File\_internal\StreamInsertionImpl;
 use Time2Split\PCP\File\HasFileSection;
-use Time2Split\PCP\File\ISection;
 use Time2Split\PCP\File\Section;
 
 final class App
@@ -63,10 +62,26 @@ final class App
         return $parameters;
     }
 
-    public static function creaderOf(string|\SplFileInfo $file, array $pcpNames): object
+    // ========================================================================
+
+    public static function creaderOfFile(string|\SplFileInfo $file, array $pcpNames): PCPReader
     {
-        $creader = CReader::fromFile($file);
-        return new class($creader, $pcpNames) {
+        return self::creaderWrapper(CReader::ofFile($file), $pcpNames);
+    }
+
+    public static function creaderOfStream($stream, array $pcpNames): PCPReader
+    {
+        return self::creaderWrapper(CReader::ofStream($stream), $pcpNames);
+    }
+
+    public static function creaderOfString($string, array $pcpNames): PCPReader
+    {
+        return self::creaderWrapper(CReader::ofString($string), $pcpNames);
+    }
+
+    private static function creaderWrapper(CReader $creader, array $pcpNames): PCPReader
+    {
+        return new class($creader, $pcpNames) implements PCPReader {
 
             public function __construct(
                 private CReader $reader,
@@ -78,7 +93,7 @@ final class App
                 $this->close();
             }
 
-            public function next(): mixed
+            public function next(): CElement|ActionCommand|null
             {
                 $next = $this->reader->next();
 
@@ -121,20 +136,6 @@ final class App
     }
 
     // ========================================================================
-    public static function configFirstKey(Configuration $config, $default = null): mixed
-    {
-        return Iterables::firstKey($config, $default);
-    }
-
-    public static function configFirstValue(Configuration $config, $default = null): mixed
-    {
-        return Iterables::firstValue($config, $default);
-    }
-
-    public static function configFirstKeyValue(Configuration $config, $default = null): mixed
-    {
-        return Iterables::first($config, $default);
-    }
 
     public static function configShift(Configuration $config, int $nb = 1): Configuration
     {
@@ -158,5 +159,6 @@ final class App
             if (--$nb === 0)
                 return $ret;
         }
+        throw new \AssertionError();
     }
 }

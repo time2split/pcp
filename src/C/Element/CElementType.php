@@ -20,6 +20,16 @@ enum CElementType: int
 
     case Definition = 2;
 
+    public static function ofCPP(): Set
+    {
+        return self::of(self::CPP);
+    }
+
+    public static function ofCPPDefine(): Set
+    {
+        return self::of(self::CPP, self::Definition);
+    }
+
     public static function ofVariableDeclaration(): Set
     {
         return self::of(self::Variable, self::Declaration);

@@ -6,8 +6,8 @@ namespace Time2Split\PCP\Action\PCP\Generate\Instruction;
 
 use Time2Split\Config\Configuration;
 use Time2Split\PCP\Action\PCP\Generate\Instruction;
-use Time2Split\PCP\C\CElement;
 use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CElementType;
 
 final class Prototype extends Instruction

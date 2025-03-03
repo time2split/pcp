@@ -7,6 +7,8 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Time2Split\Config\Configurations;
 use Time2Split\Help\Iterables;
+use Time2Split\PCP\App;
+use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\Expression\Expressions;
 use Time2Split\PCP\Expression\Node\ConstNode;
 

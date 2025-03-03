@@ -7,9 +7,9 @@ namespace Time2Split\PCP\C;
 use Time2Split\Help\CharPredicates;
 use Time2Split\Help\Streams;
 use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\C\Element\CPPDirective;
-use Time2Split\PCP\C\Element\CPPDirectives;
 use Time2Split\PCP\File\CursorPosition;
 use Time2Split\PCP\File\Navigator;
 use Time2Split\PCP\File\Section;
@@ -23,10 +23,8 @@ final class CReader
 
     private function __construct($stream, bool $closeStream = true)
     {
-        $mdata = \stream_get_meta_data($stream);
-
-        if (!$mdata['seekable'])
-            throw new \Exception(__class__ . " The stream must be readable mode, the mode is {$mdata['mode']}");
+        if (!Streams::isSeekableStream($stream))
+            throw new \Exception(__class__ . " The stream must be seekable (has: $stream)");
 
         $this->fnav = Navigator::fromStream($stream, $closeStream);
     }
@@ -36,47 +34,41 @@ final class CReader
         $this->close();
     }
 
-    public static function from($source, bool $closeStream = true): self
-    {
-        if (\is_resource($source))
-            return self::fromStream($source, $closeStream);
-        if (\is_string($source))
-            return self::fromString($source);
-        return self::fromFile($source, $closeStream);
-    }
-
-    public static function fromStream($stream, bool $closeStream = true): self
+    public static function ofStream($stream, bool $closeStream = true): self
     {
         return new self($stream, $closeStream);
     }
 
-    public static function fromFile(string|\SplFileInfo $filePath, bool $closeStream = true): self
+    public static function ofFile(string|\SplFileInfo $filePath, bool $closeStream = true): self
     {
         return new self(\fopen((string) $filePath, 'r'), $closeStream);
     }
 
-    public static function fromString($string): self
+    public static function ofString($string): self
     {
         return new self(Streams::stringToStream($string), false);
     }
+
+    // ========================================================================
 
     public function close(): void
     {
         $this->fnav->close();
     }
 
-    public function getStream()
+    private function getStream()
     {
         return $this->fnav->getStream();
     }
 
-    public function getCursorPosition(): CursorPosition
+    private function getCursorPosition(): CursorPosition
     {
         return $this->fnav->getCursorPosition();
     }
 
     // ========================================================================
-    public function fgetc()
+
+    private function fgetc()
     {
         $c = $this->fnav->getc();
 
@@ -92,7 +84,7 @@ final class CReader
         return "\\\n";
     }
 
-    public function fungetc(int $nb = 1)
+    private function fungetc(int $nb = 1)
     {
         return $this->fnav->ungetc($nb);
     }
@@ -114,14 +106,14 @@ final class CReader
     {
         $state = 0;
         while (true) {
-            $c = $this->fgetc(); // Why ?
+            $c = $this->fgetc();
 
             if ($c === false)
                 goto failure;
 
             switch ($state) {
 
-                    // Comment ?
+                // Comment ?
                 case 0:
                     if ('/' === $c)
                         $state = 1;
@@ -134,7 +126,7 @@ final class CReader
                     if ("\n" === $c)
                         return true;
                     break;
-                    // Multiline comment
+                // Multiline comment
                 case 100:
                     if ('*' === $c)
                         $state++;
@@ -410,9 +402,10 @@ final class CReader
     }
 
     // ========================================================================
+
     public static function parseCPPDefine(string $text): ?array
     {
-        return self::fromString($text)->_parseDefine();
+        return self::ofString($text)->_parseDefine();
     }
 
     private function _parseDefine(): ?array
@@ -449,21 +442,6 @@ final class CReader
         ];
     }
 
-    public function nextCPPDirective(): ?CPPDirective
-    {
-        while (true) {
-            $c = $this->nextChar();
-
-            if ($c === false)
-                return null;
-            if ($c === '#') {
-                $this->fungetc();
-                return $this->getCPPDirective();
-            }
-            $this->fnav->skipChars(fn($c) => $c !== "\n");
-        }
-    }
-
     private function getCPPDirective(): ?CPPDirective
     {
         $state = CReaderState::start;
@@ -485,7 +463,7 @@ final class CReader
                         return null;
                     break;
 
-                    // ======================================================
+                // ======================================================
 
                 case CReaderState::cpp_directive:
                     $directive = $this->nextWord();
@@ -500,7 +478,7 @@ final class CReader
                         // TODO handle comments
                         if ($c === "\n" || $c === false) {
                             $cursors[] = $this->fnav->getCursorPosition();
-                            return CPPDirective::create($directive, $buff, new Section(...$cursors));
+                            return CElements::cppDirectiveFromText($directive, $buff, new Section(...$cursors));
                         }
                     }
                     break;
@@ -508,7 +486,9 @@ final class CReader
         }
     }
 
-    public function next(): ?CReaderElement
+    // ========================================================================
+
+    public function next(): ?CElement
     {
         $this->clearStates();
         $declarator_level = 0;
@@ -573,7 +553,7 @@ final class CReader
                     $this->pushState(CReaderState::declaration_specifiers, $data);
                     break;
 
-                    // specifiers declarator
+                // specifiers declarator
                 case CReaderState::declaration_specifiers:
                     $specifiers = $this->getPossibleSpecifiers();
                     $element['infos']['specifiers.nb'] = \count($specifiers);
@@ -586,7 +566,7 @@ final class CReader
 
                 case CReaderState::declaration_end:
 
-                    if ($element['type'] === CElementType::of(CElementType::Function, CElementType::Definition))
+                    if ($element['type'] === CElementType::ofFunctionDefinition())
                         $retElements[] = $element;
                     else {
                         $c = $this->nextChar();
@@ -602,7 +582,7 @@ final class CReader
                     }
                     break;
 
-                    // Well state for an unrecognized declaration
+                // Well state for an unrecognized declaration
                 case CReaderState::wait_end_declaration:
 
                     while (true) {
@@ -618,9 +598,9 @@ final class CReader
                     }
                     break;
 
-                    // ======================================================
+                // ======================================================
 
-                    // pointer direct_declarator
+                // pointer direct_declarator
                 case CReaderState::declarator:
                     // Pointer
                     $pointers = $this->getPointers();
@@ -821,7 +801,7 @@ final class CReader
                     $this->pushState(CReaderState::parameter, $data);
                     break;
 
-                    // ======================================================
+                // ======================================================
 
                 case CReaderState::parameter:
                     $newElement = $this->newElement();

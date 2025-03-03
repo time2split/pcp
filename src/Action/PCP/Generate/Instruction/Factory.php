@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Time2Split\PCP\Action\PCP\Generate\Instruction;
 
 use Time2Split\Config\Configuration;
-use Time2Split\PCP\App;
 use Time2Split\PCP\Action\PCP\Generate\Instruction;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
 use Time2Split\PCP\C\Element\CDeclaration;

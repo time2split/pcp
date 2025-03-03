@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Time2Split\PCP\C;
+namespace Time2Split\PCP\C\_internal;
 
 use Time2Split\Help\Set;
+use Time2Split\PCP\C\Element\CElement;
 
-abstract class CReaderElement extends \ArrayObject implements CElement
+abstract class AbstractCElement extends \ArrayObject implements CElement
 {
     private Set $elementType;
 

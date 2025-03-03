@@ -8,8 +8,8 @@ use Time2Split\Config\Configuration;
 use Time2Split\Help\Set;
 use Time2Split\Help\Sets;
 use Time2Split\PCP\App;
-use Time2Split\PCP\C\CElement;
 use Time2Split\PCP\C\CElements;
+use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CElementType;
 
 abstract class CActionSubject

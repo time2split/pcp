@@ -16,7 +16,7 @@ use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
-use Time2Split\PCP\C\Element\CContainer;
+use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\DataFlow\BasePublisher;
 use Time2Split\PCP\Help\HelpIterables;
 
@@ -69,7 +69,7 @@ class PCP extends BasePublisher
 
     public static function creaderOf(string|\SplFileInfo $file, Configuration $pcpCponfig): object
     {
-        return App::creaderOf($file, (array)$pcpCponfig['pcp.pragma.names']);
+        return App::creaderOfFile($file, (array)$pcpCponfig['pcp.pragma.names']);
     }
 
     public function getCReaderOf(string|\SplFileInfo $file): object
@@ -81,7 +81,7 @@ class PCP extends BasePublisher
 
     private ?IAction $monopolyFor = null;
 
-    private function deliverMessage(CContainer|ActionCommand $message): array
+    private function deliverMessage(CElement|ActionCommand $message): array
     {
         $resElements = [];
         $monopoly = [];
@@ -96,7 +96,7 @@ class PCP extends BasePublisher
         foreach ($subscribers as $s) {
             $this->monopolyFor = null;
 
-            if ($message instanceof CContainer)
+            if ($message instanceof CElement)
                 $deliver = $s->onMessage(...);
             else
                 $deliver = $s->onCommand(...);
@@ -364,7 +364,8 @@ class PCP extends BasePublisher
 
                     $message = self::makeActionCommand($element, $fileConfig, $expandAtConfig);
                 } else {
-                    $message = CContainer::of($element);
+                    assert($element instanceof CElement);
+                    $message = $element;
                 }
                 $resElements = $this->deliverMessage($message);
                 unset($message);

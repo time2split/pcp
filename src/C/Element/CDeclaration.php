@@ -6,10 +6,10 @@ namespace Time2Split\PCP\C\Element;
 
 use Time2Split\Help\Arrays;
 use Time2Split\Help\Iterables;
+use Time2Split\PCP\C\_internal\AbstractCElement;
 use Time2Split\PCP\C\CMatching;
-use Time2Split\PCP\C\CReaderElement;
 
-final class CDeclaration extends CReaderElement
+final class CDeclaration extends AbstractCElement implements CExpression
 {
     private array $uinfos;
 
