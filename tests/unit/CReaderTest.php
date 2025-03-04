@@ -81,7 +81,7 @@ final class CReaderTest extends TestCase
 
     private static function provideCPPDirective(string $directive, string $text, ?string $expectedText = null): array
     {
-        return ["#$directive $text", CElements::cppDirectiveFromText($directive, $expectedText ?? $text, Section::zero())];
+        return ["#$directive $text", CElements::createSimpleCPPDirective($directive, $expectedText ?? $text, Section::zero())];
     }
 
     public static function readCPPDirectiveProvider(): iterable
@@ -265,4 +265,68 @@ END
     }
 
     // ========================================================================
+
+    private static function getCElementsProvided(): array
+    {
+        return [
+            ['#pragma', CPPDirective::class, CElementType::ofCPP()],
+            ['int a;', CDeclaration::class, CElementType::ofVariableDeclaration()],
+            ['void f();',  CDeclaration::class, CElementType::ofFunctionDeclaration()],
+            ['void f(){}',  CExpression::class, CElementType::ofFunctionDefinition()],
+        ];
+    }
+
+    public static function celementProvider(): \Traversable
+    {
+        return (function () {
+            foreach (self::getCElementsProvided() as $data) {
+                [$text] = $data;
+                yield "$text" => $data;
+            }
+        })();
+    }
+
+    #[DataProvider("celementProvider")]
+    public  function testType(string $text, string $class,  Set $expectTypes): void
+    {
+        $creader = self::creaderOfString($text);
+        $element = $creader->next();
+        $types = $element->getElementType();
+        $this->assertInstanceOf($class, $element);
+        $this->assertEquals(\iterator_to_array($expectTypes), \iterator_to_array($types));
+    }
+
+    // ========================================================================
+
+    private static function getCPPDefineData(): array
+    {
+        return [
+            ['#define ID "tokens"', 'ID', [], CElementType::ofCPPDefine()],
+            ['#define ID() "tokens"', 'ID', [], CElementType::ofCPPDefineFunction()],
+            ['#define ID(p1,p2) "tokens"', 'ID', ['p1', 'p2'], CElementType::ofCPPDefineFunction()],
+            ['#define ID( p1 , p2 ) "tokens"', 'ID', ['p1', 'p2'], CElementType::ofCPPDefineFunction()],
+        ];
+    }
+
+    public static function cppDefineProvider(): \Traversable
+    {
+        return (function () {
+            foreach (self::getCPPDefineData() as $data) {
+                [$text] = $data;
+                yield "$text" => $data;
+            }
+        })();
+    }
+
+    #[DataProvider("cppDefineProvider")]
+    public  function testCPPDefine(string $text, string $expectId, array $expectParameters, Set $expectTypes): void
+    {
+        $creader = self::creaderOfString($text);
+        $define = $creader->next();
+        $this->assertInstanceOf(CPPDefine::class, $define);
+        $this->assertEquals(\iterator_to_array($expectTypes), \iterator_to_array($define->getElementType()));
+        $this->assertSame($expectId, $define->getID());
+        $this->assertSame($expectParameters, $define->getParameters());
+        $this->assertSame($text, "#define {$define->getText()}");
+    }
 }

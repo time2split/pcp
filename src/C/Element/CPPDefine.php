@@ -4,9 +4,11 @@ namespace Time2Split\PCP\C\Element;
 
 interface CPPDefine extends CPPDirective
 {
-    public function isFunction(): bool;
+    public function getID(): string;
 
-    public function getMacroParameters(): array;
+    public function getTokensText(): string;
 
-    public function getMacroContents();
+    public function getParametersText(): string;
+
+    public function getParameters(): array;
 }

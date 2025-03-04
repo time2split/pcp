@@ -13,6 +13,8 @@ enum CReaderState
 
     case cpp_directive;
 
+    case cpp_define_id;
+
     case declaration;
 
     case declaration_specifiers;

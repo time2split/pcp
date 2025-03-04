@@ -30,6 +30,11 @@ enum CElementType: int
         return self::of(self::CPP, self::Definition);
     }
 
+    public static function ofCPPDefineFunction(): Set
+    {
+        return self::of(self::CPP, self::Definition, self::Function);
+    }
+
     public static function ofVariableDeclaration(): Set
     {
         return self::of(self::Variable, self::Declaration);
@@ -51,6 +56,7 @@ enum CElementType: int
         [],
         [self::CPP],
         [self::CPP, self::Definition],
+        [self::CPP, self::Definition, self::Function],
         [self::Variable, self::Declaration],
         [self::Function, self::Declaration],
         [self::Function, self::Definition],

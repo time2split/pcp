@@ -4,23 +4,16 @@ declare(strict_types=1);
 
 namespace Time2Split\PCP\C\_internal;
 
-use Time2Split\Help\Set;
-use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\File\Section;
 
-class BaseCPPDirective implements CPPDirective
+abstract class BaseCPPDirective implements CPPDirective
 {
     public function __construct(
         private readonly string $directive,
         private readonly string $text,
         private readonly Section $fileSection
     ) {}
-
-    public function getElementType(): Set
-    {
-        return CElementType::ofCPP();
-    }
 
     final public function getFileSection(): Section
     {

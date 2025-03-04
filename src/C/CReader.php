@@ -442,6 +442,21 @@ final class CReader
         ];
     }
 
+    private function readCPPDirectiveText(): string
+    {
+        $text = '';
+
+        while (true) {
+            $c = $this->fgetc();
+
+            // TODO handle comments
+            if ($c === "\n" || $c === false) {
+                return $text;
+            }
+            $text .= $c;
+        }
+    }
+
     private function getCPPDirective(): ?CPPDirective
     {
         $state = CReaderState::start;
@@ -469,19 +484,30 @@ final class CReader
                     $directive = $this->nextWord();
                     $this->skipSpaces();
 
-                    $buff = '';
+                    if ($directive === 'define')
+                        $state = CReaderState::cpp_define_id;
+                    else {
 
-                    while (true) {
-                        $c = $this->fgetc();
-                        $buff .= $c;
-
-                        // TODO handle comments
-                        if ($c === "\n" || $c === false) {
-                            $cursors[] = $this->fnav->getCursorPosition();
-                            return CElements::cppDirectiveFromText($directive, $buff, new Section(...$cursors));
-                        }
+                        $text = $this->readCPPDirectiveText();
+                        $cursors[] = $this->fnav->getCursorPosition();
+                        return CElements::createSimpleCPPDirective($directive, $text, new Section(...$cursors));
                     }
                     break;
+
+                case CReaderState::cpp_define_id:
+                    //TODO: handle bad parenthesis format errors ie. "#define id(var1, tokens"
+                    $id = $this->nextWord();
+                    $c = $this->fgetc();
+                    $this->fungetc();
+                    $paramsText = ($c === '(')
+                        ? $this->getDelimitedText('()')
+                        : '';
+
+                    $spaces = $this->fnav->getChars(\ctype_space(...));
+                    $tokens = $this->readCPPDirectiveText();
+                    $text = "$id$paramsText$spaces$tokens";
+                    $cursors[] = $this->fnav->getCursorPosition();
+                    return CElements::createCPPDefine($text, $id, $paramsText, $tokens, new Section(...$cursors));
             }
         }
     }

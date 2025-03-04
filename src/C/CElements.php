@@ -47,60 +47,107 @@ final class CElements
 
     // ========================================================================
 
-    final public static function cppDirectiveFromText(string $directive, string $text, Section $fileSection): CPPDirective
+    public static function createSimpleCPPDirective(string $directive, string $text, Section $fileSection): CPPDirective
     {
-        if ($directive === 'define')
-            return self::createDefine($text, $fileSection);
-        else
-            return new BaseCPPDirective($directive, $text, $fileSection);
-    }
-
-    private static function createDefine(string $text, Section $fileSection): CPPDefine
-    {
-        $element = CReader::parseCPPDefine($text);
-
-        if (null === $element)
-            throw new \InvalidArgumentException('Is not a define directive');
-
-        return new class(
-            $text,
-            $fileSection,
-            $element['name'],
-            $element['params'],
-            $element['text']
-        )
+        return new class($directive, $text, $fileSection)
         extends BaseCPPDirective
-        implements CPPDefine
         {
-            public function __construct(
-                string $definitionText,
-                Section $cursors,
-                private string $name,
-                private array $arguments,
-                private string $text
-            ) {
-                parent::__construct('define', $definitionText, $cursors);
-            }
-
             public function getElementType(): Set
             {
-                return CElementType::of(CElementType::CPP, CElementType::Definition);
-            }
-
-            public function isFunction(): bool
-            {
-                return empty($this->arguments);
-            }
-
-            public function getMacroParameters(): array
-            {
-                return $this->arguments;
-            }
-
-            public function getMacroContents()
-            {
-                return $this->text;
+                return CElementType::ofCPP();
             }
         };
+    }
+
+    public static function createCPPDefine(string $text, string $id, string $parameters, string $tokens, Section $fileSection): CPPDefine
+    {
+        if ($parameters === '')
+            return new class($text, $fileSection, $id, $tokens)
+            extends BaseCPPDirective
+            implements CPPDefine
+            {
+                public function __construct(
+                    string $text,
+                    Section $fileSection,
+                    private string $id,
+                    private string $tokens,
+                ) {
+                    parent::__construct('define', $text, $fileSection);
+                }
+                public function getElementType(): Set
+                {
+                    return CElementType::ofCPPDefine();
+                }
+
+                public function getTokensText(): string
+                {
+                    return $this->tokens;
+                }
+
+                public function getParameters(): array
+                {
+                    return [];
+                }
+
+                public function getParametersText(): string
+                {
+                    return '';
+                }
+
+                public function getID(): string
+                {
+                    return $this->id;
+                }
+            };
+        else {
+            return new class($text, $fileSection, $id, $tokens, $parameters)
+            extends BaseCPPDirective
+            implements CPPDefine
+            {
+                private array $parameters;
+
+                public function __construct(
+                    string $text,
+                    Section $fileSection,
+                    private string $id,
+                    private string $tokens,
+                    private string $parametersText,
+                ) {
+                    parent::__construct('define', $text, $fileSection);
+
+                    $buff = \trim(\substr($parametersText, 1, -1));
+
+                    if ($buff === '')
+                        $this->parameters = [];
+                    else
+                        foreach (\explode(',', $buff) as $p)
+                            $this->parameters[] = \trim($p);
+                }
+                public function getElementType(): Set
+                {
+                    return CElementType::ofCPPDefineFunction();
+                }
+
+                public function getTokensText(): string
+                {
+                    return $this->tokens;
+                }
+
+                public function getParameters(): array
+                {
+                    return $this->parameters;
+                }
+
+                public function getParametersText(): string
+                {
+                    return $this->parametersText;
+                }
+
+                public function getID(): string
+                {
+                    return $this->id;
+                }
+            };
+        }
     }
 }

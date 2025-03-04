@@ -9,6 +9,9 @@ use Time2Split\Config\Configurations;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\App;
 use Time2Split\PCP\C\Element\CDeclaration;
+use Time2Split\PCP\C\Element\CElement;
+use Time2Split\PCP\C\Element\CPPDefine;
+use Time2Split\PCP\C\Element\CPPDirective;
 use Time2Split\PCP\Help\HelpSets;
 use Time2Split\PCP\PCP;
 
@@ -29,7 +32,7 @@ final class ProcessTest extends TestCase
 
         while (null !== ($celement = $creader->next())) {
 
-            if ($celement instanceof CDeclaration)
+            if ($celement instanceof CDeclaration || $celement instanceof CPPDefine)
                 $result[] = $celement;
             else
                 $remains[] = $celement;
@@ -37,6 +40,20 @@ final class ProcessTest extends TestCase
         $creader->close();
         return $result;
     }
+
+    private static function CElementEquals(CElement $a, CElement $b): bool
+    {
+
+        if ($a instanceof CPPDirective && $b instanceof CPPDirective)
+            return self::CPPDirectiveEquals($a, $b);
+        return self::CDeclarationEquals($a, $b);
+    }
+
+    private static function CPPDirectiveEquals(CPPDirective $a, CPPDirective $b): bool
+    {
+        return $a->getText() === $b->getText();
+    }
+
 
     private static function CDeclarationEquals(CDeclaration $a, CDeclaration $b): bool
     {
@@ -200,12 +217,22 @@ final class ProcessTest extends TestCase
                 $this->fail("No result for the expectation $me");
             }
 
-            if (!self::CDeclarationEquals($e, $r)) {
-                $me = self::CDeclaration_toString($e);
-                $mr = self::CDeclaration_toString($r);
-                $msg = "#$i Expecting $me but have $mr";
+            if (!self::CElementEquals($e, $r)) {
+
+                if ($e instanceof CDeclaration)
+                    $me = self::CDeclaration_toString($e);
+                else
+                    $me = (string)$e;
+
+                if ($r instanceof CDeclaration)
+                    $mr = self::CDeclaration_toString($r);
+                else
+                    $mr = (string) $r;
+
+                $msg = "#$i Expecting\n$me\nbut have\n$mr";
                 $this->fail($msg);
-            } else $this->assertTrue(true);
+            } else
+                $this->assertTrue(true);
         }
 
         if ($testConfig['remains.empty'] ?? true) {
