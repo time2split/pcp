@@ -15,11 +15,6 @@ abstract class BaseAction extends BaseSubscriber implements IAction
 
     protected Configuration $config;
 
-    public function __construct(Configuration $config)
-    {
-        $this->setConfig($config);
-    }
-
     public function hasMonopoly(): bool
     {
         return false;

@@ -6,6 +6,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Time2Split\PCP\App;
+use Time2Split\PCP\App\Bootstrap;
 use Time2Split\PCP\PCP;
 
 final class CleanTest extends TestCase
@@ -85,13 +86,12 @@ final class CleanTest extends TestCase
             ->mergeTree([
                 'pcp' => [
                     'dir' => $pcpdir,
-                    'action' => 'process',
                     'paths' => $dir,
                 ]
             ]);
 
         \chdir(self::WDir);
-        (new PCP($config))->process();
+        (new PCP($config, Bootstrap::getProcessActions()))->process();
 
         $changes = [];
         foreach (self::files($wd) as $file) {
@@ -105,7 +105,7 @@ final class CleanTest extends TestCase
         \clearstatcache();
 
         $config['pcp.action'] = 'clean';
-        (new PCP($config))->process();
+        (new PCP($config, Bootstrap::getCleanActions()))->process();
 
         foreach ($changes as $file) {
             $src = \file_get_contents("$basedir/$file");

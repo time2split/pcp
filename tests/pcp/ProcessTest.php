@@ -8,6 +8,7 @@ use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\App;
+use Time2Split\PCP\App\Bootstrap;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CPPDefine;
@@ -195,7 +196,7 @@ final class ProcessTest extends TestCase
             'pcp.action' => 'process',
             'pcp.paths' => $dir,
         ]);
-        $pcp = new PCP($config);
+        $pcp = new PCP($config, Bootstrap::getProcessActions());
 
         $targetContentsFile = "$dir/$targetFile";
 

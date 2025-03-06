@@ -10,7 +10,6 @@ use Time2Split\Config\Entry\ReadingMode;
 use Time2Split\Help\IO;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\ActionCommandReader;
-use Time2Split\PCP\Action\Actions;
 use Time2Split\PCP\Action\IAction;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
@@ -31,7 +30,6 @@ class PCP extends BasePublisher
 {
     private const array DefaultConfig = [
         'pcp' => [
-            'action' => null,
             'dir.root' => null,
             'dir' => 'pcp.wd',
             'file.extension.pcp' => 'pcp',
@@ -45,20 +43,21 @@ class PCP extends BasePublisher
 
     private Configuration $actionsConfig;
 
-    public function __construct(Configuration $appConfig)
+    public function __construct(Configuration $appConfig, array $actions)
     {
         parent::__construct();
-        $this->actionsConfig = self::makeActionsConfig($appConfig);
-
-        // Subscribe the actions
-        $actions = Actions::factory($this->actionsConfig)
-            ->getActions($appConfig['pcp.action']);
 
         if (empty($actions))
-            throw new \Exception("Unknown action '{$appConfig['pcp.action']}'");
+            throw new \Exception("No action specified");
 
+        self::checkActions(...$actions);
+
+        $this->actionsConfig = self::makeActionsConfig($appConfig);
         \array_walk($actions, $this->subscribe(...));
+        $this->setSubscribersConfig($this->actionsConfig);
     }
+
+    private static function checkActions(IAction ...$actions): void {}
 
     private static function makeActionsConfig(Configuration $appConfig): Configuration
     {
