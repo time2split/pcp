@@ -477,6 +477,7 @@ final class CReader extends AbstractReader
                             $this->pushState(CReaderState::parameter_list, $data);
                         } elseif (self::elementIsNotParameter($uinfos)) {
                             $element['items'][] = '(';
+                            $declarator_level++;
                             $this->pushState(CReaderState::subdeclarator_end, $data);
                         } else {
                             // Unknown parenthesis type
