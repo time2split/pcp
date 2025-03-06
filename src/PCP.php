@@ -9,6 +9,7 @@ use Time2Split\Config\Configurations;
 use Time2Split\Config\Entry\ReadingMode;
 use Time2Split\Help\IO;
 use Time2Split\PCP\Action\ActionCommand;
+use Time2Split\PCP\Action\ActionCommandReader;
 use Time2Split\PCP\Action\Actions;
 use Time2Split\PCP\Action\IAction;
 use Time2Split\PCP\Action\Phase;
@@ -33,7 +34,8 @@ class PCP extends BasePublisher
             'action' => null,
             'dir.root' => null,
             'dir' => 'pcp.wd',
-            'reading.dir.configFiles' => 'pcp.conf',
+            'file.extension.pcp' => 'pcp',
+            'dir.config-file' => 'config',
             'pragma.names' => 'pcp',
             'paths' => [
                 'src'
@@ -168,6 +170,50 @@ class PCP extends BasePublisher
         );
     }
 
+    private function getDirConfigFiles(\SplFileInfo|string $dir, Configuration $config): array
+    {
+        $ret = [];
+        $pcpfileNames = (array) $config['pcp.dir.config-file'];
+        $pcpfileExtension = ((array) $config['pcp.file.extension.pcp'])[0];
+        $pcpfileExtension = ".$pcpfileExtension";
+
+        foreach ($pcpfileNames as $pcpfileName) {
+
+            if (!\str_ends_with($pcpfileName, $pcpfileExtension))
+                $pcpfileName .= $pcpfileExtension;
+
+            $file = "$dir/$pcpfileName";
+
+            if (\is_file($file))
+                $ret[] = $file;
+        }
+        return $ret;
+    }
+
+    private function processOneConfigFile(\SplFileInfo|string $file, Configuration $config): void
+    {
+        $phaseData = ReadingOneFile::fromPath($file);
+        $this->updatePhase(
+            PhaseName::ReadingOneFile,
+            PhaseState::Start,
+            $phaseData
+        );
+
+        $creader = ActionCommandReader::ofFile($file);
+        try {
+            $this->processPCPElements(fn() => $creader->next(), $config);
+        } catch (\Exception $e) {
+            throw new \Exception("File $file position {$creader->getCursorPosition()}", previous: $e);
+        }
+        $creader->close();
+
+        $this->updatePhase(
+            PhaseName::ReadingOneFile,
+            PhaseState::Stop,
+            $phaseData
+        );
+    }
+
     private $newFiles = [];
 
     private function processDir(\SplFileInfo|string $wdir, Configuration $parentConfig): void
@@ -182,17 +228,15 @@ class PCP extends BasePublisher
             PhaseState::Start,
             $phaseData
         );
-        $searchConfigFiles = (array) $parentConfig['pcp.reading.dir.configFiles'];
         $dirConfig = Configurations::emptyChild($parentConfig);
         $dirConfig['@process.file.dir'] = (string) $wdir;
         $this->setSubscribersConfig($dirConfig);
 
-        foreach ($searchConfigFiles as $searchForFile) {
-            $searchForFile = "$wdir/$searchForFile";
+        // process config dir
+        $pcpConfigs = $this->getDirConfigFiles($wdir, $parentConfig);
 
-            if (\is_file($searchForFile))
-                $this->processOneCFile($searchForFile, $dirConfig);
-        }
+        foreach ($pcpConfigs as $configFile)
+            $this->processOneConfigFile($configFile, $dirConfig);
 
         $this->updatePhase(
             PhaseName::OpeningDirectory,
@@ -342,47 +386,52 @@ class PCP extends BasePublisher
         );
 
         $creader = $this->getCReaderOf($file);
-        $elements = [];
-
         try {
-            while (true) {
-
-                if (!empty($elements))
-                    $element = \array_pop($elements);
-                else {
-                    $this->updatePhase(PhaseName::ReadingCElement, PhaseState::Start);
-                    $element = $creader->next();
-
-                    if (null === $element)
-                        break;
-                }
-
-                if ($element instanceof ActionCommand) {
-                    $expandAtConfig =
-                        !isset($this->monopolyFor)
-                        || !$this->monopolyFor->noExpandAtConfig();
-
-                    $message = self::makeActionCommand($element, $fileConfig, $expandAtConfig);
-                } else {
-                    assert($element instanceof CElement);
-                    $message = $element;
-                }
-                $resElements = $this->deliverMessage($message);
-                unset($message);
-
-                if (!empty($resElements)) {
-                    // Reverse the order to allow to array_pop($elements) in the original order
-                    $elements = \array_merge($elements, \array_reverse($resElements));
-                }
-            }
+            $this->processPCPElements(fn() => $creader->next(), $fileConfig);
         } catch (\Exception $e) {
             throw new \Exception("File $file position {$creader->getCursorPosition()}", previous: $e);
         }
         $creader->close();
+
         $this->updatePhase(
             PhaseName::ReadingOneFile,
             PhaseState::Stop,
             $phaseData
         );
+    }
+
+    private function processPCPElements(callable $next, Configuration $fileConfig): void
+    {
+        $elements = [];
+
+        while (true) {
+
+            if (!empty($elements))
+                $element = \array_pop($elements);
+            else {
+                $this->updatePhase(PhaseName::ReadingCElement, PhaseState::Start);
+                $element = $next();
+
+                if (null === $element)
+                    break;
+            }
+
+            if ($element instanceof ActionCommand) {
+                $expandAtConfig =
+                    !isset($this->monopolyFor)
+                    || !$this->monopolyFor->noExpandAtConfig();
+
+                $message = self::makeActionCommand($element, $fileConfig, $expandAtConfig);
+            } else {
+                assert($element instanceof CElement);
+                $message = $element;
+            }
+            $resElements = $this->deliverMessage($message);
+
+            if (!empty($resElements)) {
+                // Reverse the order to allow to array_pop($elements) in the original order
+                $elements = \array_merge($elements, \array_reverse($resElements));
+            }
+        }
     }
 }

@@ -26,6 +26,9 @@ final class Navigator
 
     private function __construct($fp, bool $closeStream)
     {
+        if (!Streams::isSeekableStream($fp))
+            throw new \Exception(__class__ . " The stream must be seekable (has: $fp)");
+
         $this->fp = $fp;
         $this->offset = \ftell($fp);
         $this->closeStream = $closeStream;
@@ -98,12 +101,16 @@ final class Navigator
         else {
             $this->nlc -= $nb;
         }
-        \fseek($this->fp, $this->offset + $this->nc, SEEK_SET);
+
+        if (-1 === \fseek($this->fp, $this->offset + $this->nc, SEEK_SET))
+            throw new \Error("Cannot seek file");
     }
 
     private function ungetcUpdate(int $nb): void
     {
-        \fseek($this->fp, $this->offset + $this->nc, SEEK_SET);
+        if (-1 === \fseek($this->fp, $this->offset + $this->nc, SEEK_SET))
+            throw new \Error("Cannot seek file");
+
         $contents = \fgets($this->fp, $nb + 1);
 
         if (false === $contents)

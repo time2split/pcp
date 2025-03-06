@@ -1,0 +1,5 @@
+generate code="void code();"
+
+for (tags:["from.function", "from.definition"])
+    generate prototype
+for end

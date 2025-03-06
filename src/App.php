@@ -9,6 +9,7 @@ use Time2Split\Help\Iterables;
 use Time2Split\Help\Classes\NotInstanciable;
 use Time2Split\Help\Streams;
 use Time2Split\PCP\Action\ActionCommand;
+use Time2Split\PCP\Action\ActionCommandReader;
 use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CPPDirective;
@@ -102,11 +103,16 @@ final class App
                     $first = Streams::streamGetCharsUntil($stream, \ctype_space(...));
 
                     if (\in_array($first, $this->pcpNames)) {
-                        Streams::streamSkipChars($stream, \ctype_space(...));
-                        $cmd = Streams::streamGetCharsUntil($stream, \ctype_space(...));
-                        $parameters = App::textToParameters($stream);
+                        $cmdReader = ActionCommandReader::ofStream($stream);
+                        $command = $cmdReader->next();
+                        assert(null !== $command);
+                        assert(null === $cmdReader->next());
 
-                        return new class($cmd, $parameters, $next->getFileSection())
+                        return new class(
+                            $command->getName(),
+                            $command->getArguments(),
+                            $next->getFileSection()
+                        )
                         extends ActionCommand
                         implements HasFileSection
                         {

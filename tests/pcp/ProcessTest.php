@@ -23,7 +23,7 @@ final class ProcessTest extends TestCase
 
     private const BaseDir =  __DIR__ . '/process';
 
-    private const WDir =  __DIR__ . '/../tests.wd/process';
+    private const WDir =  __DIR__ . '/../../tests.wd/process';
 
     private static function getCElementsResult(PCP $pcp, string $filePath, array &$remains = []): array
     {
@@ -86,6 +86,13 @@ final class ProcessTest extends TestCase
                 return false;
         }
         return true;
+    }
+
+    private static function CElement_toString(CElement $a): string
+    {
+        if ($a instanceof CDeclaration)
+            return self::CDeclaration_toString($a);
+        return (string)$a;
     }
 
     private static function CDeclaration_toString(CDeclaration $a): string
@@ -213,22 +220,13 @@ final class ProcessTest extends TestCase
             $r = \array_shift($result);
 
             if (null === $r) {
-                $me = self::CDeclaration_toString($e);
+                $me = self::CElement_toString($e);
                 $this->fail("No result for the expectation $me");
             }
 
             if (!self::CElementEquals($e, $r)) {
-
-                if ($e instanceof CDeclaration)
-                    $me = self::CDeclaration_toString($e);
-                else
-                    $me = (string)$e;
-
-                if ($r instanceof CDeclaration)
-                    $mr = self::CDeclaration_toString($r);
-                else
-                    $mr = (string) $r;
-
+                $me = self::CElement_toString($e);
+                $mr = self::CElement_toString($r);
                 $msg = "#$i Expecting\n$me\nbut have\n$mr";
                 $this->fail($msg);
             } else

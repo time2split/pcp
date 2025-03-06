@@ -12,9 +12,9 @@ final class CleanTest extends TestCase
 {
     private const BaseDir =  __DIR__ . '/clean';
 
-    private const WDir =  __DIR__ . '/../tests.wd/clean';
+    private const WDir =  __DIR__ . '/../../tests.wd/clean';
 
-    private const PCPDir =  __DIR__ . '/../tests.wd/clean.wd';
+    private const PCPDir =  __DIR__ . '/../../tests.wd/clean.wd';
 
     private static function getTests(): \Traversable
     {

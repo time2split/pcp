@@ -1,0 +1,3 @@
+for (tags:"from.declaration")
+    generate prototype
+for end

@@ -4,92 +4,19 @@ declare(strict_types=1);
 
 namespace Time2Split\PCP\C;
 
-use Time2Split\Help\CharPredicates;
-use Time2Split\Help\Streams;
+use Time2Split\PCP\_internal\AbstractReader;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\C\Element\CPPDirective;
-use Time2Split\PCP\File\CursorPosition;
-use Time2Split\PCP\File\Navigator;
 use Time2Split\PCP\File\Section;
 
-final class CReader
+final class CReader extends AbstractReader
 {
-
     private const debug = false;
 
-    private ?Navigator $fnav;
-
-    private function __construct($stream, bool $closeStream = true)
-    {
-        if (!Streams::isSeekableStream($stream))
-            throw new \Exception(__class__ . " The stream must be seekable (has: $stream)");
-
-        $this->fnav = Navigator::fromStream($stream, $closeStream);
-    }
-
-    public function __destruct()
-    {
-        $this->close();
-    }
-
-    public static function ofStream($stream, bool $closeStream = true): self
-    {
-        return new self($stream, $closeStream);
-    }
-
-    public static function ofFile(string|\SplFileInfo $filePath, bool $closeStream = true): self
-    {
-        return new self(\fopen((string) $filePath, 'r'), $closeStream);
-    }
-
-    public static function ofString($string): self
-    {
-        return new self(Streams::stringToStream($string), false);
-    }
-
     // ========================================================================
 
-    public function close(): void
-    {
-        $this->fnav->close();
-    }
-
-    private function getStream()
-    {
-        return $this->fnav->getStream();
-    }
-
-    private function getCursorPosition(): CursorPosition
-    {
-        return $this->fnav->getCursorPosition();
-    }
-
-    // ========================================================================
-
-    private function fgetc()
-    {
-        $c = $this->fnav->getc();
-
-        if ($c !== '\\')
-            return $c;
-
-        $next = $this->fnav->getc();
-
-        if ($next !== "\n") {
-            $this->fungetc();
-            return $c;
-        }
-        return "\\\n";
-    }
-
-    private function fungetc(int $nb = 1)
-    {
-        return $this->fnav->ungetc($nb);
-    }
-
-    // ========================================================================
     private function parseException(?string $msg): void
     {
         $fp = $this->fnav->getStream();
@@ -99,145 +26,14 @@ final class CReader
 
     private const C_DELIMITERS = '""\'\'(){}[]';
 
-    /**
-     * A '/' as been read
-     */
-    private function skipComment(): bool
-    {
-        $state = 0;
-        while (true) {
-            $c = $this->fgetc();
-
-            if ($c === false)
-                goto failure;
-
-            switch ($state) {
-
-                // Comment ?
-                case 0:
-                    if ('/' === $c)
-                        $state = 1;
-                    elseif ('*' === $c)
-                        $state = 100;
-                    else
-                        goto failure;
-                    break;
-                case 1:
-                    if ("\n" === $c)
-                        return true;
-                    break;
-                // Multiline comment
-                case 100:
-                    if ('*' === $c)
-                        $state++;
-                    break;
-                case 101:
-
-                    if ('/' === $c)
-                        return true;
-                    elseif ('*' === $c);
-                    else
-                        $state--;
-                    break;
-            }
-        }
-        failure:
-        $this->fungetc();
-        return false;
-    }
-
-    private function skipSpaces(): void
-    {
-        $this->fnav->skipChars(\ctype_space(...));
-    }
-
-    private function skipUselessText(): void
-    {
-        do {
-            $skipped = $this->skipSpaces();
-            $c = $this->fgetc();
-
-            if ($c === false)
-                return;
-
-            if ($c === '/') {
-
-                if (!$this->skipComment())
-                    $this->fungetc();
-                else
-                    $skipped = true;
-            } else
-                $this->fungetc();
-        } while ($skipped);
-    }
-
-    private function getDelimitedText(string $delimiters = self::C_DELIMITERS): string|false
-    {
-        $buff = "";
-        $skip = false;
-        $endDelimiters = [];
-        $endDelimiter = null;
-
-        while (true) {
-            $c = $this->fgetc();
-            $buff .= $c;
-
-            if ($c === false)
-                return false;
-            if ($c === '\\')
-                $skip = true;
-            elseif ($c == '/') {
-                if ($this->skipComment())
-                    $buff = \substr($buff, 0, -1);
-            } elseif ($c === $endDelimiter && !$skip) {
-                $endDelimiter = \array_pop($endDelimiters);
-
-                if (!isset($endDelimiter))
-                    return $buff;
-            } else {
-
-                if ($skip)
-                    $skip = false;
-
-                $end = CharPredicates::isDelimitation($c, $delimiters);
-                if (false !== $end) {
-                    \array_push($endDelimiters, $endDelimiter);
-                    $endDelimiter = $end;
-                }
-            }
-        }
-    }
 
     // ========================================================================
-    private function nextWord(?\Closure $pred = null): ?string
-    {
-        if (!isset($pred)) {
-            $pred = fn($c) =>
-            ctype_alnum($c) || $c === '_';
-        }
-        $this->skipUselessText();
-        return $this->fnav->getChars($pred);
-    }
-
-    private function nextChar()
-    {
-        $this->skipUselessText();
-        return $this->fgetc();
-    }
-
-    private function silentChar()
-    {
-        $c = $this->nextChar();
-        $this->fungetc();
-        return $c;
-    }
 
     private function getPossibleSpecifiers(): array
     {
         $ret = [];
 
         while (true) {
-            $this->skipUselessText();
             $text = $this->nextWord();
 
             if (0 === \strlen($text)) {
@@ -271,6 +67,7 @@ final class CReader
     }
 
     // ========================================================================
+
     private array $states;
 
     private const zeroData = [
@@ -302,15 +99,8 @@ final class CReader
         return \array_pop($this->states);
     }
 
-    private function forgetState(CReaderState $s): void
-    {
-        list($state,,) = \array_pop($this->states);
-
-        if ($state !== $s)
-            throw new \Exception(__class__ . " waiting to forget $s->name but have $state->name");
-    }
-
     // ========================================================================
+
     private function newElement(): array
     {
         return [
@@ -487,7 +277,6 @@ final class CReader
                     if ($directive === 'define')
                         $state = CReaderState::cpp_define_id;
                     else {
-
                         $text = $this->readCPPDirectiveText();
                         $cursors[] = $this->fnav->getCursorPosition();
                         return CElements::createSimpleCPPDirective($directive, $text, new Section(...$cursors));
@@ -527,7 +316,12 @@ final class CReader
             if (self::debug) {
                 $cursor = $this->fnav->getCursorPosition();
                 $c = $this->fnav->getc();
-                $this->fnav->ungetc();
+
+                if ($c === false)
+                    $c = 'false';
+                else
+                    $this->fnav->ungetc();
+
                 echo "$state->name[ $c ]", " $cursor\n";
             }
 
@@ -539,6 +333,8 @@ final class CReader
                     while (true) {
                         $c = $this->nextChar();
 
+                        if ($c === false)
+                            return null;
                         if ($c === ';')
                             continue;
                         if ($c === '{') {
@@ -800,7 +596,7 @@ final class CReader
                         // Arrays may repeat
                         $this->pushState(CReaderState::opt_array, $data);
                         self::makeElementIdentifier($element);
-                        $arrayExpr = $this->getDelimitedText();
+                        $arrayExpr = $this->getDelimitedText(self::C_DELIMITERS);
                         $this->elementAddItems($element, [$arrayExpr]);
                     }
                     break;
@@ -809,7 +605,7 @@ final class CReader
                     $c = $this->silentChar();
 
                     if ($c === '{') {
-                        $cstatement = $this->getDelimitedText();
+                        $cstatement = $this->getDelimitedText(self::C_DELIMITERS);
                         $element['type'] = CElementType::ofFunctionDefinition();
                         $element['cstatement'] = $cstatement;
                     }

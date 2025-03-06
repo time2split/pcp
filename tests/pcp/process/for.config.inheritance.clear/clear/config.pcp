@@ -1,0 +1,5 @@
+for clear
+
+for (tags:"from.definition")
+    generate prototype
+for end
