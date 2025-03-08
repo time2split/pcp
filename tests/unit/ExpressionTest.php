@@ -2,13 +2,12 @@
 
 declare(strict_types=1);
 
+use Parsica\Parsica\Parser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Time2Split\Config\Configurations;
 use Time2Split\Help\Iterables;
-use Time2Split\PCP\App;
-use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\Expression\Expressions;
 use Time2Split\PCP\Expression\Node\ConstNode;
 
@@ -21,6 +20,11 @@ final class ExpressionTest extends TestCase
             $header = "$expr";
             yield $header => [$expr, $mapExpect($expect)];
         }
+    }
+
+    private static function getParser(): Parser
+    {
+        return Expressions::expression([]);
     }
 
     private static function getConstExpressionTests(): array
@@ -86,7 +90,7 @@ final class ExpressionTest extends TestCase
     #[DataProvider("constExpressionProvider")]
     public  function constExpression(string $expr, $expect): void
     {
-        $parser = Expressions::expression();
+        $parser = self::getParser();
         $val = $parser->tryString($expr)->output();
         $this->assertInstanceOf(ConstNode::class, $val);
         $val = $val->getValue();
@@ -128,10 +132,11 @@ final class ExpressionTest extends TestCase
 
     #[Test]
     #[DataProvider("assignProvider")]
-    public  function assign(string $expr, array $expect): void
+    public function assign(string $expr, array $expect): void
     {
         $config = Configurations::ofTree();
-        $parser = Expressions::arguments();
+        $parser = Expressions::arguments([]);
+
         $parser->tryString($expr)->output()->get($config);
 
         $expect = Configurations::ofTree($expect);
@@ -172,13 +177,47 @@ final class ExpressionTest extends TestCase
 
     #[Test]
     #[DataProvider("variableProvider")]
-    public  function variable(string $expr,  $expect, array $config): void
+    public function variable(string $expr,  $expect, array $config): void
     {
         $config = Configurations::ofTree()->merge($config);
-        $parser = Expressions::expression();
+        $parser = self::getParser();
         $val = $parser->tryString($expr)->output();
 
         $this->assertNotInstanceOf(ConstNode::class, $val);
         $this->assertSame($expect, $val->get($config));
+    }
+
+    // ========================================================================
+
+
+    public static function theTestFilterProvider(): \Traversable
+    {
+        $data = [
+            ['"lower"|upper()', 'LOWER', []],
+            ['var|upper()', 'LOWER', ['var' => 'lower']],
+        ];
+
+        return (function () use ($data) {
+            foreach ($data as $test) {
+                yield "{$test[0]}={$test[1]}" => $test;
+            }
+        })();
+    }
+
+    private static function getParserWithFilter(): Parser
+    {
+        static $ret =  Expressions::expression([
+            'upper' => fn(string $s) => \strtoupper($s)
+        ]);
+        return $ret;
+    }
+
+    #[DataProvider("theTestFilterProvider")]
+    public function testFilter(string $expr, mixed $expect, array $config): void
+    {
+        $config = Configurations::ofTree($config);
+        $parser = self::getParserWithFilter();
+        $val = $parser->tryString($expr)->output()->get($config);
+        $this->assertSame($expect, $val);
     }
 }

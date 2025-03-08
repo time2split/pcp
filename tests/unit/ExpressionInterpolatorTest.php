@@ -15,7 +15,7 @@ final class ExpressionInterpolatorTest extends TestCase
     private static function emptyConfiguration(): Configuration
     {
         return Configurations::builder()
-            ->setInterpolator(Expressions::interpolator())
+            ->setInterpolator(Expressions::interpolator([]))
             ->build();
     }
     private static function interpolatorTests(): array

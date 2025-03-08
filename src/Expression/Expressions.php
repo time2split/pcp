@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Time2Split\PCP\Expression;
 
+use Parsica\Parsica\Expression\BinaryOperator;
+use Parsica\Parsica\Expression\UnaryOperator;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Interpolator;
 use Time2Split\Help\Classes\NotInstanciable;
@@ -34,9 +36,11 @@ use function Parsica\Parsica\{
     optional,
     anySingle,
     anySingleBut,
+    append,
     assemble,
     digitChar,
     noneOf,
+    sepBy,
 };
 use function Parsica\Parsica\Expression\{
     binaryOperator,
@@ -54,6 +58,7 @@ use Time2Split\PCP\Expression\Node\BoolNode;
 use Time2Split\PCP\Expression\Node\AssignmentNode;
 use Time2Split\PCP\Expression\Node\ConstArrayNode;
 use Time2Split\PCP\Expression\Node\ConstNode;
+use Time2Split\PCP\Expression\Node\IncompleteFunctionNode;
 use Time2Split\PCP\Expression\Node\IntegerNode;
 use Time2Split\PCP\Help\HelpSets;
 
@@ -136,7 +141,7 @@ final class Expressions
     /**
      * @internal
      */
-    public static function wrapNode(Node $node, callable $fget, string $op = 'wrap:')
+    private static function wrapNode(Node $node, callable $fget, string $op = 'wrap:'): UnaryNode
     {
         return new class($node, $fget, $op) extends UnaryNode
         {
@@ -310,7 +315,7 @@ final class Expressions
     /**
      * @internal
      */
-    public static function noConstArrayNode(array $array)
+    public static function noConstArrayNode(array $array): Node
     {
         return new class($array) implements Node {
 
@@ -369,6 +374,7 @@ final class Expressions
 
     // ========================================================================
     // Parser utilities
+
     private static function dump($e)
     {
         var_dump($e);
@@ -458,7 +464,7 @@ final class Expressions
             ->map((fn($s) => self::integerNode((int)$s)));
     }
 
-    private static function stringChar(Parser ...$parsers)
+    private static function stringChar(Parser ...$parsers): Parser
     {
         if (empty($parsers))
             $parsers = [anySingle()];
@@ -541,7 +547,7 @@ final class Expressions
         return $firstkey->append($pathSequence);
     }
 
-    private static function binaryOperator(string $op)
+    private static function binaryOperator(string $op): BinaryOperator
     {
         $pop = \strlen($op) > 1 ? string($op) : char($op);
         return binaryOperator(
@@ -550,7 +556,39 @@ final class Expressions
         );
     }
 
-    private static function unaryOperator(string $op)
+    private static function filterOperator(array $availableFilters): BinaryOperator
+    {
+        return binaryOperator(
+            self::skipSpaces(char('|')),
+            function (Node $subject, Node $function) use ($availableFilters) {
+
+                if (!($function instanceof IncompleteFunctionNode))
+                    throw new \InvalidArgumentException("The right part of a filter must be a function call");
+
+                $filter = self::filterCallable($availableFilters, $function);
+
+                return  new class("filter:->function->name", $subject, $filter) extends UnaryNode {
+
+                    public function __construct(
+                        string $op,
+                        Node $node,
+                        private FilterCallable $filter
+                    ) {
+                        parent::__construct($op, $node);
+                    }
+
+                    public function get(Configuration $config): mixed
+                    {
+                        $subject = $this->node->get($config);
+                        $args = \array_map(fn(Node $n) => $n->get($config), $this->filter->arguments);
+                        return ($this->filter->callable)($subject, ...$args);
+                    }
+                };
+            }
+        );
+    }
+
+    private static function unaryOperator(string $op): UnaryOperator
     {
         $pop = \strlen($op) > 1 ? string($op) : char($op);
         return unaryOperator(
@@ -560,13 +598,47 @@ final class Expressions
     }
 
     // ========================================================================
-    public static function expression(): Parser
+
+    private static function filterCallable(array $availableFilters, IncompleteFunctionNode $function): ?FilterCallable
     {
-        static $ret;
+        $name = $function->name;
+        $callable = $availableFilters[$name] ?? null;
 
-        if (isset($ret))
-            return $ret;
+        if (null === $callable)
+            throw new \Exception("Undefined filter '$name'");
 
+        $arguments = $function->arguments;
+        $callableInfos = new \ReflectionFunction($callable);
+        $callableNbArgs = $callableInfos->getNumberOfRequiredParameters() - 1;
+        $nbArguments = \count($arguments);
+
+        if ($nbArguments < $callableNbArgs)
+            throw new \Exception("Not enough argument for the filter '$name'(required: $callableNbArgs, have: $nbArguments)");
+
+        return new FilterCallable($callable, ...$arguments);
+    }
+
+    private static function function(Parser $expression): Parser
+    {
+        $nameChar = choice(alphaNumChar(), char('_'));
+        $name = atLeastOne($nameChar)
+            ->map(Arrays::ensureArray(...));
+
+        $parameter = self::skipSpaces($expression);
+        $parametersList = sepBy(char(','), $parameter);
+
+        $filter = append(
+            $name,
+            self::between('(', ')', $parametersList)
+        )->map(function (array $args): IncompleteFunctionNode {
+            $name = \array_shift($args);
+            return new IncompleteFunctionNode($name, ...$args);
+        });
+        return $filter;
+    }
+
+    public static function expression(array $availableFilters): Parser
+    {
         $makeBin = self::binaryOperator(...);
         $makePrefix = self::unaryOperator(...);
 
@@ -577,6 +649,7 @@ final class Expressions
             self::parenthesis($expr),
             self::array($expr),
             self::stringWithInterpolation($expr),
+            self::function($expr),
             $variable,
             self::integer(),
         );
@@ -588,22 +661,18 @@ final class Expressions
                 prefix($makePrefix('!!')),
                 nonAssoc($makeBin(':')),
                 leftAssoc($makeBin('&&')),
-                leftAssoc($makeBin('||'))
+                leftAssoc($makeBin('||')),
+                leftAssoc(self::filterOperator($availableFilters)),
             ])
         );
-        return $ret = $expr;
+        return $expr;
     }
 
-    public static function arguments(): Parser
+    public static function arguments(array $availableFilters): Parser
     {
-        static $ret;
-
-        if (isset($ret))
-            return $ret;
-
         $toArray = fn($s) => [$s];
 
-        $expr = self::expression();
+        $expr = self::expression($availableFilters);
         $value = self::skipSpaces($expr)
             ->map($toArray);
 
@@ -625,31 +694,18 @@ final class Expressions
         $assignment = choice(...$assignment);
         $assignment = self::skipSpaces($assignment);
 
-        return $ret = many($assignment)->thenIgnore(skipSpace())
+        return many($assignment)->thenIgnore(skipSpace())
             ->thenEof()
             ->map(self::assignmentsNode(...));
     }
 
     // ========================================================================
 
-    /**
-     * @internal
-     */
-    public static function _configValue(): Parser
+    public static function interpolator(array $availableFilters): Interpolator
     {
-        static $ret;
+        return new class($availableFilters) implements Interpolator {
 
-        if (isset($ret))
-            return $ret;
-
-        $inlineExpr = self::between('${', '}', self::expression());
-        $parser = some(either($inlineExpr, atLeastOne(anySingleBut('$'))));
-        return $ret = $parser;
-    }
-
-    public static function interpolator(): Interpolator
-    {
-        return new class() implements Interpolator {
+            public function __construct(private array $availableFilters) {}
 
             public function compile($value): Optional
             {
@@ -659,7 +715,9 @@ final class Expressions
                 if (! is_string($value))
                     return Optional::empty();
 
-                $parser = Expressions::stringWithInterpolationContents(Expressions::expression());
+                $parser = Expressions::stringWithInterpolationContents(
+                    Expressions::expression($this->availableFilters)
+                );
 
                 try {
                     $res = $parser->tryString($value);

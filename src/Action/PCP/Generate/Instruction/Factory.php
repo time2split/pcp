@@ -41,7 +41,7 @@ final class Factory
 
     public function createWithoutSubject(Configuration $instruction): Instruction
     {
-        if (isset($instruction['code']))
+        if ($instruction->isPresent('code'))
             return new Code($instruction, $this->readingFile->fileInfo);
 
         throw new \Exception("Invalid instruction: " . \print_r($instruction->toArray(), true));

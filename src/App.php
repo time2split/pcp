@@ -2,8 +2,10 @@
 
 namespace Time2Split\PCP;
 
+use Parsica\Parsica\Parser;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
+use Time2Split\Config\Interpolator;
 use Time2Split\Config\TreeConfigurationBuilder;
 use Time2Split\Help\Iterables;
 use Time2Split\Help\Classes\NotInstanciable;
@@ -17,12 +19,44 @@ use Time2Split\PCP\C\PCPReader;
 use Time2Split\PCP\Expression\Expressions;
 use Time2Split\PCP\File\StreamInsertion;
 use Time2Split\PCP\File\_internal\StreamInsertionImpl;
+use Time2Split\PCP\File\CursorPosition;
 use Time2Split\PCP\File\HasFileSection;
 use Time2Split\PCP\File\Section;
 
 final class App
 {
     use NotInstanciable;
+
+    // ========================================================================
+
+    private static function availableFilters(): array
+    {
+        return [
+            'replace' => function (string $subject, string $search, string $replace): string {
+                return \str_replace($search, $replace, $subject);
+            }
+        ];
+    }
+
+    public static function expressions(): Parser
+    {
+        static $ret = Expressions::expression(self::availableFilters());
+        return $ret;
+    }
+
+    public static function expressionsInterpolator(): Interpolator
+    {
+        static $ret = Expressions::interpolator(self::availableFilters());
+        return $ret;
+    }
+
+    public static function expressionsArguments(): Parser
+    {
+        static $ret = Expressions::arguments(self::availableFilters());
+        return $ret;
+    }
+
+    // ========================================================================
 
     public static function emptyConfiguration(): Configuration
     {
@@ -33,7 +67,7 @@ final class App
     {
         return Configurations::builder()
             ->setKeyDelimiter('.')
-            ->setInterpolator(Expressions::interpolator())
+            ->setInterpolator(self::expressionsInterpolator())
             ->mergeTree($default);
     }
 
@@ -52,8 +86,9 @@ final class App
         } else {
             $text =  (string)$stream;
         }
+
         try {
-            Expressions::arguments()->tryString($text)
+            self::expressionsArguments()->tryString($text)
                 ->output()
                 ->get($parameters);
         } catch (\Exception $e) {
@@ -88,6 +123,11 @@ final class App
                 private CReader $reader,
                 private array $pcpNames,
             ) {}
+
+            public function getCursorPosition(): CursorPosition
+            {
+                return $this->reader->getCursorPosition();
+            }
 
             public function __destruct()
             {
