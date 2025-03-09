@@ -36,8 +36,8 @@ use function Parsica\Parsica\{
     optional,
     anySingle,
     anySingleBut,
-    append,
     assemble,
+    collect,
     digitChar,
     noneOf,
     sepBy,
@@ -270,7 +270,7 @@ final class Expressions
                     $val = $this->dereferenceValue($config, $val);
                     $cval = $config[$key];
 
-                    if (!isset($config[$key]))
+                    if (!$config->isPresent($key))
                         $config[$key] = $val;
                     else {
                         if (!\is_array($cval))
@@ -621,17 +621,16 @@ final class Expressions
     private static function function(Parser $expression): Parser
     {
         $nameChar = choice(alphaNumChar(), char('_'));
-        $name = atLeastOne($nameChar)
-            ->map(Arrays::ensureArray(...));
+        $name = atLeastOne($nameChar);
 
         $parameter = self::skipSpaces($expression);
         $parametersList = sepBy(char(','), $parameter);
 
-        $filter = append(
+        $filter = collect(
             $name,
             self::between('(', ')', $parametersList)
-        )->map(function (array $args): IncompleteFunctionNode {
-            $name = \array_shift($args);
+        )->map(function (array $in): IncompleteFunctionNode {
+            [$name, $args] = $in;
             return new IncompleteFunctionNode($name, ...$args);
         });
         return $filter;
@@ -670,26 +669,23 @@ final class Expressions
 
     public static function arguments(array $availableFilters): Parser
     {
-        $toArray = fn($s) => [$s];
-
         $expr = self::expression($availableFilters);
-        $value = self::skipSpaces($expr)
-            ->map($toArray);
+        $value = self::skipSpaces($expr);
 
-        $var = self::variable()->map(self::stringNode(...))->map($toArray);
+        $var = self::variable()->map(self::stringNode(...));
         $var = self::skipSpaces($var);
 
-        $makeAssign = fn($op) => $var
-            ->append(self::delimiter($op)->sequence($value))
-            ->map(fn($res) => self::assignmentNode($op, $res[0], $res[1]));
+        $makeAssign = fn(string $op) => collect(
+            $var,
+            self::delimiter($op)->sequence($value)
+        )->map(fn(array $res) => self::assignmentNode($op, $res[0], $res[1]));
 
         $assignment = [
             $makeAssign('='),
             $makeAssign(':'),
             self::parenthesis($expr)
-                ->map($toArray)
-                ->map(fn($res) => self::assignmentNode(':', Expressions::stringNode('@expr'), $res[0])),
-            $var->map(fn($res) => self::assignmentNode('=', $res[0], self::boolNode(true)))
+                ->map(fn(Node $n) => self::assignmentNode(':', Expressions::stringNode('@expr'), $n)),
+            $var->map(fn(Node $n) => self::assignmentNode('=', $n, self::boolNode(true)))
         ];
         $assignment = choice(...$assignment);
         $assignment = self::skipSpaces($assignment);
