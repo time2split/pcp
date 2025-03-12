@@ -84,7 +84,18 @@ final class CReader
     // ========================================================================
     public function fgetc()
     {
-        return $this->fnav->getc();
+        $c = $this->fnav->getc();
+
+        if ($c !== '\\')
+            return $c;
+
+        $next = $this->fnav->getc();
+
+        if ($next !== "\n") {
+            $this->fungetc();
+            return $c;
+        }
+        return "\\\n";
     }
 
     public function fungetc(int $nb = 1)
@@ -203,7 +214,7 @@ final class CReader
                     $skip = false;
 
                 $end = CharPredicates::isDelimitation($c, $delimiters);
-                if (null !== $end) {
+                if (false !== $end) {
                     \array_push($endDelimiters, $endDelimiter);
                     $endDelimiter = $end;
                 }
@@ -215,7 +226,7 @@ final class CReader
     private function nextWord(?\Closure $pred = null): ?string
     {
         if (!isset($pred)) {
-            $pred = fn ($c) =>
+            $pred = fn($c) =>
             ctype_alnum($c) || $c === '_';
         }
         $this->skipUselessText();
@@ -302,12 +313,7 @@ final class CReader
                 null
             ];
 
-        list($state, $data) = \array_pop($this->states);
-
-        return [
-            $state,
-            $data
-        ];
+        return \array_pop($this->states);
     }
 
     private function forgetState(CReaderState $s): void
@@ -461,7 +467,7 @@ final class CReader
                 $this->fungetc();
                 return $this->getCPPDirective();
             }
-            $this->fnav->skipChars(fn ($c) => $c !== "\n");
+            $this->fnav->skipChars(fn($c) => $c !== "\n");
         }
     }
 
@@ -492,25 +498,11 @@ final class CReader
                     $directive = $this->nextWord();
                     $this->skipSpaces();
 
-                    $skipNext = false;
                     $buff = '';
 
                     while (true) {
                         $c = $this->fgetc();
-
-                        if ($skipNext) {
-
-                            if ($c !== "\n")
-                                throw $this->parseException("Waiting for end of line after '\'");
-
-                            $skipNext = false;
-                            $c = ' ';
-                        }
-
-                        if ($c !== '\\')
-                            $buff .= $c;
-                        else
-                            $skipNext = true;
+                        $buff .= $c;
 
                         // TODO handle comments
                         if ($c === "\n" || $c === false) {
@@ -665,6 +657,7 @@ final class CReader
                         unset($newElement);
                     } else {
                         $this->fungetc();
+                        $this->pushState(CReaderState::opt_array, $data);
                     }
                     break;
 
@@ -795,9 +788,7 @@ final class CReader
                     $c = $this->silentChar();
 
                     if ($c === '[') {
-                        // Arrays may repeat
                         $this->pushState(CReaderState::opt_array, $data);
-                        $this->pushState(CReaderState::direct_declarator_array, $data);
                     } elseif ($c === '(') {
                         $this->fgetc();
                         $this->pushState(CReaderState::direct_declarator_function, $data);
@@ -807,8 +798,13 @@ final class CReader
                 case CReaderState::opt_array:
                     $c = $this->silentChar();
 
-                    if ($c === '[')
-                        $this->pushState(CReaderState::direct_declarator_array, $data);
+                    if ($c === '[') {
+                        // Arrays may repeat
+                        $this->pushState(CReaderState::opt_array, $data);
+                        self::makeElementIdentifier($element);
+                        $arrayExpr = $this->getDelimitedText();
+                        $this->elementAddItems($element, [$arrayExpr]);
+                    }
                     break;
 
                 case CReaderState::opt_cstatement:
@@ -825,13 +821,6 @@ final class CReader
 
                     if ($declarator_level === 0)
                         $this->pushState(CReaderState::opt_cstatement, $data);
-                    break;
-
-                case CReaderState::direct_declarator_array:
-                    $element['type'] = CDeclarationType::tarray;
-                    self::makeElementIdentifier($element);
-                    $content = $this->getDelimitedText(self::C_DELIMITERS);
-                    $element['items'][] = $content;
                     break;
 
                 case CReaderState::direct_declarator_function:

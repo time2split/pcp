@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\C;
 
 enum CReaderState
@@ -31,8 +32,6 @@ enum CReaderState
     case direct_declarator;
 
     case direct_declarator_check_array;
-
-    case direct_declarator_array;
 
     case direct_declarator_function;
 
