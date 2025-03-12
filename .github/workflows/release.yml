@@ -1,0 +1,52 @@
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+name: Release
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    env:
+      PHP_EXTENSIONS: none, ctype, dom, mbstring, phar, tokenizer, xml, xmlwriter, zlib
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Load the version tag
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Generate changelog
+        uses: tj-actions/git-cliff@v1
+        with:
+          args: -v --latest
+
+      - name: Install PHP with extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.4
+          coverage: none
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          tools: box, composer
+
+      - name: Install dependencies with Composer
+        run: composer install --no-ansi --no-interaction --no-progress --no-dev
+
+      - name: Create phar package with Box
+        run: box compile -c build/box.json
+
+      - name: Create release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: PCP ${{ env.RELEASE_TAG }}
+          bodyFile: HISTORY.md
+          artifacts: "pcp.phar"
