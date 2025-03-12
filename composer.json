@@ -19,18 +19,8 @@
 			"Time2Split\\PCP\\": "src"
 		}
 	},
-	"repositories": [
-		{
-			"type": "vcs",
-			"url": "git@github.com:time2split/php-time2help.git"
-		},
-		{
-			"type": "vcs",
-			"url": "git@github.com:time2split/php-time2configure.git"
-		}
-	],
 	"require": {
-		"php": ">=8.2",
+		"php": ">=8.3",
 		"time2split/time2configure": "^0.1",
 		"time2split/time2help": "^0.1",
 		"parsica-php/parsica": "^0.8"
