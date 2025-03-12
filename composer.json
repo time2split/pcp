@@ -32,6 +32,7 @@
 	"require": {
 		"php": ">=8.2",
 		"time2split/time2configure": "dev-develop",
-		"time2split/time2help": "dev-develop"
+		"time2split/time2help": "dev-develop",
+		"parsica-php/parsica": "^0.8"
 	}
 }

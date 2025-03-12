@@ -1,9 +1,8 @@
 <?php
 namespace Time2Split\PCP;
 
-use Time2Split\Config\Interpolators;
 use Time2Split\Config\TreeConfigBuilder;
-use Time2Split\PCP\C\PCP;
+use Time2Split\PCP\Expression\Expressions;
 require_once __DIR__ . '/vendor/autoload.php';
 
 $CONFIG = [
@@ -30,7 +29,7 @@ $CONFIG['action'] = $action;
 
 $theConfig = TreeConfigBuilder::builder()->setDelimiter('.')
     ->setContent($CONFIG)
-    ->setInterpolator(Interpolators::recursive())
+    ->setInterpolator(Expressions::interpolator())
     ->build();
 
 (new PCP())->process($theConfig);
