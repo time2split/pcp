@@ -720,9 +720,12 @@ final class Expressions
                 } catch (ParserHasFailed $e) {
                     return Optional::empty();
                 }
-                return Optional::of(
-                    Expressions::stringWithInterpolationResult($res->output())
-                );
+                $node = Expressions::stringWithInterpolationResult($res->output());
+
+                if ($node instanceof StringNode)
+                    return Optional::empty();
+
+                return Optional::of($node);
             }
 
             public function execute($compilation, Configuration $config): mixed
