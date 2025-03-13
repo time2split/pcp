@@ -13,6 +13,7 @@ use Time2Split\PCP\Action\PCP\Generate;
 use Time2Split\PCP\App;
 use Time2Split\PCP\File\Section;
 use Time2Split\PCP\File\StreamInsertion;
+use Time2Split\PCP\PCP;
 
 final class AreaWriter
 {
@@ -92,7 +93,11 @@ final class AreaWriter
                 $check = true;
             else {
                 $conditions = Arrays::ensureArray($conditions->get());
-                $codeConfig = Configurations::emptyTreeCopyOf($this->config)->merge(['tags' => $code->getTags()]);
+                $codeConfig = Configurations::emptyTreeCopyOf($this->config)
+                    ->merge([
+                        'tags' => $code->getTags(),
+                        ...PCP::getProcessFileInfos($this->srcFile)
+                    ]);
                 $check = Actions::checkInterpolations($codeConfig, null, ...$conditions);
             }
 

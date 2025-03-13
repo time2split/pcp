@@ -139,6 +139,48 @@ class PCP extends BasePublisher
             $s->onPhase(Phase::create($name, $state), $data);
     }
 
+    // ========================================================================
+
+    private static function _configAddProcessDirInfos(\SplFileInfo $dir, Configuration $dirConfig): void
+    {
+        $dirConfig['@process.file.dir'] = (string) $dir;
+    }
+
+    private static function _configProcess_getFileNameAndExtensionAndBaseName(\SplFileInfo $file): array
+    {
+        $fname = $file->getFilename();
+        $ext = \substr($fname, -2);
+        $basename = \substr($fname, 0, \strlen($fname) - 2);
+        assert(\in_array($ext, ['.h', '.c']));
+        return [$fname, $ext, $basename];
+    }
+
+    private static function _configAddProcessFileInfos(\SplFileInfo $file, Configuration $fileConfig): void
+    {
+        [$fname, $ext, $basename] = self::_configProcess_getFileNameAndExtensionAndBaseName($file);
+        $fileConfig['@process.file'] = $file->getPathname();
+        $fileConfig['@process.file.name'] = $fname;
+        $fileConfig['@process.file.suffix'] = $ext;
+        $fileConfig['@process.file.baseName'] = $basename;
+    }
+
+    public static function getProcessFileInfos(\SplFileInfo|string $file): array
+    {
+        if (\is_string($file))
+            $file = new \SplFileInfo($file);
+
+        [$fname, $ext, $basename] = self::_configProcess_getFileNameAndExtensionAndBaseName($file);
+        return [
+            '@process.file.dir' => $file->getPath(),
+            '@process.file' => $file->getPathname(),
+            '@process.file.name' => $fname,
+            '@process.file.suffix' => $ext,
+            '@process.file.baseName' => $basename,
+        ];
+    }
+
+    // ========================================================================
+
     /**
      * Process the files inside the current working directory.
      */
@@ -228,7 +270,7 @@ class PCP extends BasePublisher
             $phaseData
         );
         $dirConfig = Configurations::emptyChild($parentConfig);
-        $dirConfig['@process.file.dir'] = (string) $wdir;
+        self::_configAddProcessDirInfos($wdir, $dirConfig);
         $this->setSubscribersConfig($dirConfig);
 
         // process config dir
@@ -294,11 +336,8 @@ class PCP extends BasePublisher
             if ($notFile) {
                 $this->newFiles[] = new \SplFileInfo($newFile);
             }
-        } elseif (\in_array($ext = \substr($fname, -2), ['.h', '.c'])) {
-            $fileConfig['@process.file'] = $file->getPathname();
-            $fileConfig['@process.file.name'] = $fname;
-            $fileConfig['@process.file.suffix'] = $ext;
-            $fileConfig['@process.file.baseName'] = \substr($fname, 0, \strlen($fname) - 2);
+        } elseif (\in_array(\substr($fname, -2), ['.h', '.c'])) {
+            self::_configAddProcessFileInfos($file, $fileConfig);
             $this->processOneCFile($file, $fileConfig);
         }
     }
