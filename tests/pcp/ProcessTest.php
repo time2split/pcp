@@ -13,6 +13,9 @@ use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CPPDefine;
 use Time2Split\PCP\C\Element\CPPDirective;
+use Time2Split\PCP\Diff\Algorithm\Myers;
+use Time2Split\PCP\Diff\Output\DiffInstruction;
+use Time2Split\PCP\Diff\Output\DiffInstructionType;
 use Time2Split\PCP\Help\HelpSets;
 use Time2Split\PCP\PCP;
 
@@ -54,7 +57,6 @@ final class ProcessTest extends TestCase
     {
         return $a->getText() === $b->getText();
     }
-
 
     private static function CDeclarationEquals(CDeclaration $a, CDeclaration $b): bool
     {
@@ -119,6 +121,17 @@ final class ProcessTest extends TestCase
 
     // ========================================================================
 
+    private static function getDiffTypeChar(DiffInstructionType $type)
+    {
+        return match ($type) {
+            DiffInstructionType::Drop => ' - ',
+            DiffInstructionType::Keep => '   ',
+            DiffInstructionType::Insert => ' + ',
+        };
+    }
+
+    // ========================================================================
+
     /**
      * Found all files of the form "${prefix}result${suffix}".
      * @return A pattern "${prefix}%s${suffix}" for each founded result file.
@@ -178,6 +191,14 @@ final class ProcessTest extends TestCase
 
     // ========================================================================
 
+    private function array_any(array $array, callable $predicate): bool
+    {
+        foreach ($array as $v)
+            if ($predicate($v))
+                return true;
+        return false;
+    }
+
     #[DataProvider("processProvider")]
     public function testProcess(string $dir, string $resultPattern)
     {
@@ -212,37 +233,20 @@ final class ProcessTest extends TestCase
         $remains = [];
         $expect = self::getCElementsResult($pcp, "$dir/$resultFile", $remains);
 
-        $testConfig = self::getExpectConfiguration($remains);
+        $diff = Myers::diffList($expect, $result, self::CElementEquals(...));
+        $fail = self::array_any($diff, fn(DiffInstruction $a) => $a->type !== DiffInstructionType::Keep);
 
-        $i = 0;
-
-        foreach ($expect as $e) {
-            $i++;
-            $r = \array_shift($result);
-
-            if (null === $r) {
-                $me = self::CElement_toString($e);
-                $this->fail("No result for the expectation $me");
+        if ($fail) {
+            \ob_start();
+            foreach ($diff as $i) {
+                $op = self::getDiffTypeChar($i->type);
+                $item = self::CElement_toString($i->item);
+                echo "$op$item\n";
             }
-
-            if (!self::CElementEquals($e, $r)) {
-                $me = self::CElement_toString($e);
-                $mr = self::CElement_toString($r);
-                $msg = "#$i Expecting\n$me\nbut have\n$mr";
-                $this->fail($msg);
-            } else
-                $this->assertTrue(true);
-        }
-
-        if ($testConfig['remains.empty'] ?? true) {
-
-            if (!empty($result)) {
-                $lines = \array_map(self::CDeclaration_toString(...), $result);
-                $lines = implode("\n", $lines);
-                $this->assertEmpty($result,  "End: Target has unexpected remains:\n$lines");
-            }
+            $msg = \ob_get_clean();
+            $this->fail("Error: (diff)\n$msg");
         } else {
-            $this->assertNotEmpty($result,  "End: Target must have some remains");
+            $this->assertTrue(true);
         }
     }
 
