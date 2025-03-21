@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Time2Split\PCP\Action\PCP\Generate;
 
-use Time2Split\Help\Set;
-use Time2Split\Help\Sets;
+use Time2Split\Help\Container\Set;
+use Time2Split\Help\Container\Sets;
 use Time2Split\PCP\Help\ArrayCodec;
 
 final class GeneratedCode implements ArrayCodec
@@ -18,7 +18,7 @@ final class GeneratedCode implements ArrayCodec
 
     public static function create(string $text, string ...$tags)
     {
-        return new self($text, (Sets::arrayKeys())->setMore(...$tags));
+        return new self($text, (Sets::arrayKeys())->putMore(...$tags));
     }
 
     public function array_encode(): array

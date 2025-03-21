@@ -24,7 +24,7 @@ abstract class Instruction extends CActionSubject
         parent::__construct($subject);
 
         $pretags = (array) ($arguments['tags'] ?? null);
-        $this->tags->setMore(...$pretags);
+        $this->tags->putMore(...$pretags);
 
         $i = clone $arguments;
         unset($i['tags']);

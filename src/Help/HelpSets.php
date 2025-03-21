@@ -3,7 +3,7 @@
 namespace Time2Split\PCP\Help;
 
 use Time2Split\Help\Classes\NotInstanciable;
-use Time2Split\Help\Set;
+use Time2Split\Help\Container\Set;
 
 final class HelpSets
 {

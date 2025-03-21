@@ -1,2 +1,3 @@
+#pragma pcp testconfig order=0
 int b;
 int a;

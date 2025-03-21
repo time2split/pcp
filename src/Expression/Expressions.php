@@ -13,9 +13,9 @@ use Time2Split\Help\Optional;
 use Time2Split\PCP\Expression\Node\Node;
 use Parsica\Parsica\Parser;
 use Parsica\Parsica\ParserHasFailed;
-use Time2Split\Help\Arrays;
-use Time2Split\Help\Set;
-use Time2Split\Help\Sets;
+use Time2Split\Help\Cast\Ensure;
+use Time2Split\Help\Container\Set;
+use Time2Split\Help\Container\Sets;
 
 use function Parsica\Parsica\{
     char,
@@ -245,7 +245,7 @@ final class Expressions
         if ($v instanceof Set)
             return $v;
         else
-            return Sets::arrayKeys()->setMore(...Arrays::ensureArray($v));
+            return Sets::arrayKeys()->putMore(...Ensure::array($v));
     }
 
     private static function assignmentNode(string $op, Node $left, Node $right): BinaryNode
@@ -415,7 +415,7 @@ final class Expressions
 
     private static function array(Parser $expression): Parser
     {
-        $expression = $expression->map(Arrays::ensureArray(...));
+        $expression = $expression->map(Ensure::array(...));
         $exprList = assemble(
             $expression,
             self::zeroOrMore(

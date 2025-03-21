@@ -6,6 +6,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
+use Time2Split\Help\Container\Bags;
+use Time2Split\Help\Container\Sets;
+use Time2Split\Help\Tests\DiffReports;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\App;
 use Time2Split\PCP\App\Bootstrap;
@@ -36,7 +39,7 @@ final class ProcessTest extends TestCase
 
         while (null !== ($celement = $creader->next())) {
 
-            if ($celement instanceof CDeclaration || $celement instanceof CPPDefine)
+            if ($celement instanceof CElement)
                 $result[] = $celement;
             else
                 $remains[] = $celement;
@@ -47,7 +50,6 @@ final class ProcessTest extends TestCase
 
     private static function CElementEquals(CElement $a, CElement $b): bool
     {
-
         if ($a instanceof CPPDirective && $b instanceof CPPDirective)
             return self::CPPDirectiveEquals($a, $b);
         return self::CDeclarationEquals($a, $b);
@@ -55,7 +57,9 @@ final class ProcessTest extends TestCase
 
     private static function CPPDirectiveEquals(CPPDirective $a, CPPDirective $b): bool
     {
-        return $a->getText() === $b->getText();
+        return
+            $a->getDirective() === $b->getDirective() &&
+            $a->getText() === $b->getText();
     }
 
     private static function CDeclarationEquals(CDeclaration $a, CDeclaration $b): bool
@@ -64,8 +68,11 @@ final class ProcessTest extends TestCase
         $bitems = $b['items'];
         $c = \count($aitems);
 
+        // var_dump($a); //->getIdentifier());
+        // var_dump($b); //->getIdentifier());
+
         if (
-            !HelpSets::equals($a->getElementType(), $b->getElementType())
+            !Sets::equals($a->getElementType(), $b->getElementType())
             || $a->getIdentifier() !== $b->getIdentifier()
             || ($c) !== \count($bitems)
         )
@@ -91,6 +98,15 @@ final class ProcessTest extends TestCase
         return true;
     }
 
+    private static function CElement_id(CElement $a): string
+    {
+        if ($a instanceof CDeclaration)
+            return self::CDeclaration_toString($a);
+        if ($a instanceof CPPDirective) {
+            return '#' . $a->getDirective() . ' ' . $a->getText();
+        }
+        return (string)$a;
+    }
     private static function CElement_toString(CElement $a): string
     {
         if ($a instanceof CDeclaration)
@@ -170,13 +186,14 @@ final class ProcessTest extends TestCase
             $tests = self::getTests();
 
             foreach ($tests as $dir => $pattern) {
+                // if (!str_contains($dir, 'sensibility')) continue;
                 $header = "$dir:$pattern";
                 yield $header => [$dir, $pattern];
             }
         })();
     }
 
-    private static function getExpectConfiguration(array &$expect): Configuration
+    private static function getExpectConfiguration(array $expect): Configuration
     {
         $config = Configurations::ofTree();
 
@@ -190,14 +207,6 @@ final class ProcessTest extends TestCase
     }
 
     // ========================================================================
-
-    private function array_any(array $array, callable $predicate): bool
-    {
-        foreach ($array as $v)
-            if ($predicate($v))
-                return true;
-        return false;
-    }
 
     #[DataProvider("processProvider")]
     public function testProcess(string $dir, string $resultPattern)
@@ -232,15 +241,32 @@ final class ProcessTest extends TestCase
         $result = self::getCElementsResult($pcp, $target);
         $remains = [];
         $expect = self::getCElementsResult($pcp, "$dir/$resultFile", $remains);
+        $diff = [];
 
-        $diff = Myers::diffList($expect, $result, self::CElementEquals(...));
-        $fail = self::array_any($diff, fn(DiffInstruction $a) => $a->type !== DiffInstructionType::Keep);
+
+        $testConfig = self::getExpectConfiguration($remains);
+
+        if ($testConfig['order']) {
+            $diff = Myers::diffList($expect, $result, self::CElementEquals(...));
+            $fail =  \array_any($diff, fn(DiffInstruction $a) => $a->type !== DiffInstructionType::Keep);
+        } else {
+            $emptyBag = fn() => Bags::toArrayKeys(self::CElement_id(...));
+            $resultBag = $emptyBag($result);
+            $expectBag = $emptyBag($expect);
+            $resultBag->putFromList($result);
+            $expectBag->putFromList($expect);
+            $fail = !Bags::equals($expectBag, $resultBag);
+
+            if ($fail)
+                $diff = Myers::diffList($expect, $result, self::CElementEquals(...));
+        }
 
         if ($fail) {
             \ob_start();
             foreach ($diff as $i) {
                 $op = self::getDiffTypeChar($i->type);
-                $item = self::CElement_toString($i->item);
+                // $item = self::CElement_toString($i->item);
+                $item = $i->item;
                 echo "$op$item\n";
             }
             $msg = \ob_get_clean();

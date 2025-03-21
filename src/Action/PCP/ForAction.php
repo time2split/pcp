@@ -11,6 +11,7 @@ use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PCP\For\Cond;
 use Time2Split\Config\Entry\ReadingMode;
 use Time2Split\Help\Arrays;
+use Time2Split\Help\Cast\Ensure;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\CActionSubject;
 use Time2Split\PCP\Action\MoreActions;
@@ -131,7 +132,7 @@ final class ForAction extends BaseAction
             if (! $cond->isPresent())
                 throw new \Exception('A \'for\' action must have a condition');
 
-            $cond = Arrays::ensureArray($cond->get());
+            $cond = Ensure::array($cond->get());
 
             $this->waitingFor = true;
 

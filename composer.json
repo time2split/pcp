@@ -22,7 +22,7 @@
 	"require": {
 		"php": ">=8.3",
 		"time2split/time2configure": "^0.1",
-		"time2split/time2help": "^0.1",
+		"time2split/time2help": "^0.2",
 		"parsica-php/parsica": "^0.8"
 	},
 	"require-dev": {

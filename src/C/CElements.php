@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Time2Split\PCP\C;
 
 use Time2Split\Help\Classes\NotInstanciable;
-use Time2Split\Help\Set;
-use Time2Split\Help\Sets;
+use Time2Split\Help\Container\Set;
+use Time2Split\Help\Container\Sets;
 use Time2Split\PCP\C\_internal\BaseCPPDirective;
 use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CElementType;
@@ -28,7 +28,7 @@ final class CElements
 
         \sort($tags);
         $ret = Sets::arrayKeys();
-        $ret->setMore(...$tags);
+        $ret->putMore(...$tags);
         return $ret;
     }
 

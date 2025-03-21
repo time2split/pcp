@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Time2Split\PCP\Action;
 
 use Time2Split\Config\Configuration;
-use Time2Split\Help\Arrays;
+use Time2Split\Help\Cast\Ensure;
 use Time2Split\Help\IO;
 use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\DataFlow\BaseSubscriber;
@@ -38,7 +38,7 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         if (!$expr->isPresent())
             throw new \Exception("A '$actionName' action must have an identifier, have:\n$command");
 
-        $expr = Arrays::ensureArray($expr->get());
+        $expr = Ensure::array($expr->get());
 
         if (\count($expr) > 1)
             throw new \Exception("A '$actionName' action can only have one identifier, have:\n$command");

@@ -7,7 +7,7 @@ namespace Time2Split\PCP\Action\PCP\Generate;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Config\Entry\ReadingMode;
-use Time2Split\Help\Arrays;
+use Time2Split\Help\Cast\Ensure;
 use Time2Split\PCP\Action\Actions;
 use Time2Split\PCP\Action\PCP\Generate;
 use Time2Split\PCP\App;
@@ -92,7 +92,7 @@ final class AreaWriter
             if (!$conditions->isPresent())
                 $check = true;
             else {
-                $conditions = Arrays::ensureArray($conditions->get());
+                $conditions = Ensure::array($conditions->get());
                 $codeConfig = Configurations::emptyTreeCopyOf($this->config)
                     ->merge([
                         'tags' => $code->getTags(),
