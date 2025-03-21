@@ -32,7 +32,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       PHP_EXTENSIONS: none, ctype, dom, mbstring, phar, tokenizer, xml, xmlwriter
-      # PHP_INI_VALUES: zend.assertions=1, error_reporting=-1, log_errors_max_len=0, display_errors=On
+      PHP_INI_VALUES: zend.assertions=1, error_reporting=-1, log_errors_max_len=0, display_errors=On
     strategy:
       fail-fast: false
       matrix:
