@@ -7,6 +7,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Help\Container\Set;
+use Time2Split\Help\Iterables;
 use Time2Split\Help\Tests\DataProvider\Provided;
 use Time2Split\PCP\App;
 use Time2Split\PCP\C\CElements;
@@ -293,7 +294,10 @@ END
         $element = $creader->next();
         $types = $element->getElementType();
         $this->assertInstanceOf($class, $element);
-        $this->assertEquals(\iterator_to_array($expectTypes), \iterator_to_array($types));
+        $this->assertEquals(
+            \iterator_to_array(Iterables::keys($expectTypes)),
+            \iterator_to_array(Iterables::keys($types))
+        );
     }
 
     // ========================================================================
@@ -324,7 +328,10 @@ END
         $creader = self::creaderOfString($text);
         $define = $creader->next();
         $this->assertInstanceOf(CPPDefine::class, $define);
-        $this->assertEquals(\iterator_to_array($expectTypes), \iterator_to_array($define->getElementType()));
+        $this->assertEquals(
+            \iterator_to_array(Iterables::keys($expectTypes)),
+            \iterator_to_array(Iterables::keys($define->getElementType()))
+        );
         $this->assertSame($expectId, $define->getID());
         $this->assertSame($expectParameters, $define->getParameters());
         $this->assertSame($text, "#define {$define->getText()}");

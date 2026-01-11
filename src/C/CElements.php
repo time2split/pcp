@@ -7,6 +7,7 @@ namespace Time2Split\PCP\C;
 use Time2Split\Help\Classes\NotInstanciable;
 use Time2Split\Help\Container\Set;
 use Time2Split\Help\Container\Sets;
+use Time2Split\Help\Iterables;
 use Time2Split\PCP\C\_internal\BaseCPPDirective;
 use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CElementType;
@@ -23,7 +24,10 @@ final class CElements
         $tags = [];
 
         // Add the subject types as tags
-        foreach ($element->getElementType() as $t)
+        /**
+         * @var \UnitEnum $t
+         */
+        foreach (Iterables::keys($element->getElementType()) as $t)
             $tags[] = 'from.' . \strtolower($t->name);
 
         \sort($tags);

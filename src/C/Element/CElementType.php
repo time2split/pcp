@@ -109,7 +109,10 @@ enum CElementType: int
     {
         $ret = [];
 
-        foreach ($type as $t)
+        /**
+         * @var CElementType $t
+         */
+        foreach ($type as $t => $unused)
             $ret[] = $t->name;
 
         return $ret;

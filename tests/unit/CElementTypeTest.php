@@ -2,6 +2,7 @@
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Time2Split\Help\Iterables;
 use Time2Split\Help\Tests\DataProvider\Provided;
 use Time2Split\PCP\C\Element\CElementType;
 
@@ -37,7 +38,7 @@ final class CElementTypeTest extends TestCase
     public function testFun_of(array $types): void
     {
         $set = CElementType::of(...$types);
-        $this->assertSame($types, \iterator_to_array($set));
+        $this->assertSame($types, \iterator_to_array(Iterables::keys($set)));
 
         $setb = CElementType::of(...$types);
         $this->assertSame($set, $setb);

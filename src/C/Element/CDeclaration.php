@@ -109,8 +109,8 @@ final class CDeclaration extends AbstractCElement implements CExpression
 
     public function __toString()
     {
-        $type = Iterables::mapValue($this->getElementType(), fn($t) => $t->name);
-        $type = \implode(' ', \iterator_to_array($type));
-        return "CDeclaration($type)";
+        $type = CElementType::stringOf($this->getElementType());
+        $text = \implode(' ', $this['items']);
+        return "CDeclaration($type):'$text'";
     }
 }
