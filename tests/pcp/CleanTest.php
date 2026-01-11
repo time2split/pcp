@@ -104,7 +104,7 @@ final class CleanTest extends TestCase
         $this->assertNotEmpty($changes);
         \clearstatcache();
 
-        $config['pcp.action'] = 'clean';
+        $config[PCP::CONFIG_PCP_ACTION] = 'clean';
         (new PCP($config, Bootstrap::getCleanActions()))->process();
 
         foreach ($changes as $file) {

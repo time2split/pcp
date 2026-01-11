@@ -222,9 +222,9 @@ final class ProcessTest extends TestCase
         $config = App::emptyConfiguration();
         $config->merge([
             'generate.targets' => $target,
-            'pcp.dir' => $wdir,
-            'pcp.action' => 'process',
-            'pcp.paths' => $dir,
+            PCP::CONFIG_WD => $wdir,
+            PCP::CONFIG_PCP_ACTION => 'process',
+            PCP::CONFIG_SOURCE_PATHS => $dir,
         ]);
         $pcp = new PCP($config, Bootstrap::getProcessActions());
 

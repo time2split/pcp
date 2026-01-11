@@ -29,7 +29,7 @@ final class Generator
         $writer = App::fileInsertion((string)$targetFileInfo, self::tmpFile);
         $srcTime = $srcFileInfo->getMTime();
 
-        $sourcesRoot = $this->appConfig['dir.root'];
+        $sourcesRoot = $this->appConfig[PCP::CONFIG_DIR_ROOT];
         $srcFile = \substr((string)$srcFileInfo, 1 + \strlen($sourcesRoot));
 
         return new AreaWriter($writer, $srcTime, $genCodes, $srcFile, $this->appConfig);
@@ -37,7 +37,7 @@ final class Generator
 
     public function generate(): void
     {
-        $sourcesPath = $this->appConfig['dir.root'];
+        $sourcesPath = $this->appConfig[PCP::CONFIG_DIR_ROOT];
         $sourceCache = [];
 
         $dirIterator = new \RecursiveDirectoryIterator('.', \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::KEY_AS_PATHNAME);

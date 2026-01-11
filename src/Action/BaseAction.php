@@ -9,6 +9,7 @@ use Time2Split\Help\Cast\Ensure;
 use Time2Split\Help\IO;
 use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\DataFlow\BaseSubscriber;
+use Time2Split\PCP\PCP;
 
 abstract class BaseAction extends BaseSubscriber implements IAction
 {
@@ -51,7 +52,7 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         if (\strlen($subDir) > 0 && $subDir[0] !== '/')
             $subDir = "/$subDir";
 
-        $dir = $this->config['pcp.dir'];
+        $dir = $this->config[PCP::CONFIG_WD];
         $wd = $dir . $subDir;
 
         if (0 === \strlen($wd))

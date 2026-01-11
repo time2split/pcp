@@ -28,17 +28,50 @@ use Time2Split\PCP\Help\HelpIterables;
  */
 class PCP extends BasePublisher
 {
+    // ===============
+    // EXTERNAL CONFIG
+    // ===============
+
+    /**
+     * Working directory
+     */
+    const CONFIG_WD = 'pcp.dir';
+
+    const CONFIG_PCP_FILE_EXTENSION = 'pcp.file.extension';
+
+    const CONFIG_SOURCE_PATHS = 'pcp.paths';
+
+    // ===============
+    // INTERNAL CONFIG
+    // ===============
+
+    /**
+     * PCP main action (process, clean)
+     */
+    const CONFIG_PCP_ACTION = '@pcp.action';
+
+    const CONFIG_PCP_C_PRAGMA_NAME = '@pcp.pragma';
+
+    const CONFIG_DIR_ROOT = '@pcp.dir.root';
+
+    /**
+     * Name of a directory's config file
+     */
+    const CONFIG_DIR_CONFIG_FILE_NAME = '@pcp.dir.config-file.name';
+
+    // ========================================================================
+
     private const array DefaultConfig = [
-        'pcp' => [
-            'dir.root' => null,
-            'dir' => 'pcp.wd',
-            'file.extension.pcp' => 'pcp',
-            'dir.config-file' => 'config',
-            'pragma.names' => 'pcp',
-            'paths' => [
-                'src'
-            ],
-        ]
+
+        // External
+        self::CONFIG_WD => 'pcp.wd',
+        self::CONFIG_PCP_FILE_EXTENSION => 'pcp',
+        self::CONFIG_SOURCE_PATHS => ['src'],
+
+        // Internal
+        self::CONFIG_DIR_ROOT => null,
+        self::CONFIG_PCP_C_PRAGMA_NAME => 'pcp',
+        self::CONFIG_DIR_CONFIG_FILE_NAME => 'config',
     ];
 
     private Configuration $actionsConfig;
@@ -70,7 +103,7 @@ class PCP extends BasePublisher
 
     public static function creaderOf(string|\SplFileInfo $file, Configuration $pcpCponfig): object
     {
-        return App::creaderOfFile($file, (array)$pcpCponfig['pcp.pragma.names']);
+        return App::creaderOfFile($file, (array)$pcpCponfig[PCP::CONFIG_PCP_C_PRAGMA_NAME]);
     }
 
     public function getCReaderOf(string|\SplFileInfo $file): object
@@ -187,11 +220,11 @@ class PCP extends BasePublisher
     public function process(): void
     {
         $this->actionsConfig->clear();
-        $this->actionsConfig['dir.root'] = \getcwd();
+        $this->actionsConfig[PCP::CONFIG_DIR_ROOT] = \getcwd();
 
         // Init and check phase
         {
-            $wd = $this->actionsConfig['pcp.dir'];
+            $wd = $this->actionsConfig[PCP::CONFIG_WD];
 
             if (!\is_dir($wd))
                 \mkdir($wd, recursive: true);
@@ -202,7 +235,7 @@ class PCP extends BasePublisher
             PhaseState::Start
         );
 
-        foreach ((array)$this->actionsConfig['pcp.paths'] as $dir)
+        foreach ((array)$this->actionsConfig[PCP::CONFIG_SOURCE_PATHS] as $dir)
             $this->processDir($dir, $this->actionsConfig);
 
         $this->updatePhase(
@@ -214,8 +247,8 @@ class PCP extends BasePublisher
     private function getDirConfigFiles(\SplFileInfo|string $dir, Configuration $config): array
     {
         $ret = [];
-        $pcpfileNames = (array) $config['pcp.dir.config-file'];
-        $pcpfileExtension = ((array) $config['pcp.file.extension.pcp'])[0];
+        $pcpfileNames = (array) $config[PCP::CONFIG_DIR_CONFIG_FILE_NAME];
+        $pcpfileExtension = ((array) $config[PCP::CONFIG_PCP_FILE_EXTENSION])[0];
         $pcpfileExtension = ".$pcpfileExtension";
 
         foreach ($pcpfileNames as $pcpfileName) {
