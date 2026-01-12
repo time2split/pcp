@@ -11,13 +11,18 @@ use Time2Split\Help\IO;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\ActionCommandReader;
 use Time2Split\PCP\Action\IAction;
+use Time2Split\PCP\Action\InvalidActionCommandException;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
+use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CElement;
+use Time2Split\PCP\C\PCPReader;
 use Time2Split\PCP\DataFlow\BasePublisher;
+use Time2Split\PCP\File\CursorPosition;
+use Time2Split\PCP\File\FileCursor;
 use Time2Split\PCP\Help\HelpIterables;
 
 /**
@@ -86,6 +91,7 @@ class PCP extends BasePublisher
         self::checkActions(...$actions);
 
         $this->actionsConfig = self::makeActionsConfig($appConfig);
+
         \array_walk($actions, $this->subscribe(...));
         $this->setSubscribersConfig($this->actionsConfig);
     }
@@ -101,12 +107,12 @@ class PCP extends BasePublisher
         );
     }
 
-    public static function creaderOf(string|\SplFileInfo $file, Configuration $pcpCponfig): object
+    public static function creaderOf(string|\SplFileInfo $file, Configuration $pcpCponfig): PCPReader
     {
         return App::creaderOfFile($file, (array)$pcpCponfig[PCP::CONFIG_PCP_C_PRAGMA_NAME]);
     }
 
-    public function getCReaderOf(string|\SplFileInfo $file): object
+    public function getCReaderOf(string|\SplFileInfo $file): PCPReader
     {
         return self::creaderOf($file, $this->actionsConfig);
     }
@@ -165,6 +171,7 @@ class PCP extends BasePublisher
 
         return $resElements;
     }
+
 
     private function updatePhase(PhaseName $name, PhaseState $state, $data = null): void
     {
@@ -236,7 +243,7 @@ class PCP extends BasePublisher
         );
 
         foreach ((array)$this->actionsConfig[PCP::CONFIG_SOURCE_PATHS] as $dir)
-            $this->processDir($dir, $this->actionsConfig);
+            $this->processDir(new \SplFileInfo($dir), $this->actionsConfig);
 
         $this->updatePhase(
             PhaseName::ProcessingFiles,
@@ -259,12 +266,12 @@ class PCP extends BasePublisher
             $file = "$dir/$pcpfileName";
 
             if (\is_file($file))
-                $ret[] = $file;
+                $ret[] = new \SplFileInfo($file);
         }
         return $ret;
     }
 
-    private function processOneConfigFile(\SplFileInfo|string $file, Configuration $config): void
+    private function processOneConfigFile(\SplFileInfo $file, Configuration $config): void
     {
         $phaseData = ReadingOneFile::fromPath($file);
         $this->updatePhase(
@@ -275,7 +282,9 @@ class PCP extends BasePublisher
 
         $creader = ActionCommandReader::ofFile($file);
         try {
-            $this->processPCPElements(fn() => $creader->next(), $config);
+            $this->processPCPElements($creader, $file, $config);
+        } catch (PCPException $e) {
+            throw $e;
         } catch (\Exception $e) {
             throw new \Exception("File $file position {$creader->getCursorPosition()}", previous: $e);
         }
@@ -290,10 +299,8 @@ class PCP extends BasePublisher
 
     private $newFiles = [];
 
-    private function processDir(\SplFileInfo|string $wdir, Configuration $parentConfig): void
+    private function processDir(\SplFileInfo $wdir, Configuration $parentConfig): void
     {
-        if (\is_string($wdir))
-            $wdir = new \SplFileInfo($wdir);
 
         $phaseData = ReadingDirectory::fromPath($wdir);
 
@@ -447,7 +454,7 @@ class PCP extends BasePublisher
             $pcpArguments[$k] = $v;
     }
 
-    private function processOneCFile(\SplFileInfo|string $file, Configuration $fileConfig): void
+    private function processOneCFile(\SplFileInfo $file, Configuration $fileConfig): void
     {
         $phaseData = ReadingOneFile::fromPath($file);
         $this->updatePhase(
@@ -458,7 +465,9 @@ class PCP extends BasePublisher
 
         $creader = $this->getCReaderOf($file);
         try {
-            $this->processPCPElements(fn() => $creader->next(), $fileConfig);
+            $this->processPCPElements($creader, $file, $fileConfig);
+        } catch (PCPException $e) {
+            throw $e;
         } catch (\Exception $e) {
             throw new \Exception("File $file position {$creader->getCursorPosition()}", previous: $e);
         }
@@ -471,17 +480,21 @@ class PCP extends BasePublisher
         );
     }
 
-    private function processPCPElements(callable $next, Configuration $fileConfig): void
+    private function processPCPElements(PCPReader $creader, \SplFileInfo $file,  Configuration $fileConfig): void
     {
         $elements = [];
+        $lastFileCursor = new FileCursor($file, CursorPosition::zero());
 
         while (true) {
 
             if (!empty($elements))
                 $element = \array_pop($elements);
             else {
-                $this->updatePhase(PhaseName::ReadingCElement, PhaseState::Start);
-                $element = $next();
+                $this->updatePhase(
+                    PhaseName::ReadingCElement,
+                    PhaseState::Start
+                );
+                $element = $creader->next();
 
                 if (null === $element)
                     break;
@@ -497,7 +510,12 @@ class PCP extends BasePublisher
                 assert($element instanceof CElement);
                 $message = $element;
             }
-            $resElements = $this->deliverMessage($message);
+            try {
+                $resElements = $this->deliverMessage($message);
+            } catch (InvalidActionCommandException $e) {
+                throw $e->setFileCursor($lastFileCursor);
+            }
+            $lastFileCursor = $lastFileCursor->setCursorPosition($creader->getCursorPosition());
 
             if (!empty($resElements)) {
                 // Reverse the order to allow to array_pop($elements) in the original order

@@ -6,11 +6,11 @@ namespace Time2Split\PCP\Action\PCP;
 
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
-use Time2Split\Help\Arrays;
 use Time2Split\Help\IO;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\App;
 use Time2Split\PCP\Action\BaseAction;
+use Time2Split\PCP\Action\InvalidActionCommandException;
 use Time2Split\PCP\Action\MoreActions;
 use Time2Split\PCP\Action\PCP\Generate\Generator;
 use Time2Split\PCP\Action\Phase;
@@ -53,7 +53,7 @@ final class Generate extends BaseAction
 
     private ?CExpression $currentCExpression = null;
 
-    private array $instructions;
+    private array $actionCommands;
 
     private ReadingOneFile $oneFileData;
 
@@ -109,12 +109,12 @@ final class Generate extends BaseAction
         return MoreActions::empty();
     }
 
-    private function makeInstruction(Configuration $instruction): Configuration
+    private function makeActionCommand(ActionCommand $actionCommand): ActionCommand
     {
         // The order of the $instruction arguments is important
-        $first = $instruction;
+        $first = $actionCommand->getArguments();
         $secnd = $this->config->subTreeCopy('generate');
-        return Configurations::hierarchy($secnd, $first);
+        return $actionCommand->setArguments(Configurations::hierarchy($secnd, $first));
     }
 
     private function processCExpression(CExpression $expression)
@@ -128,11 +128,11 @@ final class Generate extends BaseAction
         if (! $declaration->getElementType()[CElementType::Function])
             return;
 
-        foreach ($this->instructions as $actionCommand) {
-            $i = $this->makeInstruction($actionCommand->getArguments());
-            $this->istorage->put($this->ifactory->create($declaration, $i));
+        foreach ($this->actionCommands as $actionCommand) {
+            $actionCommand = $this->makeActionCommand($actionCommand);
+            $this->istorage->put($this->ifactory->create($actionCommand, $declaration));
         }
-        $this->instructions = [];
+        $this->actionCommands = [];
     }
 
     public function onPhase(Phase $phase, $data = null): void
@@ -180,7 +180,7 @@ final class Generate extends BaseAction
                     $this->ifactory = new Factory($data);
                     $this->istorage = new InstructionStorage($data);
                     $this->resetConfig();
-                    $this->instructions = [];
+                    $this->actionCommands = [];
                 } elseif (PhaseState::Stop == $phase->state) {
                     $this->flushFileInfos();
                 }
@@ -194,6 +194,7 @@ final class Generate extends BaseAction
     }
 
     // ========================================================================
+
     private function doInstruction(ActionCommand $actionCommand): void
     {
         if ($this->instructionWithoutSubject($actionCommand))
@@ -201,27 +202,26 @@ final class Generate extends BaseAction
 
         $args = $actionCommand->getArguments();
 
-        if (isset($args['function']) || isset($args['prototype'])) {
-            $this->instructions[] = $actionCommand;
+        if ($args->isPresent('function') || $args->isPresent('prototype')) {
+            $this->actionCommands[] = $actionCommand;
+        } elseif ($args->isPresent('area')) {
         } else {
-            // Update the configuration
-            $args = Arrays::arrayMapKey(fn($k) => "generate.$k", $args->toArray());
-            $this->config->merge($args);
+            throw new InvalidActionCommandException($actionCommand);
         }
     }
 
     private function instructionWithoutSubject(ActionCommand $actionCommand): bool
     {
-        try {
-            $i = $this->makeInstruction($actionCommand->getArguments());
-            $this->istorage->put($this->ifactory->createWithoutSubject($i));
-            return true;
-        } catch (\Exception $e) {
+        if (!$actionCommand->getArguments()->isPresent('code'))
             return false;
-        }
+
+        $actionCommand = $this->makeActionCommand($actionCommand);
+        $this->istorage->put($this->ifactory->createWithoutSubject($actionCommand));
+        return true;
     }
 
     // ========================================================================
+
     private function flushStorage(): void
     {
         $codes = $this->istorage->getTargetsCode();
@@ -245,7 +245,7 @@ final class Generate extends BaseAction
             if ($export !== @include $filePath) {
 
                 if (false === IO::printPHPFile($filePath, $export))
-                    throw new \Exception("Unable to write " . getcwd() . "/$filePath");
+                    throw new \Exception("Unable to write " . \getcwd() . "/$filePath");
             }
         }
     }
@@ -258,7 +258,6 @@ final class Generate extends BaseAction
     }
 
     // ========================================================================
-
 
     private function generate(): void
     {

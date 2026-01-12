@@ -7,8 +7,9 @@ namespace Time2Split\PCP\Action;
 use Time2Split\PCP\_internal\AbstractReader;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\App;
+use Time2Split\PCP\C\PCPReader;
 
-final class ActionCommandReader extends AbstractReader
+final class ActionCommandReader extends AbstractReader implements PCPReader
 {
 
     // ========================================================================

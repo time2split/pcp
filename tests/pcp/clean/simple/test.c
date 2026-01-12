@@ -1,4 +1,4 @@
-#pragma pcp generate targets="."
+#pragma pcp config generate.targets="."
 
 #pragma pcp generate area
 

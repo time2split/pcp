@@ -30,6 +30,11 @@ class ActionCommand
         return $this->arguments;
     }
 
+    public function setArguments(Configuration $arguments): static
+    {
+        return new static($this->name, $arguments);
+    }
+
     // ========================================================================
 
     public static function checkType(ActionCommand $command, string $commandName, string $firstParam = null): bool
