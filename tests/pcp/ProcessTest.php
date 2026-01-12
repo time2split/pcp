@@ -6,6 +6,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
+use Time2Split\Diff\Algorithm\Myers;
+use Time2Split\Diff\DiffInstruction;
+use Time2Split\Diff\DiffInstructionType;
 use Time2Split\Help\Container\Bags;
 use Time2Split\Help\Container\Sets;
 use Time2Split\Help\Tests\DiffReports;
@@ -16,9 +19,6 @@ use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CPPDefine;
 use Time2Split\PCP\C\Element\CPPDirective;
-use Time2Split\PCP\Diff\Algorithm\Myers;
-use Time2Split\PCP\Diff\Output\DiffInstruction;
-use Time2Split\PCP\Diff\Output\DiffInstructionType;
 use Time2Split\PCP\Help\HelpSets;
 use Time2Split\PCP\PCP;
 
@@ -107,6 +107,7 @@ final class ProcessTest extends TestCase
         }
         return (string)$a;
     }
+
     private static function CElement_toString(CElement $a): string
     {
         if ($a instanceof CDeclaration)
@@ -133,17 +134,6 @@ final class ProcessTest extends TestCase
         }
         $ret .= ($a['cstatement'] ?? '');
         return $ret;
-    }
-
-    // ========================================================================
-
-    private static function getDiffTypeChar(DiffInstructionType $type)
-    {
-        return match ($type) {
-            DiffInstructionType::Drop => ' - ',
-            DiffInstructionType::Keep => '   ',
-            DiffInstructionType::Insert => ' + ',
-        };
     }
 
     // ========================================================================
@@ -262,15 +252,8 @@ final class ProcessTest extends TestCase
         }
 
         if ($fail) {
-            \ob_start();
-            foreach ($diff as $i) {
-                $op = self::getDiffTypeChar($i->type);
-                // $item = self::CElement_toString($i->item);
-                $item = $i->item;
-                echo "$op$item\n";
-            }
-            $msg = \ob_get_clean();
-            $this->fail("Error: (diff)\n$msg");
+            $report = DiffReports::textReportOfList($diff, self::CElement_toString(...));
+            $this->fail("Error: (diff)\n$report");
         } else {
             $this->assertTrue(true);
         }
