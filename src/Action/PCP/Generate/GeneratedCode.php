@@ -25,7 +25,7 @@ final class GeneratedCode implements ArrayCodec
     {
         return [
             'text' => $this->text,
-            'tags' => \iterator_to_array($this->tags),
+            'tags' => $this->tags->toListOfElements(),
         ];
     }
 

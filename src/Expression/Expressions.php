@@ -234,7 +234,7 @@ final class Expressions
     {
         $left = Expressions::_ensureSet($left);
         $right = Expressions::_ensureSet($right);
-        return HelpSets::includedIn($right, $left);
+        return Sets::isIncludedIn($right, $left);
     }
 
     /**

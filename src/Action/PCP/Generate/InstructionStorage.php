@@ -36,7 +36,7 @@ final class InstructionStorage
                 $targets[] = $targetStorage->getTarget($target);
             }
             $text = $instruction->generate();
-            $tags = $instruction->getTags();
+            $tags = $instruction->getTags()->toListOfElements();
             $code = GeneratedCode::create($text, ...$tags);
             $targetsCode->putCode($code, ...$targets);
         }
