@@ -11,6 +11,8 @@ use Time2Split\Help\Container\PathEdges;
 use Time2Split\Help\Container\Paths;
 use Time2Split\Help\Optional;
 use Time2Split\Help\TriState;
+use Time2Split\PCP\FS\Impl\FSDirImpl;
+use Time2Split\PCP\FS\Impl\FSFileImpl;
 use Time2Split\PCP\FS\Impl\FSPathImpl;
 
 class FS
@@ -73,18 +75,90 @@ class FS
     }
 
     public static function pathOf(
-        FSPath|iterable $path,
+        FSPath|string|iterable $path,
         ?TriState $forceRoot = null,
         ?TriState $forceLeaf = null
     ): FSPath {
 
+        if (\is_string($path))
+            $path = self::explode($path);
+
         if (!($path instanceof Path))
             $path = self::pathOfStrings(...\iterator_to_array($path));
 
-        return new FSPathImpl(
+        $leafed = $forceLeaf ?? $path->leafed();
+        $fsPathClass = match ($leafed) {
+            TriState::Yes => FSFileImpl::class,
+            TriState::No => FSDirImpl::class,
+            TriState::Maybe => FSPathImpl::class,
+        };
+        return new $fsPathClass(
             $forceRoot ?? $path->rooted(),
-            $forceLeaf ?? $path->leafed(),
+            $leafed,
             $path
         );
+    }
+
+    public static function dirOf(
+        FSPath|string|iterable $path,
+        ?TriState $forceRoot = null,
+    ): FSDir {
+        return self::pathOf($path, $forceRoot, TriState::No);
+    }
+
+    public static function fileOf(
+        FSPath|string|iterable $path,
+        ?TriState $forceRoot = null,
+    ): FSFile {
+        return self::pathOf($path, $forceRoot, TriState::Yes);
+    }
+
+    /**
+     * Gets a path from one parent and its subpath.
+     * 
+     * The resulting path is composed from the two input paths: `$root/$fs`.
+     * The function ensures that the second path does not get above the first one.
+     *  
+     * @phpstan-return Optional<FSPath>
+     * 
+     * @param FSPath $root The parent path.
+     * @param FSPath $fs The sub-path.
+     * 
+     * @return Optional (of FSPath)
+     */
+    public static function subPathOf(FSDir $root, FSPath $fsPath): Optional
+    {
+        $base = $root->canonical();
+        $rel = self::relativePath($fsPath);
+
+        if ($rel->isEmpty())
+            return Optional::empty();
+
+        $ret = $base->append($rel->get());
+        return Optional::of($ret);
+    }
+
+    public static function relativePath(FSPath $fs): Optional
+    {
+        if ($fs->rooted() === TriState::Yes)
+            return Optional::empty();
+
+        $sub = $fs->canonical();
+
+        if (!$sub->isCanonical())
+            return Optional::empty();
+
+        // if ($sub->count() === 0)
+        //     return Optional::of(FS::dirOf('.'));
+
+        return Optional::of($sub);
+    }
+
+    public static function rootedOrSubPath(FSDir $relativeRoot, FSPath $fs): Optional
+    {
+        if ($fs->rooted() === TriState::Yes)
+            return Optional::of($fs);
+
+        return self::subPathOf($relativeRoot, $fs);
     }
 }

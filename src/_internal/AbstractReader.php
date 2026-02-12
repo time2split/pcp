@@ -8,6 +8,7 @@ use Time2Split\Help\CharPredicates;
 use Time2Split\Help\Streams;
 use Time2Split\PCP\File\CursorPosition;
 use Time2Split\PCP\File\Navigator;
+use Time2Split\PCP\FS\FSFile;
 
 abstract class AbstractReader
 {
@@ -29,9 +30,9 @@ abstract class AbstractReader
         return new static($stream, $closeStream);
     }
 
-    public static function ofFile(string|\SplFileInfo $filePath, bool $closeStream = true): static
+    public static function ofFile(FSFile $fsFile, bool $closeStream = true): static
     {
-        return new static(\fopen((string) $filePath, 'r'), $closeStream);
+        return new static(\fopen((string) $fsFile, 'r'), $closeStream);
     }
 
     public static function ofString($string): static

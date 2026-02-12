@@ -7,10 +7,16 @@ use PHPUnit\Framework\TestCase;
 use Time2Split\Help\Arrays;
 use Time2Split\Help\TriState;
 use Time2Split\PCP\FS\FS;
+use Time2Split\PCP\FS\FSPath;
 
-class FSPathTest extends TestCase
+final class FSPathTest extends TestCase
 {
     private const DELIMITER = '/';
+
+    private static function pathOf(string $strPath): FSPath
+    {
+        return FS::pathOf(FS::explode($strPath, self::DELIMITER));
+    }
 
     public static function provideOf(): array
     {
@@ -213,9 +219,94 @@ class FSPathTest extends TestCase
         string $strPath,
         string $strCanon
     ) {
-        $parts = FS::pathOf(FS::explode($strPath, self::DELIMITER));
-        $path = FS::pathOf($parts);
-
+        $path = self::pathOf($strPath);
         $this->assertSame($strCanon, (string)($path->canonical()));
+    }
+
+    // ========================================================================
+
+    static function provideAppend(): array
+    {
+        return [
+            ['a', 'b', 'a/b'],
+            ['/a', 'b', '/a/b'],
+            ['a', 'b/', 'a/b/'],
+            ['/a', 'b/', '/a/b/'],
+        ];
+    }
+
+    #[DataProvider("provideAppend")]
+    public function testAppend(
+        string $strPatha,
+        string $strPathb,
+        string $strExpect,
+    ) {
+        $patha =  self::pathOf($strPatha);
+        $pathb =  self::pathOf($strPathb);
+        $expect = self::pathOf($strExpect);
+
+        $this->assertSame("$expect", (string)$patha->append($pathb));
+    }
+
+    // ========================================================================
+
+    static function providePrefix(): array
+    {
+        return [
+            ['', '', true, ''],
+            ['a', '', true, 'a'],
+            ['a', 'a', true, ''],
+            ['a', 'a/', true, ''],
+            ['a/', 'a', true, ''],
+
+            ['a/b', 'a', true, 'b'],
+            ['a/b', 'a/', true, 'b'],
+            ['a/b/', 'a', true, 'b/'],
+            ['a/b/', 'a/', true, 'b/'],
+            ['a/b', 'a/b', true, ''],
+
+            ['a/b/c', 'a/', true, 'b/c'],
+            ['a/b/c', 'a/b', true, 'c'],
+            ['a/b/c', 'a/b/c', true, ''],
+
+            // false Prefix
+            ['', 'x', false],
+            ['a', 'x', false],
+            ['a', 'a/x', false],
+            ['a', 'x/a', false],
+
+            ['a/b', 'x/b', false],
+            ['a/b', 'a/x', false],
+            ['a/b', 'a/b/x', false],
+        ];
+    }
+
+    #[DataProvider("providePrefix")]
+    public function testPrefix(
+        string $strPath,
+        string $strPrefix,
+        bool $isPrefix,
+        ?string $strRemovedPrefix = null
+    ) {
+        $fsPath =   self::pathOf($strPath);
+        $fsPrefix = self::pathOf($strPrefix);
+
+        $this->assertSame($isPrefix, $fsPath->hasPrefix($fsPrefix), 'has prefix');
+        $fsRremoved = $fsPath->removePrefix($fsPrefix);
+
+        if ($isPrefix) {
+            $this->assertTrue($fsRremoved->isPresent(), 'has prefix');
+            $fsExpect = self::pathOf($strRemovedPrefix);
+            $this->assertSame((string)$fsExpect, (string)$fsRremoved->get(), 'remove prefix');
+        } else
+            $this->assertFalse($fsRremoved->isPresent(), 'has not prefix');
+    }
+
+    // ========================================================================
+
+    public function testFSFile_setFile(): void
+    {
+        $fsFile = FS::fileOf('a/file.txt');
+        $this->assertSame(['a', 'upd.txt'], $fsFile->setFile('upd.txt')->toListOfElements());
     }
 }

@@ -83,11 +83,11 @@ final class CleanTest extends TestCase
         self::copy($dir, $wd);
 
         $config = App::emptyConfiguration()
-            ->mergeTree([
-                'pcp' => [
-                    'dir' => $pcpdir,
-                    'paths' => $dir,
-                ]
+            ->merge([
+                PCP::CONFIG_PCP_ACTION => 'process',
+                PCP::CONFIG_FS_WD => $pcpdir,
+                PCP::CONFIG_FS_ROOT => $wd,
+                PCP::CONFIG_SOURCE_PATHS => '.',
             ]);
 
         \chdir(self::WDir);

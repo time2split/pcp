@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action;
 
 enum PhaseName

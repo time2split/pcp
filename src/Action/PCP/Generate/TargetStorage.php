@@ -1,5 +1,9 @@
 <?php
+
 namespace Time2Split\PCP\Action\PCP\Generate;
+
+use Time2Split\PCP\FS\FS;
+use Time2Split\PCP\FS\FSFile;
 
 final class TargetStorage
 {
@@ -19,26 +23,24 @@ final class TargetStorage
         if (isset($target))
             return $target;
 
-        $finfos = new \SplFileInfo($path);
-        return $this->targets[$path] = self::createTarget($finfos);
+        $fsFile = FS::fileOf($path);
+        return $this->targets[$path] = self::createTarget($fsFile);
     }
 
     // ========================================================================
-    private static function createTarget(\SplFileInfo $finfo): Target
+    private static function createTarget(FSFile $fsFile): Target
     {
-        return new class($finfo) implements Target {
+        // assert($fsFile->rooted() === TriState::No);
 
-            private array $areas = [];
+        return new class($fsFile) implements Target {
 
-            function __construct(private readonly \SplFileInfo $finfo)
-            {}
+            function __construct(
+                private readonly FSFile $fsFile,
+            ) {}
 
-            public function getAreas(): array
-            {}
-
-            public function getFileInfo(): \SplFileInfo
+            public function getFSFile(): FSFile
             {
-                return $this->finfo;
+                return $this->fsFile;
             }
         };
     }

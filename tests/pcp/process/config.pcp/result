@@ -1,3 +1,4 @@
+#pragma pcp testconfig order
 int nothing();
 int pref_f();
 int full_f();
@@ -19,5 +20,5 @@ int direct_f();
 int first_f();
 int first_f();
 int first_f();
-int first_f();
+int second_f();
 int second_f();

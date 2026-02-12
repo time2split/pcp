@@ -23,9 +23,12 @@ use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\Element\CElementType;
 use Time2Split\PCP\C\Element\CExpression;
+use Time2Split\PCP\FS\FSDir;
 
 final class Generate extends BaseAction
 {
+    public const FILE_EXTENSION = 'gen.php';
+
     public const tag_remains = 'generate.remains';
 
     private const wd = 'generate';
@@ -135,6 +138,8 @@ final class Generate extends BaseAction
         $this->actionCommands = [];
     }
 
+    private FSDir $fsGenRoot;
+
     public function onPhase(Phase $phase, $data = null): void
     {
         switch ($phase->name) {
@@ -153,16 +158,17 @@ final class Generate extends BaseAction
             case PhaseName::ProcessingFiles:
 
                 if (PhaseState::Start == $phase->state) {
-                    $this->goWorkingDir();
+                    $this->fsGenRoot = $data->fsWDRoot->appendDir(self::wd);
+                    $dir = (string)$this->fsGenRoot;
 
-                    if (! \is_dir(self::wd))
-                        \mkdir(self::wd);
-
-                    $this->outWorkingDir();
+                    if (! \is_dir($dir)) {
+                        \mkdir($dir);
+                    }
                 } elseif (PhaseState::Stop == $phase->state) {
-                    $this->goWorkingDir(self::wd);
-                    $this->generate();
-                    $this->outWorkingDir();
+                    $this->generate(
+                        $data->fsSrcRoot,
+                        $this->fsGenRoot,
+                    );
                 }
                 break;
 
@@ -225,42 +231,52 @@ final class Generate extends BaseAction
     private function flushStorage(): void
     {
         $codes = $this->istorage->getTargetsCode();
-        $finfo = $this->oneFileData->fileInfo;
-        $filePath = "$finfo.gen.php";
+        $fsFile = $this->oneFileData->fsFile;
+        $genFile = $fsFile->info()->getFilename() . '.' . self::FILE_EXTENSION;
+        $fsGen = $fsFile->setFile($genFile);
 
         if ($codes->isEmpty()) {
 
             // Clean existing files
-            if (\is_file($filePath)) {
-                \unlink($filePath);
+            if ($fsGen->inFS()) {
+                \unlink("$fsGen");
             }
         } else {
-            $path = $finfo->getPath();
+            $fsDir = $fsFile->getPath();
 
-            if (\strlen($path) !== 0 && ! \is_dir($path))
-                \mkdir($path, recursive: true);
+            if (\count($fsDir) > 0 && !$fsDir->inFS())
+                \mkdir("$fsDir", recursive: true);
 
             $export = $codes->array_encode();
 
-            if ($export !== @include $filePath) {
+            if ($export !== @include "$fsGen") {
 
-                if (false === IO::printPHPFile($filePath, $export))
-                    throw new \Exception("Unable to write " . \getcwd() . "/$filePath");
+                if (false === IO::printPHPFile("$fsGen", $export))
+                    throw new \Exception("Unable to write " . \getcwd() . "/$fsGen");
             }
         }
     }
 
     private function flushFileInfos(): void
     {
-        $this->goWorkingDir(self::wd);
-        $this->flushStorage();
-        $this->outWorkingDir();
+        try {
+            $this->goWorkingDir(self::wd);
+            $this->flushStorage();
+        } catch (\Exception $e) {
+            throw $e;
+        } finally {
+            $this->outWorkingDir();
+        }
     }
 
     // ========================================================================
 
-    private function generate(): void
+    private function generate(FSDir $fsSrcRoot, FSDir $FSGenRoot): void
     {
-        (new Generator($this->config))->generate();
+        (new Generator(
+            $fsSrcRoot,
+            $FSGenRoot,
+            $this->config,
+        ))->generate();
     }
 }

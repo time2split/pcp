@@ -44,7 +44,7 @@ final class Factory
         $instruction = $command->getArguments();
 
         if ($instruction->isPresent('code'))
-            return new Code($instruction, $this->readingFile->fileInfo);
+            return new Code($instruction);
 
         throw new \AssertionError("Invalid instruction: " . \print_r($instruction->toArray(), true));
     }

@@ -40,8 +40,9 @@ final class InvalidActionCommandTest extends TestCase
 
         $config = App::emptyConfiguration();
         $config->merge([
+            PCP::CONFIG_FS_ROOT => $wdir,
             PCP::CONFIG_PCP_ACTION => 'process',
-            PCP::CONFIG_SOURCE_PATHS => $wdir,
+            PCP::CONFIG_SOURCE_PATHS => '.',
         ]);
         $pcp = new PCP($config, Bootstrap::getProcessActions());
 

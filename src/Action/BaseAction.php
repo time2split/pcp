@@ -52,7 +52,7 @@ abstract class BaseAction extends BaseSubscriber implements IAction
         if (\strlen($subDir) > 0 && $subDir[0] !== '/')
             $subDir = "/$subDir";
 
-        $dir = $this->config[PCP::CONFIG_WD];
+        $dir = $this->config[PCP::CONFIG_FS_WD];
         $wd = $dir . $subDir;
 
         if (0 === \strlen($wd))

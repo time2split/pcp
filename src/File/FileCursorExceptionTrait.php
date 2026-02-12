@@ -15,6 +15,6 @@ trait FileCursorExceptionTrait
 
         $cursorPosition = $fileCursor->cursorPosition;
         $line = $cursorPosition->line + 1;
-        return "$message on file $fileCursor->file at line $line ($fileCursor->cursorPosition)";
+        return "$message on file $fileCursor->fsFile at line $line ($fileCursor->cursorPosition)";
     }
 }

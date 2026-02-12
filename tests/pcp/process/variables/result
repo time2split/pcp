@@ -1,5 +1,5 @@
-#define FILE "variables/test.c"
+#define FILE "test.c"
 #define FILE_NAME "test.c"
 #define FILE_SUFFIX ".c"
 #define FILE_BASENAME ""
-#define FILE_DIR "variables"
+#define FILE_DIR ""

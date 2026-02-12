@@ -8,47 +8,52 @@ use Time2Split\PCP\Action\BaseAction;
 use Time2Split\PCP\Action\Phase;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
-use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\File\HasFileSection;
+use Time2Split\PCP\FS\FSDir;
+use Time2Split\PCP\FS\FSFile;
 use Time2Split\PCP\PCP;
 
 final class GenerateClean extends BaseAction
 {
-    private string $tmpFile;
+    private FSFile $tmpFile;
+
+    private FSDir $fsSrcRoot;
+
+    private FSDir $fsWDRoot;
 
     public function onPhase(Phase $phase, $data = null): void
     {
         switch ($phase->name) {
 
-            case PhaseName::OpeningDirectory:
+            case PhaseName::ProcessingFiles:
+
+                if (PhaseState::Start == $phase->state) {
+                    $this->fsSrcRoot = $data->fsSrcRoot;
+                    $this->fsWDRoot = $data->fsWDRoot;
+                    $this->tmpFile = $this->fsWDRoot->appendFile('tmp');
+                }
+                break;
+
+            case PhaseName::ReadingOneFile:
 
                 if ($phase->state === PhaseState::Start) {
-                    $this->processDirectory($data);
+                    $this->processFile($data->fsFile);
                 }
                 break;
         }
     }
 
-    private function processDirectory(ReadingDirectory $directoryData): void
+    private function processFile(FSFile $fsFile): void
     {
-        $wd = $this->config[PCP::CONFIG_WD];
-        $this->tmpFile = "$wd/tmp";
-        $dinfo = $directoryData->fileInfo;
-        $it = new \FileSystemIterator($dinfo);
+        $finfo = $fsFile->info();
 
-        foreach ($it as $finfo)
-            $this->processFile($finfo);
-    }
-
-    private function processFile(\SplFileInfo $finfo): void
-    {
         if (! \in_array(\substr($finfo, -2), [
             '.h',
             '.c'
         ]))
             return;
 
-        $creader = PCP::creaderOf($finfo, $this->config);
+        $creader = PCP::creaderOf($fsFile, $this->config);
         $waitForEnd = false;
         $fpos = [];
 

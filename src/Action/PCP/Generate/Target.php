@@ -1,10 +1,10 @@
 <?php
+
 namespace Time2Split\PCP\Action\PCP\Generate;
+
+use Time2Split\PCP\FS\FSFile;
 
 interface Target
 {
-
-    public function getFileInfo(): \SplFileInfo;
-
-    public function getAreas(): array;
+    public function getFSFile(): FSFile;
 }

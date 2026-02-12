@@ -22,6 +22,7 @@ use Time2Split\PCP\File\_internal\StreamInsertionImpl;
 use Time2Split\PCP\File\CursorPosition;
 use Time2Split\PCP\File\HasFileSection;
 use Time2Split\PCP\File\Section;
+use Time2Split\PCP\FS\FSFile;
 
 final class App
 {
@@ -100,9 +101,9 @@ final class App
 
     // ========================================================================
 
-    public static function creaderOfFile(string|\SplFileInfo $file, array $pcpNames): PCPReader
+    public static function creaderOfFile(FSFile $fsFile, array $pcpNames): PCPReader
     {
-        return self::creaderWrapper(CReader::ofFile($file), $pcpNames);
+        return self::creaderWrapper(CReader::ofFile($fsFile), $pcpNames);
     }
 
     public static function creaderOfStream($stream, array $pcpNames): PCPReader

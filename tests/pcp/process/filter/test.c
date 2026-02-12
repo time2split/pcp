@@ -1,1 +1,1 @@
-#pragma pcp generate code="#define FILE \"${@process.file|replace(@process.file.dir, 'ROOT')}\""
+#pragma pcp generate code="#define FILE \"${@process.file|replace(@process.file.suffix, '.xx')}\""

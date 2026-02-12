@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\Action\PCP\Generate;
 
 use Time2Split\PCP\Help\ArrayCodec;
@@ -49,16 +50,17 @@ final class TargetsCode implements ArrayCodec, \IteratorAggregate
                 $idx = $instrIndex[$code] ?? null;
 
                 if (! isset($idx))
-                    $instrIndex[$code] = $idx = $i ++;
+                    $instrIndex[$code] = $idx = $i++;
 
                 $codeIndexes[] = $idx;
             }
-            $k = (string) $target->getFileInfo();
-            $targetCodes[$k] = $codeIndexes;
+            $fsFile = $target->getFSFile();
+            $targetCodes[(string)$fsFile] = $codeIndexes;
         }
         $instructions = \array_map( //
-        fn (GeneratedCode $c) => $c->array_encode(), //
-        \iterator_to_array($instrIndex));
+            fn(GeneratedCode $c) => $c->array_encode(), //
+            \iterator_to_array($instrIndex)
+        );
         $ret = [
             'instructions' => $instructions,
             'targetCodes' => $targetCodes

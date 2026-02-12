@@ -2,20 +2,12 @@
 
 namespace Time2Split\PCP\Action\PhaseData;
 
-use Time2Split\Config\Configuration;
+use Time2Split\PCP\FS\FSDir;
 
 final class ProcessingFiles
 {
-
-    public Configuration $config;
-
-    private function __construct(Configuration $config)
-    {
-        $this->config = $config;
-    }
-
-    public static function create(Configuration $config): ProcessingFiles
-    {
-        return new ProcessingFiles($config);
-    }
+    public function __construct(
+        public readonly FSDir $fsSrcRoot,
+        public readonly FSDir $fsWDRoot,
+    ) {}
 }

@@ -13,20 +13,28 @@ use Time2Split\PCP\Action\PCP\Generate;
 use Time2Split\PCP\App;
 use Time2Split\PCP\File\Section;
 use Time2Split\PCP\File\StreamInsertion;
+use Time2Split\PCP\FS\FSDir;
+use Time2Split\PCP\FS\FSFile;
 use Time2Split\PCP\PCP;
 
 final class AreaWriter
 {
     private string $srcTimeFormat;
 
+    private int $srcTime;
+
+    private FSFile $fsSrc;
+
     public function __construct(
         private StreamInsertion $writer,
-        private int $srcTime,
         private array $genCodes,
-        private string $srcFile,
+        private FSDir $fsSrcDir,
+        private FSFile $fsSrcFile,
         private Configuration $config
     ) {
-        $this->srcTimeFormat = \date(DATE_ATOM, $srcTime);
+        $this->fsSrc = $fsSrcDir->appendFile($fsSrcFile);
+        $this->srcTime = $this->fsSrc->info()->getMTime();
+        $this->srcTimeFormat = \date(DATE_ATOM, $this->srcTime);
 
         foreach ($genCodes as $code)
             $code->getTags()[Generate::tag_remains] = true;
@@ -36,7 +44,7 @@ final class AreaWriter
     {
         return App::emptyConfiguration()
             ->mergeTree([
-                'src' => $this->srcFile,
+                'src' => (string)$this->fsSrcFile,
                 'mtime' => $this->srcTime - 1
             ]);
     }
@@ -61,7 +69,7 @@ final class AreaWriter
             foreach ($areaSections as $section) {
                 $sectionArgs = $area->getSectionArguments($section);
 
-                if ($sectionArgs['src'] === $this->srcFile) {
+                if ($sectionArgs['src'] === (string)$this->fsSrcFile) {
                     $srcSection = $section;
                     break;
                 }
@@ -96,7 +104,7 @@ final class AreaWriter
                 $codeConfig = Configurations::emptyTreeCopyOf($this->config)
                     ->merge([
                         'tags' => $code->getTags(),
-                        ...PCP::getProcessFileInfos($this->srcFile)
+                        ...PCP::getProcessFileInfos($this->fsSrcFile)
                     ]);
                 $check = Actions::checkInterpolations($codeConfig, null, ...$conditions);
             }
@@ -134,7 +142,7 @@ final class AreaWriter
                 $writer->write("\n");
 
             if (! empty($selectedCodes)) {
-                $writer->write("#pragma pcp generate begin mtime=$this->srcTime src=\"$this->srcFile\"\n// $this->srcTimeFormat\n");
+                $writer->write("#pragma pcp generate begin mtime=$this->srcTime src=\"$this->fsSrcFile\"\n// $this->srcTimeFormat\n");
                 foreach ($selectedCodes as $code)
                     $writer->write("{$code->getText()}\n");
 

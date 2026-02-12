@@ -17,9 +17,8 @@ use Time2Split\PCP\App;
 use Time2Split\PCP\App\Bootstrap;
 use Time2Split\PCP\C\Element\CDeclaration;
 use Time2Split\PCP\C\Element\CElement;
-use Time2Split\PCP\C\Element\CPPDefine;
 use Time2Split\PCP\C\Element\CPPDirective;
-use Time2Split\PCP\Help\HelpSets;
+use Time2Split\PCP\FS\FS;
 use Time2Split\PCP\PCP;
 
 final class ProcessTest extends TestCase
@@ -32,10 +31,11 @@ final class ProcessTest extends TestCase
 
     private const WDir =  __DIR__ . '/../../tests.wd/process';
 
-    private static function getCElementsResult(PCP $pcp, string $filePath, array &$remains = []): array
+    private static function getCElementsResult(PCP $pcp, string $file, array &$remains = []): array
     {
         $result = [];
-        $creader = $pcp->getCReaderOf($filePath);
+        $fsFile = FS::fileOf($file);
+        $creader = $pcp->getCReaderOf($fsFile);
 
         while (null !== ($celement = $creader->next())) {
 
@@ -208,13 +208,15 @@ final class ProcessTest extends TestCase
         if (!\is_dir($wdir))
             \mkdir($wdir);
 
-        $target = "$wdir/$targetFile";
+        $fsTarget = FS::fileOf("$wdir/$targetFile")->canonical();
+        $target = (string)$fsTarget;
         $config = App::emptyConfiguration();
         $config->merge([
             'generate.targets' => $target,
-            PCP::CONFIG_WD => $wdir,
+            PCP::CONFIG_FS_ROOT => $dir,
+            PCP::CONFIG_FS_WD => $wdir,
             PCP::CONFIG_PCP_ACTION => 'process',
-            PCP::CONFIG_SOURCE_PATHS => $dir,
+            PCP::CONFIG_SOURCE_PATHS => '.',
         ]);
         $pcp = new PCP($config, Bootstrap::getProcessActions());
 
@@ -232,7 +234,6 @@ final class ProcessTest extends TestCase
         $remains = [];
         $expect = self::getCElementsResult($pcp, "$dir/$resultFile", $remains);
         $diff = [];
-
 
         $testConfig = self::getExpectConfiguration($remains);
 

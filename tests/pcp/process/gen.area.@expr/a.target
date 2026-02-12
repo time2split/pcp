@@ -1,5 +1,5 @@
-#pragma pcp generate area (@process.file:"gen.area.@expr/a.c")
+#pragma pcp generate area (@process.file:"a.c")
 #pragma pcp generate area (@process.file.name:"b.c")
 #pragma pcp generate area (@process.file.baseName:"a")
 #pragma pcp generate area (@process.file.suffix:".c" && tags:"tag_b")
-#pragma pcp generate area (@process.file.dir:"gen.area.@expr" && tags:"tag_a")
+#pragma pcp generate area (@process.file.dir:"" && tags:"tag_a")

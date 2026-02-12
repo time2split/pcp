@@ -4,25 +4,34 @@ declare(strict_types=1);
 
 namespace Time2Split\PCP;
 
+use FilesystemIterator;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Config\Entry\ReadingMode;
+use Time2Split\Help\Container\PathEdgeType;
+use Time2Split\Help\Functions;
 use Time2Split\Help\IO;
+use Time2Split\Help\TriState;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\ActionCommandReader;
 use Time2Split\PCP\Action\IAction;
 use Time2Split\PCP\Action\InvalidActionCommandException;
 use Time2Split\PCP\Action\Phase;
+use Time2Split\PCP\Action\PhaseData\ProcessingFiles;
 use Time2Split\PCP\Action\PhaseName;
 use Time2Split\PCP\Action\PhaseState;
 use Time2Split\PCP\Action\PhaseData\ReadingDirectory;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
-use Time2Split\PCP\C\CReader;
 use Time2Split\PCP\C\Element\CElement;
 use Time2Split\PCP\C\PCPReader;
 use Time2Split\PCP\DataFlow\BasePublisher;
 use Time2Split\PCP\File\CursorPosition;
 use Time2Split\PCP\File\FileCursor;
+use Time2Split\PCP\FS\FS;
+use Time2Split\PCP\FS\FSDir;
+use Time2Split\PCP\FS\FSFile;
+use Time2Split\PCP\FS\FSPath;
+use Time2Split\PCP\FS\FSPathException;
 use Time2Split\PCP\Help\HelpIterables;
 
 /**
@@ -40,11 +49,13 @@ class PCP extends BasePublisher
     /**
      * Working directory
      */
-    const CONFIG_WD = 'pcp.dir';
+    const CONFIG_FS_WD = 'pcp.fs.wd';
 
     const CONFIG_PCP_FILE_EXTENSION = 'pcp.file.extension';
 
-    const CONFIG_SOURCE_PATHS = 'pcp.paths';
+    const CONFIG_FS_ROOT = 'pcp.fs.root';
+
+    const CONFIG_SOURCE_PATHS = 'pcp.fs.paths';
 
     // ===============
     // INTERNAL CONFIG
@@ -57,8 +68,6 @@ class PCP extends BasePublisher
 
     const CONFIG_PCP_C_PRAGMA_NAME = '@pcp.pragma';
 
-    const CONFIG_DIR_ROOT = '@pcp.dir.root';
-
     /**
      * Name of a directory's config file
      */
@@ -69,15 +78,19 @@ class PCP extends BasePublisher
     private const array DefaultConfig = [
 
         // External
-        self::CONFIG_WD => 'pcp.wd',
+        self::CONFIG_FS_WD => 'pcp.wd',
         self::CONFIG_PCP_FILE_EXTENSION => 'pcp',
         self::CONFIG_SOURCE_PATHS => ['src'],
 
         // Internal
-        self::CONFIG_DIR_ROOT => null,
+        self::CONFIG_FS_ROOT => '.',
         self::CONFIG_PCP_C_PRAGMA_NAME => 'pcp',
         self::CONFIG_DIR_CONFIG_FILE_NAME => 'config',
     ];
+
+    private FSDir $fsSrcRoot;
+
+    private FSDir $fsWDRoot;
 
     private Configuration $actionsConfig;
 
@@ -88,15 +101,28 @@ class PCP extends BasePublisher
         if (empty($actions))
             throw new \Exception("No action specified");
 
-        self::checkActions(...$actions);
-
         $this->actionsConfig = self::makeActionsConfig($appConfig);
+        self::subscribeActions(...$actions);
 
+        $cwd = FS::dirOf(\getcwd());
+        $this->fsSrcRoot = self::setConfigFSDir(
+            $this->actionsConfig,
+            PCP::CONFIG_FS_ROOT,
+            $cwd,
+        );
+        $this->fsWDRoot = self::setConfigFSDir(
+            $this->actionsConfig,
+            PCP::CONFIG_FS_WD,
+            $cwd,
+        );
+    }
+
+    private function subscribeActions(IAction ...$actions): void
+    {
+        assert(isset($this->actionsConfig));
         \array_walk($actions, $this->subscribe(...));
         $this->setSubscribersConfig($this->actionsConfig);
     }
-
-    private static function checkActions(IAction ...$actions): void {}
 
     private static function makeActionsConfig(Configuration $appConfig): Configuration
     {
@@ -107,17 +133,18 @@ class PCP extends BasePublisher
         );
     }
 
-    public static function creaderOf(string|\SplFileInfo $file, Configuration $pcpCponfig): PCPReader
+    public static function creaderOf(FSFile $fsFile, Configuration $pcpCponfig): PCPReader
     {
-        return App::creaderOfFile($file, (array)$pcpCponfig[PCP::CONFIG_PCP_C_PRAGMA_NAME]);
+        return App::creaderOfFile($fsFile, (array)$pcpCponfig[PCP::CONFIG_PCP_C_PRAGMA_NAME]);
     }
 
-    public function getCReaderOf(string|\SplFileInfo $file): PCPReader
+    public function getCReaderOf(FSFile $fsFile): PCPReader
     {
-        return self::creaderOf($file, $this->actionsConfig);
+        return self::creaderOf($fsFile, $this->actionsConfig);
     }
 
     // ========================================================================
+    // ACTION COMMANDS
 
     private ?IAction $monopolyFor = null;
 
@@ -180,14 +207,16 @@ class PCP extends BasePublisher
     }
 
     // ========================================================================
+    // CONFIG
 
-    private static function _configAddProcessDirInfos(\SplFileInfo $dir, Configuration $dirConfig): void
+    private static function _configAddProcessDirInfos(FSDir $fsDir, Configuration $dirConfig): void
     {
-        $dirConfig['@process.file.dir'] = (string) $dir;
+        $dirConfig['@process.file.dir'] = (string) $fsDir->canonical();
     }
 
-    private static function _configProcess_getFileNameAndExtensionAndBaseName(\SplFileInfo $file): array
+    private static function _configProcess_getFileNameAndExtensionAndBaseName(FSFile $fsFile): array
     {
+        $file = $fsFile->info();
         $fname = $file->getFilename();
         $ext = \substr($fname, -2);
         $basename = \substr($fname, 0, \strlen($fname) - 2);
@@ -195,24 +224,21 @@ class PCP extends BasePublisher
         return [$fname, $ext, $basename];
     }
 
-    private static function _configAddProcessFileInfos(\SplFileInfo $file, Configuration $fileConfig): void
+    private static function _configAddProcessFileInfos(FSFile $fsFile, Configuration $fileConfig): void
     {
-        [$fname, $ext, $basename] = self::_configProcess_getFileNameAndExtensionAndBaseName($file);
-        $fileConfig['@process.file'] = $file->getPathname();
+        [$fname, $ext, $basename] = self::_configProcess_getFileNameAndExtensionAndBaseName($fsFile);
+        $fileConfig['@process.file'] = (string)$fsFile;
         $fileConfig['@process.file.name'] = $fname;
         $fileConfig['@process.file.suffix'] = $ext;
         $fileConfig['@process.file.baseName'] = $basename;
     }
 
-    public static function getProcessFileInfos(\SplFileInfo|string $file): array
+    public static function getProcessFileInfos(FSFile $fsFile): array
     {
-        if (\is_string($file))
-            $file = new \SplFileInfo($file);
-
-        [$fname, $ext, $basename] = self::_configProcess_getFileNameAndExtensionAndBaseName($file);
+        [$fname, $ext, $basename] = self::_configProcess_getFileNameAndExtensionAndBaseName($fsFile);
         return [
-            '@process.file.dir' => $file->getPath(),
-            '@process.file' => $file->getPathname(),
+            '@process.file.dir' => (string)$fsFile->getPath()->canonical(),
+            '@process.file' => (string)$fsFile,
             '@process.file.name' => $fname,
             '@process.file.suffix' => $ext,
             '@process.file.baseName' => $basename,
@@ -220,6 +246,89 @@ class PCP extends BasePublisher
     }
 
     // ========================================================================
+    // FILESYSTEM
+
+    private static function setConfigFSDir(
+        Configuration $config,
+        string $offset,
+        ?FSDir $relativeRoot = null,
+    ): FSDir {
+        $strpath = $config[$offset];
+
+        if (!\is_string($strpath))
+            throw new \InvalidArgumentException("($offset: $strpath) Must be a string");
+
+        return  self::resolveFSPath(FS::dirOf($strpath), $relativeRoot);
+    }
+
+    /**
+     * Resolves a relative or rooted path.
+     * 
+     * @throws \InvalidArgumentException
+     *      If path is relative but gets above its parent
+     *      (ie. it cannot be canonicalized).
+     */
+    public static function resolveFSPath(
+        FSPath $fspath,
+        ?FSDir $relativeRoot = null,
+    ): FSPath {
+        $root =
+            FS::rootedOrSubPath(
+                $a = $relativeRoot ?? FS::dirOf(\getcwd()),
+                $b = $fspath,
+            );
+
+        if (!$root->isPresent())
+            throw self::subPathError($a, $b);
+
+        return $root->get()->canonical();
+    }
+
+    /**
+     * Resolves a relative or rooted path.
+     * 
+     * @throws \InvalidArgumentException
+     *      If path is relative but gets above its parent
+     *      (ie. it cannot be canonicalized).
+     */
+    private static function resolveSubPath(
+        FSDir $root,
+        FSPath $fsPath,
+    ): FSPath {
+        $subPath = FS::subPathOf($root, $fsPath);
+
+        if (!$subPath->isPresent())
+            throw self::subPathError($root, $fsPath);
+
+        return $subPath->get();
+    }
+
+    public static function resolveRelativePath(
+        FSPath $fsPath,
+    ): FSPath {
+        $relPath = FS::relativePath($fsPath);
+
+        if ($relPath->isEmpty())
+            throw self::subPathError($fsPath, FS::dirOf(\getcwd()));
+
+        return $relPath->get();
+    }
+
+    private static function subPathError(FSDir $root, FSPath $fs): \Exception
+    {
+        $canon = $fs->canonical();
+        return new FSPathException(
+            <<<EOD
+            The path cannot be canonicalized ($canon).
+             - The path cannot get outside its parent directory $root.
+            
+            EOD,
+            fsPath: $fs,
+        );
+    }
+
+    // ========================================================================
+    // PROCESSING
 
     /**
      * Process the files inside the current working directory.
@@ -227,32 +336,55 @@ class PCP extends BasePublisher
     public function process(): void
     {
         $this->actionsConfig->clear();
-        $this->actionsConfig[PCP::CONFIG_DIR_ROOT] = \getcwd();
+        IO::wdPush("$this->fsSrcRoot");
 
         // Init and check phase
         {
-            $wd = $this->actionsConfig[PCP::CONFIG_WD];
-
-            if (!\is_dir($wd))
-                \mkdir($wd, recursive: true);
+            if (!$this->fsWDRoot->inFS())
+                \mkdir(
+                    (string)$this->fsWDRoot,
+                    recursive: true
+                );
         }
-
-        $this->updatePhase(
-            PhaseName::ProcessingFiles,
-            PhaseState::Start
+        $processingFiles = new ProcessingFiles(
+            $this->fsSrcRoot,
+            $this->fsWDRoot
         );
+        try {
+            $this->updatePhase(
+                PhaseName::ProcessingFiles,
+                PhaseState::Start,
+                $processingFiles
+            );
+            $fsDirs = [];
 
-        foreach ((array)$this->actionsConfig[PCP::CONFIG_SOURCE_PATHS] as $dir)
-            $this->processDir(new \SplFileInfo($dir), $this->actionsConfig);
+            foreach ((array)$this->actionsConfig[PCP::CONFIG_SOURCE_PATHS] as $dir) {
+                $fsDir = self::resolveRelativePath(FS::dirOf($dir));
+                $fsDirs[] = $fsDir;
+            }
 
-        $this->updatePhase(
-            PhaseName::ProcessingFiles,
-            PhaseState::Stop
-        );
+            foreach ($fsDirs as $fs) {
+                $this->processDir($fs, $this->actionsConfig);
+            }
+
+            $this->updatePhase(
+                PhaseName::ProcessingFiles,
+                PhaseState::Stop,
+                $processingFiles
+            );
+        } catch (\Exception $e) {
+            throw $e;
+        } finally {
+            IO::wdPop();
+        }
     }
 
-    private function getDirConfigFiles(\SplFileInfo|string $dir, Configuration $config): array
+    /**
+     * @return FSFile[]
+     */
+    private function getDirConfigFiles(FSDir $fsDir, Configuration $config): array
     {
+        assert($fsDir->leafed() === TriState::No);
         $ret = [];
         $pcpfileNames = (array) $config[PCP::CONFIG_DIR_CONFIG_FILE_NAME];
         $pcpfileExtension = ((array) $config[PCP::CONFIG_PCP_FILE_EXTENSION])[0];
@@ -263,30 +395,31 @@ class PCP extends BasePublisher
             if (!\str_ends_with($pcpfileName, $pcpfileExtension))
                 $pcpfileName .= $pcpfileExtension;
 
-            $file = "$dir/$pcpfileName";
+            $fsFile = $fsDir->appendFile($pcpfileName);
 
-            if (\is_file($file))
-                $ret[] = new \SplFileInfo($file);
+            if ($fsFile->inFS())
+                $ret[] = $fsFile;
         }
         return $ret;
     }
 
-    private function processOneConfigFile(\SplFileInfo $file, Configuration $config): void
+    private function processOneConfigFile(FSFile $fsFile, Configuration $config): void
     {
-        $phaseData = ReadingOneFile::fromPath($file);
+        $file = $fsFile->info();
+        $phaseData = ReadingOneFile::fromPath($fsFile);
         $this->updatePhase(
             PhaseName::ReadingOneFile,
             PhaseState::Start,
             $phaseData
         );
 
-        $creader = ActionCommandReader::ofFile($file);
+        $creader = ActionCommandReader::ofFile($fsFile);
         try {
-            $this->processPCPElements($creader, $file, $config);
+            $this->processPCPElements($creader, $fsFile, $config);
         } catch (PCPException $e) {
             throw $e;
         } catch (\Exception $e) {
-            throw new \Exception("File $file position {$creader->getCursorPosition()}", previous: $e);
+            throw new \Exception("File $fsFile position {$creader->getCursorPosition()}", previous: $e);
         }
         $creader->close();
 
@@ -297,12 +430,14 @@ class PCP extends BasePublisher
         );
     }
 
+    // ========================================================================
+    // DIR PROCESSING
+
     private $newFiles = [];
 
-    private function processDir(\SplFileInfo $wdir, Configuration $parentConfig): void
+    private function processDir(FSDir $fsDir, Configuration $parentConfig): void
     {
-
-        $phaseData = ReadingDirectory::fromPath($wdir);
+        $phaseData = ReadingDirectory::fromPath($fsDir);
 
         $this->updatePhase(
             PhaseName::OpeningDirectory,
@@ -310,11 +445,11 @@ class PCP extends BasePublisher
             $phaseData
         );
         $dirConfig = Configurations::emptyChild($parentConfig);
-        self::_configAddProcessDirInfos($wdir, $dirConfig);
+        self::_configAddProcessDirInfos($fsDir, $dirConfig);
         $this->setSubscribersConfig($dirConfig);
 
         // process config dir
-        $pcpConfigs = $this->getDirConfigFiles($wdir, $parentConfig);
+        $pcpConfigs = $this->getDirConfigFiles($fsDir, $parentConfig);
 
         foreach ($pcpConfigs as $configFile)
             $this->processOneConfigFile($configFile, $dirConfig);
@@ -325,31 +460,40 @@ class PCP extends BasePublisher
             $phaseData
         );
 
-        $it = new \FileSystemIterator($wdir->getPathname());
+        $it = new \FileSystemIterator(
+            "./$fsDir",
+            FilesystemIterator::CURRENT_AS_PATHNAME
+                | FilesystemIterator::SKIP_DOTS
+        );
         $dirs = [];
 
         $fileConfig = Configurations::emptyChild($dirConfig);
         $this->setSubscribersConfig($fileConfig);
 
-        loop:
-        foreach ($it as $finfo) {
+        while (true) {
 
-            if ($finfo->isDir())
-                $dirs[] = $finfo;
-            else {
-                $fileConfig->clear();
-                $this->processOneFile($finfo, $fileConfig);
+            foreach ($it as $path) {
+                // Remove './' prefix
+                $path = \substr($path, 2);
+
+                if (\is_dir($path)) {
+                    $dirs[] = FS::dirOf($path);
+                } else {
+                    $fileConfig->clear();
+                    $this->processOneFile(FS::fileOf($path), $fileConfig);
+                }
             }
-        }
-        // Iterate through new files
-        if (!empty($this->newFiles)) {
+
+            if (0 === \count($this->newFiles))
+                break;
+
+            // Iterate through new files
             $it = $this->newFiles;
             $this->newFiles = [];
-            goto loop;
         }
 
-        foreach ($dirs as $d)
-            $this->processDir($d, $dirConfig);
+        foreach ($dirs as $fsSubDir)
+            $this->processDir($fsSubDir, $dirConfig);
 
         $this->updatePhase(
             PhaseName::OpeningDirectory,
@@ -359,9 +503,11 @@ class PCP extends BasePublisher
     }
 
     // ========================================================================
+    // C FILE PROCESSING
 
-    private function processOneFile(\SplFileInfo $file, Configuration $fileConfig): void
+    private function processOneFile(FSFile $fsFile, Configuration $fileConfig): void
     {
+        $file = $fsFile->info();
         $fname = $file->getFilename();
         $fpath = $file->getPathname();
 
@@ -374,11 +520,12 @@ class PCP extends BasePublisher
 
             // A new file to consider is created
             if ($notFile) {
-                $this->newFiles[] = new \SplFileInfo($newFile);
+                //TODO: check good key -> val
+                $this->newFiles[$newFile] = $newFile;
             }
         } elseif (\in_array(\substr($fname, -2), ['.h', '.c'])) {
-            self::_configAddProcessFileInfos($file, $fileConfig);
-            $this->processOneCFile($file, $fileConfig);
+            self::_configAddProcessFileInfos($fsFile, $fileConfig);
+            $this->processOneCFile($fsFile, $fileConfig);
         }
     }
 
@@ -454,22 +601,22 @@ class PCP extends BasePublisher
             $pcpArguments[$k] = $v;
     }
 
-    private function processOneCFile(\SplFileInfo $file, Configuration $fileConfig): void
+    private function processOneCFile(FSFile $fsFile, Configuration $fileConfig): void
     {
-        $phaseData = ReadingOneFile::fromPath($file);
+        $phaseData = ReadingOneFile::fromPath($fsFile);
         $this->updatePhase(
             PhaseName::ReadingOneFile,
             PhaseState::Start,
             $phaseData
         );
 
-        $creader = $this->getCReaderOf($file);
+        $creader = $this->getCReaderOf($fsFile);
         try {
-            $this->processPCPElements($creader, $file, $fileConfig);
+            $this->processPCPElements($creader, $fsFile, $fileConfig);
         } catch (PCPException $e) {
             throw $e;
         } catch (\Exception $e) {
-            throw new \Exception("File $file position {$creader->getCursorPosition()}", previous: $e);
+            throw new \Exception("File $fsFile position {$creader->getCursorPosition()}", previous: $e);
         }
         $creader->close();
 
@@ -480,10 +627,13 @@ class PCP extends BasePublisher
         );
     }
 
-    private function processPCPElements(PCPReader $creader, \SplFileInfo $file,  Configuration $fileConfig): void
-    {
+    private function processPCPElements(
+        PCPReader $creader,
+        FSFile $fsFile,
+        Configuration $fileConfig
+    ): void {
         $elements = [];
-        $lastFileCursor = new FileCursor($file, CursorPosition::zero());
+        $lastFileCursor = new FileCursor($fsFile, CursorPosition::zero());
 
         while (true) {
 
