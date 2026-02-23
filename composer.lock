@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "00b545ce76920fec01909aa44d17c70c",
+    "content-hash": "6a244a9cc2d48047edd0abf386d5c359",
     "packages": [
         {
             "name": "parsica-php/parsica",
@@ -340,22 +340,22 @@
         },
         {
             "name": "time2split/time2configure",
-            "version": "v0.1.2",
+            "version": "v0.1.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/time2split/php-time2configure.git",
-                "reference": "0deb87585ede15aa6ac94b931e41e0d78e362e2d"
+                "reference": "09d8e726ebb38740f8644574ffdbb86135bc519c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/time2split/php-time2configure/zipball/0deb87585ede15aa6ac94b931e41e0d78e362e2d",
-                "reference": "0deb87585ede15aa6ac94b931e41e0d78e362e2d",
+                "url": "https://api.github.com/repos/time2split/php-time2configure/zipball/09d8e726ebb38740f8644574ffdbb86135bc519c",
+                "reference": "09d8e726ebb38740f8644574ffdbb86135bc519c",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.2",
                 "phpdocumentor/shim": "^3",
-                "time2split/time2help": "^0.3"
+                "time2split/time2help": "^0.4"
             },
             "require-dev": {
                 "phpstan/phpstan": "^2",
@@ -386,22 +386,22 @@
             ],
             "support": {
                 "issues": "https://github.com/time2split/php-time2configure/issues",
-                "source": "https://github.com/time2split/php-time2configure/tree/v0.1.2"
+                "source": "https://github.com/time2split/php-time2configure/tree/v0.1.3"
             },
-            "time": "2026-02-04T13:45:54+00:00"
+            "time": "2026-02-23T11:53:53+00:00"
         },
         {
             "name": "time2split/time2help",
-            "version": "v0.3.3",
+            "version": "v0.4.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/time2split/php-time2help.git",
-                "reference": "47783483a6979ae7e44e9400acf555b4a4451cbc"
+                "reference": "3eec57596927b1bc189dcd3848693fcaab72d342"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/time2split/php-time2help/zipball/47783483a6979ae7e44e9400acf555b4a4451cbc",
-                "reference": "47783483a6979ae7e44e9400acf555b4a4451cbc",
+                "url": "https://api.github.com/repos/time2split/php-time2help/zipball/3eec57596927b1bc189dcd3848693fcaab72d342",
+                "reference": "3eec57596927b1bc189dcd3848693fcaab72d342",
                 "shasum": ""
             },
             "require": {
@@ -442,9 +442,9 @@
             ],
             "support": {
                 "issues": "https://github.com/time2split/php-time2help/issues",
-                "source": "https://github.com/time2split/php-time2help/tree/v0.3.3"
+                "source": "https://github.com/time2split/php-time2help/tree/v0.4.0"
             },
-            "time": "2026-02-07T10:22:58+00:00"
+            "time": "2026-02-23T03:34:21+00:00"
         }
     ],
     "packages-dev": [
