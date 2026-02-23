@@ -1,0 +1,1 @@
+#pragma pcp generate code="int dot;" targets='dir/testresult.c'

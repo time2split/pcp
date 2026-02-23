@@ -2,7 +2,9 @@
 
 namespace Time2Split\PCP\FS\Impl;
 
+use Closure;
 use SplFileInfo;
+use Time2Split\Help\Arrays;
 use Time2Split\Help\Container\Impl\PathImpl;
 use Time2Split\Help\Container\PathEdge;
 use Time2Split\Help\Iterables;
@@ -88,7 +90,7 @@ implements FSPath
     }
 
     #[\Override]
-    function hasPrefix(FSPAth $fsPrefix, bool $strictPrefix = false): bool
+    function hasPrefix(FSPath $fsPrefix, bool $strictPrefix = false): bool
     {
         if (\count($this) < \count($fsPrefix))
             return false;
@@ -120,5 +122,28 @@ implements FSPath
                 forceLeaf: $this->leafed,
             )
         );
+    }
+
+    #[\Override]
+    public function setLast(FSPath|string|Closure $setLast, TriState $leafed = TriState::Maybe): FSPath
+    {
+        if (\count($this) === 0)
+            return $this;
+
+        if ($setLast instanceof Closure) {
+            $last = Arrays::lastValue($this->storage)->getLabel();
+            $setLast = $setLast($last);
+        }
+        if (\is_string($setLast)) {
+            $parts = $this->toListOfElements();
+            $parts[\array_key_last($parts)] = $setLast;
+            return FS::pathOf($parts, $this->rooted(), $leafed);
+        } elseif ($setLast instanceof FSPath) {
+            $parts = \array_slice($this->storage, 0, -1);
+            return FS::pathOf([...$parts, ...$setLast->toListOfElements()], $this->rooted(), $setLast->leafed());
+        } else {
+            $type = \gettype($setLast);
+            throw new \InvalidArgumentException("Invalid type for \$setLast: $type");
+        }
     }
 }
