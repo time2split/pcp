@@ -1,0 +1,2 @@
+int curr;
+int currl;

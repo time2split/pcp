@@ -32,4 +32,6 @@ interface FSPath extends Path
     function inFS(bool $checkLeafType = true): bool;
 
     function setLast(FSPath|string|\Closure $setLast);
+
+    function getLast(): FSPath;
 }

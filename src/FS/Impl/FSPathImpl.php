@@ -146,4 +146,16 @@ implements FSPath
             throw new \InvalidArgumentException("Invalid type for \$setLast: $type");
         }
     }
+
+    #[\Override]
+    public function getLast(): FSPath
+    {
+        $nb = $this->count();
+
+        if ($nb === 0)
+            return $this;
+
+        $last = $this[$nb - 1];
+        return FS::pathOf($last->getLabel(), forceLeaf: $this->leafed());
+    }
 }

@@ -20,7 +20,7 @@ implements FSFile
         ?bool $canonicalized = null,
     ) {
         if ($leafed !== TriState::Yes)
-            throw new \InvalidArgumentException("(leafed) Param must be " . Tristate::Yes);
+            throw new \InvalidArgumentException("(leafed) Param must be " . Tristate::Yes->name);
 
         parent::__construct($rooted, $leafed, $edges, $canonicalized);
     }

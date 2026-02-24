@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Time2Split\PCP\Action\PCP\Generate;
 
+use DateTime;
 use RegexIterator;
 use Time2Split\Config\Configuration;
 use Time2Split\Help\IO;
@@ -89,8 +90,14 @@ final class Generator
 
             // The target file has been deleted
             if (!$fsTarget->inFS()) {
-                \fputs(STDERR, "Warning! The target file '$fsTarget' does not exists\n");
-                continue;
+                $date = (new DateTime)->format(DateTime::ATOM);
+                \file_put_contents(
+                    "$fsTarget",
+                    <<<EOF
+                    // This file was generate by pcp ($date)
+                    #pragma pcp generate area
+                    EOF
+                );
             }
             $areas = $this->nextArea($fsTarget);
             // Must read the file before its writing

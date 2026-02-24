@@ -2,6 +2,7 @@
 
 namespace Time2Split\PCP\Action\PCP\Generate;
 
+use Time2Split\Help\TriState;
 use Time2Split\PCP\Action\PhaseData\ReadingOneFile;
 use Time2Split\PCP\FS\FS;
 
@@ -47,15 +48,28 @@ final class InstructionStorage
 
     private static function makeTarget(string $instructionTarget, ReadingOneFile $fileData): string
     {
-        if ($instructionTarget === '.')
-            return FS::fileOf($fileData->fsFile);
+        $fsTarget = FS::pathOf($instructionTarget);
 
-        $fsTarget = FS::fileOf($instructionTarget);
-        $canonical = $fsTarget->canonical();
+        if ($fsTarget->rooted() === TriState::Yes) {
+            $fsTarget = $fsTarget->setRooted(TriState::No);
+        } else {
+            $fsDir = $fileData->fsFile->getPath();
+            $fsTarget = $fsDir->append($fsTarget);
+        }
+        $fsTarget = $fsTarget->canonical();
 
-        if (!$canonical->isCanonical())
-            throw new \Exception("The result path go outside the base directory: $canonical");
+        if ($fsTarget->leafed() === TriState::No) {
+            $file = $fileData->fsFile->getLast();
+            $fsTarget = $fsTarget->appendFile($file);
+        }
 
-        return (string)$canonical;
+        if ($fsTarget->count() === 0) {
+            return (string)$fileData->fsFile;
+        }
+
+        if (!$fsTarget->isCanonical()) {
+            throw new \InvalidArgumentException("The result path go outside the base directory: $fsTarget");
+        }
+        return (string)$fsTarget;
     }
 }

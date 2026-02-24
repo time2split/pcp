@@ -1,4 +1,5 @@
 <?php
+
 namespace Time2Split\PCP\File\_internal;
 
 use Time2Split\PCP\File\StreamInsertion;
@@ -23,6 +24,9 @@ final class StreamInsertionImpl implements StreamInsertion
         $this->sourceStream = $sourceStream;
         $this->tmpStream = \fopen($tmpFile, "w+");
         $this->closeStream = $closeStream;
+
+        if ($this->tmpStream === false)
+            throw new \InvalidArgumentException("Unable to open the file $tmpFile");
     }
 
     public function __destruct()

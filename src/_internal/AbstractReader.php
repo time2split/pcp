@@ -32,7 +32,12 @@ abstract class AbstractReader
 
     public static function ofFile(FSFile $fsFile, bool $closeStream = true): static
     {
-        return new static(\fopen((string) $fsFile, 'r'), $closeStream);
+        $resource = \fopen((string) $fsFile, 'r');
+
+        if ($resource === false)
+            throw new \InvalidArgumentException("Unable to open $fsFile");
+
+        return new static($resource, $closeStream);
     }
 
     public static function ofString($string): static

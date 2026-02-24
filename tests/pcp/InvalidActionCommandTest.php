@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Time2Split\PCP\Tests\pcp;
+
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Time2Split\PCP\Action\InvalidActionCommandException;
