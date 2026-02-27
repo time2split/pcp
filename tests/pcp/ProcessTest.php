@@ -11,11 +11,13 @@ use Time2Split\Diff\Algorithm\Myers;
 use Time2Split\Diff\DiffInstruction;
 use Time2Split\Diff\DiffInstructionType;
 use Time2Split\Help\Container\Bags;
+use Time2Split\Help\IO;
 use Time2Split\Help\Tests\DiffReports;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\App;
 use Time2Split\PCP\App\Bootstrap;
 use Time2Split\PCP\FS\FS;
+use Time2Split\PCP\FS\FSDir;
 use Time2Split\PCP\PCP;
 
 final class ProcessTest extends AbstractProcessTestClass
@@ -27,6 +29,21 @@ final class ProcessTest extends AbstractProcessTestClass
     private const BaseDir =  __DIR__ . '/process';
 
     private const WDir =  __DIR__ . '/../../tests.wd/process';
+
+    private const FSRoot =  __DIR__ . '/../../tests.wd/process.result';
+
+    // ========================================================================
+
+    public static function setUpBeforeClass(): void
+    {
+        \chdir(self::BaseDir);
+
+        // Setup
+        if (!\is_dir(self::WDir))
+            \mkdir(self::WDir, recursive: true);
+        if (!\is_dir(self::FSRoot))
+            \mkdir(self::FSRoot, recursive: true);
+    }
  
     // ========================================================================
 
@@ -69,7 +86,7 @@ final class ProcessTest extends AbstractProcessTestClass
 
             foreach ($tests as $dir => $pattern) {
                 $header = "$dir:$pattern";
-                yield $header => [$dir, $pattern];
+                yield $header => [FS::dirOf($dir), $pattern];
             }
         })();
     }
@@ -90,42 +107,42 @@ final class ProcessTest extends AbstractProcessTestClass
     // ========================================================================
 
     #[DataProvider("processProvider")]
-    public function testProcess(string $dir, string $resultPattern)
+    public function testProcess(FSDir $dir, string $resultPattern)
     {
-        // TODO
-        throw new \Error("Must be reviewed");
         $resultFile = \sprintf($resultPattern, self::ResultFileName);
         $targetFile = \sprintf($resultPattern, self::TargetFileName);
-        $wdir = self::WDir . "/$dir";
 
-        if (!\is_dir($wdir))
-            \mkdir($wdir);
+        $fsWD   = FS::dirOf(self::WDir . "/$dir")->canonical();
+        $fsRoot = FS::dirOf(self::FSRoot . "/$dir")->canonical();
 
-        $fsTarget = FS::fileOf("$wdir/$targetFile")->canonical();
-        $target = (string)$fsTarget;
+        if (!\is_dir("$fsWD")) {
+            \mkdir("$fsWD");
+        }
+        if ($fsRoot->inFS()) {
+            IO::rrmdir("$fsRoot", false);
+        }
+        if (!$fsRoot->inFS()) {
+            \mkdir("$fsRoot");
+        }
+        self::rcopy($dir, $fsRoot);
+
         $config = App::emptyConfiguration();
         $config->merge([
-            'generate.targets' => $target,
-            PCP::CONFIG_FS_ROOT => $dir,
-            PCP::CONFIG_FS_WD => $wdir,
+            'generate.targets' => "/$targetFile",
+            PCP::CONFIG_FS_ROOT => "$fsRoot",
+            PCP::CONFIG_FS_WD => "$fsWD",
             PCP::CONFIG_PCP_ACTION => 'process',
             PCP::CONFIG_SOURCE_PATHS => '.',
         ]);
         $pcp = new PCP($config, Bootstrap::getProcessActions());
 
-        $targetContentsFile = "$dir/$targetFile";
-
-        if (\is_file($targetContentsFile))
-            $targetContents = \file_get_contents($targetContentsFile);
-        else
-            $targetContents = "#pragma pcp generate area";
-
-        \file_put_contents($target, $targetContents);
-
         $pcp->process();
-        $result = self::getCElementsResult($pcp, $target);
+        $fsTarget = $fsRoot->appendFile($targetFile);
+        $fsResult = $fsRoot->appendFile($resultFile);
+
+        $result = self::getCElementsResult($pcp, $fsTarget);
         $remains = [];
-        $expect = self::getCElementsResult($pcp, "$dir/$resultFile", $remains);
+        $expect = self::getCElementsResult($pcp, $fsResult, $remains);
         $diff = [];
 
         $testConfig = self::getExpectConfiguration($remains);
@@ -151,14 +168,5 @@ final class ProcessTest extends AbstractProcessTestClass
         } else {
             $this->assertTrue(true);
         }
-    }
-
-    public static function setUpBeforeClass(): void
-    {
-        \chdir(self::BaseDir);
-
-        // Setup
-        if (!\is_dir(self::WDir))
-            \mkdir(self::WDir, recursive: true);
     }
 }
