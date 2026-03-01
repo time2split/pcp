@@ -1,0 +1,5 @@
+config generate.targets='root-gen.c'
+
+for (tags:["from.function", "from.declaration"])
+    generate prototype
+for end

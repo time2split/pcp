@@ -382,6 +382,16 @@ class PCP extends BasePublisher
         $this->processOneConfigFile($fsPCPFile, $dirConfig);
     }
 
+    private function processDirForEachFilePCPFile(FSDir $fsDir, Configuration $forEachFileConfig): void
+    {
+        $fsPCPFile = $fsDir->appendFile('.file.' . $forEachFileConfig[PCP::CONFIG_PCP_FILE_EXTENSION]);
+
+        if (!$fsPCPFile->inFS()) {
+            return;
+        }
+        $this->processOneConfigFile($fsPCPFile, $forEachFileConfig);
+    }
+
     private function processFilePCPFile(FSFile $fsFile, Configuration $fileConfig): void
     {
         $fsPCPFile = $fsFile->setFile($fsFile->info()->getFilename() . '.' . $fileConfig[PCP::CONFIG_PCP_FILE_EXTENSION]);
@@ -439,6 +449,9 @@ class PCP extends BasePublisher
         // process config dir
         $this->processDirPCPFile($fsDir, $dirConfig);
 
+        $forEachFileConfig = Configurations::emptyChild($dirConfig);
+        $this->processDirForEachFilePCPFile($fsDir, $forEachFileConfig);
+
         $this->updatePhase(
             PhaseName::OpeningDirectory,
             PhaseState::Run,
@@ -452,7 +465,7 @@ class PCP extends BasePublisher
         );
         $dirs = [];
 
-        $fileConfig = Configurations::emptyChild($dirConfig);
+        $fileConfig = Configurations::emptyChild($forEachFileConfig);
         $this->setSubscribersConfig($fileConfig);
 
         while (true) {

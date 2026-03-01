@@ -108,8 +108,10 @@ final class ProcessDirTest extends AbstractProcessTestClass
             $fsCleanFile = $fsEFile->removePrefix($dirExpect)->get();
             $fsResultFile = $fsRoot->append($fsCleanFile);
 
-            if (!$fsResultFile->inFS())
-                $this->fail("No result file $fsResultFile for $fsCleanFile");
+            if (!$fsResultFile->inFS()) {
+                $failures[] = "No result file $fsResultFile for $fsCleanFile";
+                continue;
+            }
 
             $expect = self::getCElementsResult($pcp, $fsEFile);
             $result = self::getCElementsResult($pcp, $fsResultFile);
