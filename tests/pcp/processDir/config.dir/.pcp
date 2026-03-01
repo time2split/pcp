@@ -1,4 +1,6 @@
-generate code="void code();"
+config generate.targets="/root-gen.c"
+
+generate code="void root();"
 
 for (tags:["from.function", "from.definition"])
     generate prototype

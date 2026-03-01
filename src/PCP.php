@@ -8,10 +8,7 @@ use FilesystemIterator;
 use Time2Split\Config\Configuration;
 use Time2Split\Config\Configurations;
 use Time2Split\Config\Entry\ReadingMode;
-use Time2Split\Help\Container\PathEdgeType;
-use Time2Split\Help\Functions;
 use Time2Split\Help\IO;
-use Time2Split\Help\TriState;
 use Time2Split\PCP\Action\ActionCommand;
 use Time2Split\PCP\Action\ActionCommandReader;
 use Time2Split\PCP\Action\IAction;
@@ -51,8 +48,6 @@ class PCP extends BasePublisher
      */
     const CONFIG_FS_WD = 'pcp.fs.wd';
 
-    const CONFIG_PCP_FILE_EXTENSION = 'pcp.file.extension';
-
     const CONFIG_FS_ROOT = 'pcp.fs.root';
 
     const CONFIG_SOURCE_PATHS = 'pcp.fs.paths';
@@ -68,10 +63,7 @@ class PCP extends BasePublisher
 
     const CONFIG_PCP_C_PRAGMA_NAME = '@pcp.pragma';
 
-    /**
-     * Name of a directory's config file
-     */
-    const CONFIG_DIR_CONFIG_FILE_NAME = '@pcp.dir.config-file.name';
+    const CONFIG_PCP_FILE_EXTENSION = '@pcp.file.extension';
 
     // ========================================================================
 
@@ -79,13 +71,12 @@ class PCP extends BasePublisher
 
         // External
         self::CONFIG_FS_WD => 'pcp.wd',
-        self::CONFIG_PCP_FILE_EXTENSION => 'pcp',
         self::CONFIG_SOURCE_PATHS => ['src'],
 
         // Internal
         self::CONFIG_FS_ROOT => '.',
+        self::CONFIG_PCP_FILE_EXTENSION => 'pcp',
         self::CONFIG_PCP_C_PRAGMA_NAME => 'pcp',
-        self::CONFIG_DIR_CONFIG_FILE_NAME => 'config',
     ];
 
     private FSDir $fsSrcRoot;
@@ -220,7 +211,7 @@ class PCP extends BasePublisher
         $fname = $file->getFilename();
         $ext = \substr($fname, -2);
         $basename = \substr($fname, 0, \strlen($fname) - 2);
-        assert(\in_array($ext, ['.h', '.c']));
+        // assert(\in_array($ext, ['.h', '.c'])); // .pcp is allowed
         return [$fname, $ext, $basename];
     }
 
@@ -379,33 +370,30 @@ class PCP extends BasePublisher
         }
     }
 
-    /**
-     * @return FSFile[]
-     */
-    private function getDirConfigFiles(FSDir $fsDir, Configuration $config): array
+    // ========================================================================
+
+    private function processDirPCPFile(FSDir $fsDir, Configuration $dirConfig): void
     {
-        assert($fsDir->leafed() === TriState::No);
-        $ret = [];
-        $pcpfileNames = (array) $config[PCP::CONFIG_DIR_CONFIG_FILE_NAME];
-        $pcpfileExtension = ((array) $config[PCP::CONFIG_PCP_FILE_EXTENSION])[0];
-        $pcpfileExtension = ".$pcpfileExtension";
+        $fsPCPFile = $fsDir->appendFile('.' . $dirConfig[PCP::CONFIG_PCP_FILE_EXTENSION]);
 
-        foreach ($pcpfileNames as $pcpfileName) {
-
-            if (!\str_ends_with($pcpfileName, $pcpfileExtension))
-                $pcpfileName .= $pcpfileExtension;
-
-            $fsFile = $fsDir->appendFile($pcpfileName);
-
-            if ($fsFile->inFS())
-                $ret[] = $fsFile;
+        if (!$fsPCPFile->inFS()) {
+            return;
         }
-        return $ret;
+        $this->processOneConfigFile($fsPCPFile, $dirConfig);
+    }
+
+    private function processFilePCPFile(FSFile $fsFile, Configuration $fileConfig): void
+    {
+        $fsPCPFile = $fsFile->setFile($fsFile->info()->getFilename() . '.' . $fileConfig[PCP::CONFIG_PCP_FILE_EXTENSION]);
+
+        if (!$fsPCPFile->inFS()) {
+            return;
+        }
+        $this->processOneConfigFile($fsPCPFile, $fileConfig);
     }
 
     private function processOneConfigFile(FSFile $fsFile, Configuration $config): void
     {
-        $file = $fsFile->info();
         $phaseData = ReadingOneFile::fromPath($fsFile);
         $this->updatePhase(
             PhaseName::ReadingOneFile,
@@ -449,10 +437,7 @@ class PCP extends BasePublisher
         $this->setSubscribersConfig($dirConfig);
 
         // process config dir
-        $pcpConfigs = $this->getDirConfigFiles($fsDir, $parentConfig);
-
-        foreach ($pcpConfigs as $configFile)
-            $this->processOneConfigFile($configFile, $dirConfig);
+        $this->processDirPCPFile($fsDir, $dirConfig);
 
         $this->updatePhase(
             PhaseName::OpeningDirectory,
@@ -609,6 +594,8 @@ class PCP extends BasePublisher
             PhaseState::Start,
             $phaseData
         );
+        // Important to be after the phase start to have the good behaviour of the actions (eg. for action)
+        $this->processFilePCPFile($fsFile, $fileConfig);
 
         $creader = $this->getCReaderOf($fsFile);
         try {

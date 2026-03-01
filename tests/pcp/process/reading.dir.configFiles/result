@@ -1,5 +1,0 @@
-#pragma pcp testconfig order=0
-int fsubdef(float a);
-void subcode();
-int fdef(float a);
-void code();
